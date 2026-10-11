@@ -4,7 +4,8 @@
 # (~/Library/LaunchAgents/local.devserver-reaper.plist).
 #
 # A "server" is a process group that has a TCP listener and whose listener process
-# inherited an agent env marker (CLAUDECODE=1 or T3CODE_CLI_PATH). Services started by
+# inherited an agent env marker (CLAUDECODE=1 or CODEX_THREAD_ID), has no controlling
+# terminal and is not an app bundle executable. Services started by
 # brew/launchd/you in a terminal have no marker and are never touched. Groups that contain
 # claude/codex/T3 itself (MCP servers, T3's cloudflared tunnel) are skipped.
 # Opt-out for a single server: start it with DEVSERVER_KEEP=1 in its environment.
@@ -48,8 +49,13 @@ protected=" $(awk '$4 ~ /(^|\/)(claude|codex)$|T3 Code/ {print $2}' "$tmp/procs"
 candidates=" "
 for pid in $(sed -n 's/^p//p' "$tmp/listen" | sort -u); do
   envline=$($PS eww -o command= -p "$pid" 2>/dev/null) || continue
-  case "$envline" in *" CLAUDECODE=1"*|*" T3CODE_CLI_PATH="*) ;; *) continue ;; esac
+  # T3CODE_CLI_PATH alone is not a marker: T3 Code sets it for everything it launches
+  # (editors, project scripts); agents it runs carry their own marker.
+  case "$envline" in *" CLAUDECODE=1"*|*" CODEX_THREAD_ID="*) ;; *) continue ;; esac
   case "$envline" in *" DEVSERVER_KEEP=1"*) continue ;; esac
+  # Installed GUI apps (Zed, …). Not "any .app": Homebrew Python runs from Python.app.
+  case "$($PS -o comm= -p "$pid")" in /Applications/*|"$HOME"/Applications/*|/System/*) continue ;; esac
+  [ "$($PS -o tty= -p "$pid" | tr -d ' ')" = "??" ] || continue  # has a terminal → user
   pgid=$(awk -v p="$pid" '$1==p {print $2}' "$tmp/procs")
   [ -z "$pgid" ] && continue
   case "$protected" in *" $pgid "*) continue ;; esac

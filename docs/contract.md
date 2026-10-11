@@ -14,7 +14,8 @@ rarely stop them. Their owning agent session ends, the server is reparented to
 2026-10-11: 11 orphaned servers, oldest 2 d 19 h, all with a dead parent agent.
 
 A bash prototype (`~/.local/bin/devserver-reaper`, launchd every 60 s) proved that
-env markers identify agent-started processes with zero false positives, and that
+env markers identify agent-started processes (after one false positive was fixed — see
+ADR-0001), and that
 CPU-delta is a poor activity signal: in its first night it stopped 9 servers,
 but a vite + workerd pair stayed "active" from background CPU noise alone. The real signal — *is a human looking at it?* — lives in
 the browser.
@@ -72,10 +73,14 @@ Scan every `scanIntervalSec` (default 5):
    `cloudflared` tunnel), a browser, or `launchd`-managed services (parent = 1 *and*
    a matching launchd job / brew service). Excluded groups are never listed.
 5. Classify:
-   - `origin.kind = "agent"` if any member's env has `CLAUDECODE=1`,
-     `T3CODE_CLI_PATH`, or a Codex marker (**OPEN-1**: confirm Codex's own env marker
-     beyond T3's). `origin.agent ∈ {claude, codex, t3, unknown}`;
-     `origin.sessionId` from `CLAUDE_CODE_SESSION_ID` when present.
+   - `origin.kind = "agent"` if any member's initial env carries an agent marker
+     (`CLAUDECODE=1`, `CODEX_THREAD_ID`, or an entry of the built-in marker table —
+     Cursor, Gemini CLI, opencode, Copilot… after `vercel/detect-agent` — extensible via
+     `[[agent_marker]]` in config) **and** no member has a controlling tty **and** no
+     member's executable is under `/Applications`, `~/Applications` or `/System`
+     (ADR-0001). `T3CODE_CLI_PATH` is not a marker.
+     `origin.agent ∈ {claude, codex, cursor, gemini, opencode, copilot, …, unknown}`;
+     `origin.sessionId` from `CLAUDE_CODE_SESSION_ID` or `CODEX_THREAD_ID`.
    - else `origin.kind = "user"`.
    - `framework` by argv heuristics (vite, next, astro, nuxt, remix, wrangler,
      php-builtin, artisan, python-http, rails, django, generic).
@@ -243,7 +248,8 @@ crates/core      discovery, activity, policy, stop (platform traits)
 crates/cli       binary: daemon, CLI, nm-host
 extension/       shared TS source, manifests/{chromium,firefox}.json
 macos/           SwiftUI app (SwiftPM + Xcode project), embeds the binary
-docs/            contract.md, adr/, glossary
+docs/            contract.md, adr/
+GLOSSARY.md      domain vocabulary
 ```
 
 ## 13. Milestones
@@ -257,7 +263,7 @@ docs/            contract.md, adr/, glossary
 
 ## 14. Open decisions
 
-OPEN-1 Codex env marker · OPEN-2 short-connection detection · OPEN-3 Firefox/Zen
+~~OPEN-1 Codex env marker~~ (ADR-0001) · OPEN-2 short-connection detection · OPEN-3 Firefox/Zen
 tab groups & manifest paths · OPEN-4 T3 thread mapping · OPEN-5 licence
 (MIT vs MIT/Apache-2.0) · OPEN-6 extension distribution (stores vs unpacked +
 pinned key) · OPEN-7 bundle id / reverse-DNS (`<reverse-dns, OPEN-7>`).
