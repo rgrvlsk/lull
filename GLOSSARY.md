@@ -45,6 +45,15 @@ _Avoid_: focused tab, active tab
 A server with no activity for longer than its idle time.
 _Avoid_: inactive, unused, asleep
 
+**Grace period**:
+The time a newly seen server is treated as active before any other activity is required.
+_Avoid_: warm-up, cooldown
+
+**Pin**:
+A user's instruction that one server must never be stopped automatically, kept until the
+server goes away.
+_Avoid_: lock, keep-alive, favourite
+
 ## Origin
 
 **Origin**:

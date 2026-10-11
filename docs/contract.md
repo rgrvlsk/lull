@@ -89,8 +89,15 @@ Scan every `scanIntervalSec` (default 5):
    - `framework` by argv heuristics (vite, next, astro, nuxt, remix, wrangler,
      php-builtin, artisan, python-http, rails, django, generic).
    - `project` = basename of the git root containing `cwd`, else `cwd` basename.
-6. `id` = stable string `"{pgid}-{leaderStartEpochMs}"` (survives restarts of the
-   daemon, changes when the pgid is reused).
+6. `id` = `"{pgid}-{oldestMemberStartEpochMs}"`, computed the first time the group is seen
+   and kept while any member survives (the leader is usually an agent shell that exits
+   at once, so neither "leader" nor "lowest pid" is stable). xnu never reuses a pgid
+   number while the group has a member, so the id cannot collide.
+7. Persistent state: `~/Library/Application Support/lull/state.json` maps `id →
+   {lastActivityAt, lastActivitySource, pinned, autoStop}`; written on change, entry
+   dropped on `server.removed`. On daemon start, known ids resume their clocks; an
+   unknown server — including every server at first install — starts with the `started`
+   grace period and is never stopped on the first scan.
 
 ### Data model
 
@@ -148,7 +155,7 @@ reports `activityBackend: "scan"` in `hello`/`lull doctor`.
 ## 6. Policy
 
 Effective policy = first match of: per-server override (pin / autoStop toggle,
-in-memory, lost on stop) → per-project rule in config → defaults.
+persisted in `state.json`, dropped when the server goes away) → per-project rule in config → defaults.
 
 ```toml
 # ~/Library/Application Support/lull/config.toml
