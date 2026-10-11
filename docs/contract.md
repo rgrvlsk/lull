@@ -57,7 +57,9 @@ recently-stopped list is in scope (§7) — remote/containers (Docker, VMs).
   `lull <cli-cmd>`, and the symlink `lull-nm-host` (native messaging forbids
   arguments in the manifest `path`).
 - The daemon runs as a per-user LaunchAgent registered by the app via
-  `SMAppService.agent`; it works without the app (CLI-only installs via Homebrew).
+  `SMAppService.agent`; it keeps running when the app is closed. v1 ships only as a
+  Homebrew cask (app + embedded binary, `lull` linked onto `PATH`); single instance via
+  `flock` on `~/Library/Application Support/lull/daemon.lock` (ADR-0006).
 - The app is a pure client of the socket; it owns no policy.
 
 ## 4. Discovery (daemon)
@@ -347,7 +349,8 @@ GLOSSARY.md      domain vocabulary
 2. **M2** nm-host + Chromium extension (Helium first), `tab` activity, grouping.
 3. **M3** Firefox/Zen build.
 4. **M4** menu-bar app.
-5. **M5** packaging: Homebrew cask + formula, signing/notarisation, CWS/AMO listings.
+5. **M5** packaging: Homebrew cask, signing/notarisation, CWS/AMO listings. (Before M4
+   the daemon runs through the dev-only `scripts/dev-launchagent.sh`, ADR-0006.)
 
 ## 14. Open decisions
 
