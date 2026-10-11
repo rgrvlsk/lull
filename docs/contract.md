@@ -274,7 +274,7 @@ focused browser connection.
 
 - Host permissions: `http://` and `https://` for `localhost`, `127.0.0.1`, `[::1]`,
   `*.localhost`. Permissions: `tabs`, `tabGroups`, `idle`, `nativeMessaging`.
-- On connect: `connectNative("<reverse-dns, OPEN-7>")`, send `hello`, then a tab snapshot.
+- On connect: `connectNative("io.github.rgrvlsk.lull")`, send `hello`, then a tab snapshot.
 - Adoption: any tab whose origin matches a known server port is moved into the
   window's "Dev" group (created on demand; colour configurable). Tabs the user
   drags out of the group stay out (remember per tabId).
@@ -333,7 +333,9 @@ focused browser connection.
 - Detection needs nothing from agents.
 - Optional instruction line: "Open dev-server previews with `lull open <url>`;
   idle servers are stopped after 30 min — restart them if needed."
-- **OPEN-4**: map `CLAUDE_CODE_SESSION_ID` → T3 thread title/link for display.
+- v1 shows the agent and a short session id with a copy button. Mapping a session to a
+  T3 thread title/link is post-v1 (T3 exports no thread id and has no public lookup),
+  behind a `SessionResolver` trait so it needs no protocol change.
 
 ## 12. Repository layout
 
@@ -356,9 +358,14 @@ GLOSSARY.md      domain vocabulary
 5. **M5** packaging: Homebrew cask, signing/notarisation, CWS/AMO listings. (Before M4
    the daemon runs through the dev-only `scripts/dev-launchagent.sh`, ADR-0006.)
 
-## 14. Open decisions
+## 14. Identifiers and licence
 
-~~OPEN-1 Codex env marker~~ (ADR-0001) · ~~OPEN-2 short-connection detection~~ (ADR-0003) · ~~OPEN-3 Firefox/Zen
-tab groups & manifest paths~~ (§9) · OPEN-4 T3 thread mapping · OPEN-5 licence
-(MIT vs MIT/Apache-2.0) · OPEN-6 extension distribution (stores vs unpacked +
-pinned key) · OPEN-7 bundle id / reverse-DNS (`<reverse-dns, OPEN-7>`).
+- Reverse-DNS prefix `io.github.rgrvlsk.lull`: app bundle id `io.github.rgrvlsk.lull`,
+  LaunchAgent label `io.github.rgrvlsk.lull.daemon`, native-messaging host
+  `io.github.rgrvlsk.lull`, AMO add-on id `lull@rgrvlsk.github.io`.
+- Licence: `MIT OR Apache-2.0` (`LICENSE-MIT`, `LICENSE-APACHE`).
+
+## 15. Open decisions
+
+~~OPEN-1~~ (ADR-0001) · ~~OPEN-2~~ (ADR-0003) · ~~OPEN-3~~ (§9) · ~~OPEN-4~~ (post-v1,
+§11) · ~~OPEN-5~~ (§14) · OPEN-6 extension distribution · ~~OPEN-7~~ (§14).
