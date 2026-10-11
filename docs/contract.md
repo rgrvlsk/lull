@@ -34,8 +34,9 @@ Goals (v1)
 - G6 Zero instructions required for correctness; at most one line in agent
   instruction files for convenience.
 
-Non-goals (v1): Safari, Windows/Linux UI (core stays portable), restarting
-("waking") stopped servers (see §9), remote/containers (Docker, VMs).
+Non-goals (v1): Safari, Windows/Linux UI (core stays portable), *automatic* waking
+(restarting a stopped server when its port is requested) — manual restart from the
+recently-stopped list is in scope (§7) — remote/containers (Docker, VMs).
 
 ## 3. Components
 
@@ -163,6 +164,9 @@ idle_minutes = 30
 auto_stop = "agent"          # "agent" | "all" | "none"
 warn_before_minutes = 2      # sleeping-soon state + notification
 close_tabs_on_stop = true
+history_size = 20
+history_hours = 24
+faithful_restart = false     # store env in $TMPDIR for faithful restarts (§7)
 
 [[project]]
 path = "~/dev/example-app"   # `~` expanded; prefix match on whole path components of cwd
@@ -181,6 +185,30 @@ Opt-out per process: env `LULL_KEEP=1` → `pinned = true`.
 4. Emit `server.removed {id, reason}`; if `close_tabs_on_stop`, ask every
    connected browser to close that server's tabs.
 5. Append a line to `~/Library/Logs/lull.log`.
+6. Record a **stopped-server record** in `state.json` history (last `history_size` = 20
+   entries, none older than `history_hours` = 24): `{id, project, framework, command,
+   argv, cwd, ports, origin, stoppedAt, reason, restartEnv}`. `argv` is the oldest
+   member's argv captured when the server was first seen (e.g. `npm run dev`).
+   `restartEnv` keeps only `PORT`, `HOST`, `NODE_ENV` when present. Servers that exit on
+   their own (`reason: "exited"`) are recorded too.
+
+### Restart (ADR-0005)
+
+`servers.restart {id}` / `lull restart <id>` on a stopped-server record:
+
+- Spawns `$SHELL -l -c 'exec "$@"' lull-restart <argv…>` in `cwd`, in a new session
+  (`setsid`, so a new pgid outside the daemon's), stdin `/dev/null`, stdout+stderr to
+  `~/Library/Logs/lull/restart-<id>.log`. The environment is the user's login-shell
+  environment plus `restartEnv` — never the original environment, so secrets are not
+  persisted and agent markers are dropped.
+- Optional `faithful_restart = true`: at first sight the daemon also stores the server's
+  initial env minus agent markers in `$TMPDIR/lull/env/<id>.json` (`0600`; `$TMPDIR` is
+  per-user `0700` and emptied by macOS at boot), and restart applies it on top of the
+  login env. Lost after a reboot by design.
+- The restarted process has no agent marker and no tty, so it is classified
+  `origin.kind = "user"` and not auto-stopped by default; it gets a new id. The record is
+  removed from history. If the port is taken, the server's own behaviour applies (fail
+  or pick another port); the log shows it.
 
 Never signal a pgid that is protected (§4.4) or not owned by the current uid,
 re-checked immediately before each signal. Additionally refuse pgid ≤ 1 and the
@@ -207,6 +235,9 @@ recent stop.
 | `servers.stop` | `{id}` | `{}` |
 | `servers.pin` | `{id, pinned}` | `Server` |
 | `servers.touch` | `{id}` | `Server` (manual activity) |
+| `servers.history` | `{}` | `StoppedServer[]` |
+| `servers.restart` | `{id}` (stopped-server record) | `{pid}` |
+| `servers.forget` | `{id}` | `{}` — drop a stopped-server record |
 | `servers.open` | `{id, path?}` or `{url}` | `{opened: bool, browser?}` — routed to a connected browser, else `open(1)` with the configured browser. `url` must be `http(s)` with a loopback or `*.localhost` host; anything else is rejected (never passed to `open(1)`) |
 | `config.get` / `config.set` | `{}` / `{patch}` | `Config` |
 | `subscribe` | `{topics: ["servers","browsers"]}` | stream of notifications below |
@@ -272,7 +303,9 @@ focused browser connection.
 - `MenuBarExtra` list of **every live server** (agent- and user-started, pinned or
   not) grouped by project: name, framework icon, port, origin badge (agent / you),
   pin badge, idle countdown, CPU / RSS. Monitoring and actions work on all of them.
-- **Recently stopped** section below the live list (see §7 history).
+- **Recently stopped** section below the live list (§7): project, command, stop time
+  and reason. Actions: Restart, Copy command, Reveal in Finder, Open terminal here,
+  Forget.
 - Row actions: Open, Stop, Pin/Unpin, Copy URL, Reveal in Finder, Show log.
 - Settings: idle minutes, auto-stop scope, warning, browser for `open`, per-project
   rules, "Install browser extension…" helper, launch at login.
