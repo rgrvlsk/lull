@@ -96,11 +96,22 @@ Scan every `scanIntervalSec` (default 5):
    and kept while any member survives (the leader is usually an agent shell that exits
    at once, so neither "leader" nor "lowest pid" is stable). xnu never reuses a pgid
    number while the group has a member, so the id cannot collide.
-7. Persistent state: `~/Library/Application Support/lull/state.json` maps `id →
-   {lastActivityAt, lastActivitySource, pinned, autoStop}`; written on change, entry
-   dropped on `server.removed`. On daemon start, known ids resume their clocks; an
-   unknown server — including every server at first install — starts with the `started`
-   grace period and is never stopped on the first scan.
+7. Persistent state: `~/Library/Application Support/lull/state.json` (versioned schema,
+   written atomically via temp file + rename) maps `id → {pgid, witnesses: [{pid,
+   startEpochMs}], lastActivityAt, lastActivitySource, pinned, autoStop}`; written on
+   change, entry dropped on `server.removed`. On daemon start a live group resumes a
+   persisted entry only if its pgid matches **and** at least one witness (pid + start
+   time) is still a member — the computed id alone may differ because the oldest member
+   can have exited. Otherwise, and for every server at first install, the server starts
+   with the `started` grace period and is never stopped on the first scan. A corrupt or
+   unknown-version file is moved aside (`state.json.corrupt-<ts>`) and the daemon starts
+   fresh, logging it.
+8. Incomplete observation: if a member's env, cwd or sockets cannot be read in a scan
+   (process exiting, permission), the server keeps its previous classification and is
+   **not eligible for an automatic stop** in that scan. A server is removed only when
+   its pgid has no members left; losing its listeners while members survive keeps it
+   listed with `ports: []` and `state: "no-listener"` (no auto-stop until a listener
+   returns or the group exits).
 
 ### Data model
 
@@ -121,16 +132,16 @@ Scan every `scanIntervalSec` (default 5):
   "idleMinutes": 30,                    // effective policy value
   "autoStop": true,                     // effective policy value
   "pinned": false,
-  "state": "running",                   // running | stopping-soon | stopping
+  "state": "running",                   // running | stopping-soon | stopping | no-listener
   "stopsAt": "2026-10-11T20:42:00Z",   // null when autoStop=false or pinned
-  "tabs": [{ "browser": "helium", "tabId": 812, "windowId": 3 }]
+  "tabs": [{ "connectionId": "c7", "browser": "helium", "tabId": 812, "windowId": 3 }]
 }
 ```
 
 `primaryUrl`: the listener whose port is not an inspector/internal port (heuristic:
 port mentioned in argv, else lowest port that answers HTTP `HEAD /` within 300 ms;
-inspector ports 9229–9239 are skipped). The probe runs **once per server id** and is
-cached. Connections opened by the daemon itself never count as activity (§5).
+inspector ports 9229–9239 are skipped). The probe runs once per server id and is cached,
+re-run only when the server's listener set changes or the previous probe failed. Connections opened by the daemon itself never count as activity (§5).
 
 ## 5. Activity model
 
@@ -157,8 +168,11 @@ reports `activityBackend: "scan"` in `hello`/`lull doctor`.
 
 ## 6. Policy
 
-Effective policy = first match of: per-server override (pin / autoStop toggle,
-persisted in `state.json`, dropped when the server goes away) → per-project rule in config → defaults.
+Effective policy, per field, = first defined value of: per-server override (pin /
+autoStop toggle, persisted in `state.json`, dropped when the server goes away) → the
+**longest** matching `[[project]]` path → defaults. Invalid config is rejected as a
+whole (`config.set` returns the validation error; a bad file on disk keeps the last good
+config and is reported by `lull doctor`).
 
 ```toml
 # ~/Library/Application Support/lull/config.toml
@@ -179,6 +193,11 @@ idle_minutes = 90
 Opt-out per process: env `LULL_KEEP=1` → `pinned = true`.
 
 ## 7. Stopping
+
+Stop state machine: `running → stopping-soon → stopping → (removed)`. Any activity,
+pin, `autoStop` change or policy change that makes the server ineligible returns
+`stopping-soon → running`; once `SIGTERM` is sent the stop cannot be cancelled. A manual
+`servers.stop` skips `stopping-soon`; concurrent stops of the same id are coalesced.
 
 1. `state = "stopping-soon"` at `stopsAt - warn_before_minutes`; app may show a
    notification with *Keep alive* (→ `manual` activity).
@@ -211,14 +230,20 @@ Opt-out per process: env `LULL_KEEP=1` → `pinned = true`.
   login env. Lost after a reboot by design.
 - The restarted process has no agent marker and no tty, so it is classified
   `origin.kind = "user"` and not auto-stopped by default; it gets a new id. The record is
-  removed from history; its `tabs` (still bound to the record, §9) are reloaded once
-  the new server listens. If the port is taken, the server's own behaviour applies (fail
+  marked `restarting` (a second restart of the same record is refused) and removed from
+  history only when a new server with a listener is discovered in `cwd` within 60 s; its
+  `tabs` (still bound to the record, §9) are then reloaded. On timeout or early exit
+  the record stays, marked `restartFailed`, with a link to the restart log. The
+  confirmation shows the exact command that will run. If the port is taken, the server's own behaviour applies (fail
   or pick another port); the log shows it.
 
 Never signal a pgid that is protected (§4.4) or not owned by the current uid,
 re-checked immediately before each signal. Additionally refuse pgid ≤ 1 and the
-daemon's own pgid, and abort if the group's member set (pid + start time) changed
-since the decision. Membership is re-read after the 5 s wait, before `SIGKILL`.
+daemon's own pgid, and abort unless at least one member recorded at decision time (pid +
+start time) is still in the group — that proves the pgid has not been reused, so new
+children forked meanwhile are part of the same group and are signalled too. The same
+check is repeated after the 5 s wait, before `SIGKILL`; members that exited on `SIGTERM`
+are expected.
 
 ## 8. IPC
 
@@ -235,10 +260,11 @@ recent stop.
 
 | Method | Params | Result |
 |---|---|---|
-| `hello` | `{client: "app"\|"cli"\|"browser", version, browser?: {name, version, extensionVersion}}` | `{daemonVersion, protocol: 1}` |
+| `hello` | `{client: "app"\|"cli"\|"browser", version, protocol: {major, minor}, browser?: {name, profile?, version, extensionVersion}}` | `{daemonVersion, protocol: {major, minor}, connectionId, capabilities: [..], activityBackend: "ntstat"\|"scan"}` — a different `major` is rejected with error `-32010 protocol_mismatch` carrying the daemon's version; clients show "update lull" |
 | `servers.list` | `{}` | `Server[]` |
 | `servers.stop` | `{id}` | `{}` |
 | `servers.pin` | `{id, pinned}` | `Server` |
+| `servers.setAutoStop` | `{id, autoStop: bool \| null}` | `Server` — per-server override; `null` clears it |
 | `servers.touch` | `{id}` | `Server` (manual activity) |
 | `servers.history` | `{}` | `StoppedServer[]` |
 | `servers.restart` | `{id}` (stopped-server record) | `{pid}` |
@@ -264,6 +290,20 @@ Each connection gets a daemon-assigned `connectionId` in the `hello` result. Sev
 browser profiles (or browsers) are several connections; `tabs[]` entries and `tab.*`
 commands are keyed by `connectionId`, and `servers.open` goes to the most recently
 focused browser connection.
+
+Delivery rules:
+- `subscribe` first returns a full snapshot with a sequence number `seq`; every later
+  notification carries `seq + n`. A client that sees a gap re-subscribes.
+- Daemon → browser commands carry an `id` and are acknowledged (`{ok}` or `{error}`);
+  before acting, the extension re-checks that the tab's current URL still matches the
+  server's origin, and refuses otherwise.
+- Mutations (`stop`, `pin`, `setAutoStop`, `restart`, `forget`) are idempotent.
+- When a browser connection closes, all its tabs and visibility reports are dropped at
+  once (no stale activity); the reconnecting extension sends a fresh snapshot.
+- `servers.open`: if a bound tab with the same URL exists, focus it; else open a new tab
+  in the Dev group of the most recently focused window of the most recently focused
+  browser connection; with no browser connected, `open(1)` with `open_with` from config
+  (default: system browser). The result says whether a connected browser confirmed it.
 
 ### Daemon → browser commands (notifications the extension must act on)
 
