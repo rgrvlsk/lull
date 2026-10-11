@@ -25,6 +25,26 @@ A group of processes lull must never list or signal because it contains lull its
 agent, an agent-hosting app or a browser.
 _Avoid_: whitelist, excluded server
 
+## Activity
+
+**Activity**:
+Evidence that a human or a tool is using a server right now.
+_Avoid_: usage, load, busy
+
+**Activity source**:
+One kind of evidence of activity: a visible tab, new traffic, the server having just
+started, or an explicit request.
+_Avoid_: signal, trigger, heartbeat
+
+**Visible tab**:
+A browser tab showing a server on screen while the user is at the computer, whether or
+not the browser has focus.
+_Avoid_: focused tab, active tab
+
+**Idle**:
+A server with no activity for longer than its idle time.
+_Avoid_: inactive, unused, asleep
+
 ## Origin
 
 **Origin**:

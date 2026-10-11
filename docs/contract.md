@@ -28,7 +28,7 @@ Goals (v1)
 - G2 Put idle **agent-started** servers to sleep after `idleMinutes` (default 30).
   User-started servers are shown but never auto-stopped unless the user opts in.
 - G3 Keep dev-server tabs in one "Dev" tab group per browser window and use tab
-  focus as the primary activity signal.
+  visibility as the primary activity signal.
 - G4 Menu-bar app to monitor, open, stop, pin servers and change policy.
 - G5 A CLI agents can call (`lull open <url>`, `lull ls`).
 - G6 Zero instructions required for correctness; at most one line in agent
@@ -129,7 +129,7 @@ A server is **active** at time *t* if any source fired within the last
 
 | Source | Fires when | Notes |
 |---|---|---|
-| `tab` | one of the server's tabs is the active tab of a **focused** browser window and the OS user is not idle (`idle.queryState(60) == "active"`) | heartbeat every 30 s from the extension; primary signal |
+| `tab` | one of the server's tabs is **visible** (`document.visibilityState == "visible"`, reported by a content script) and the OS user is present (`idle.queryState(60) == "active"`), whether or not its window has focus | heartbeat every 30 s while the condition holds; primary signal. Focus is used only for display and `open` routing. A visible window on a second monitor counts — that is intended |
 | `traffic` | a **new** TCP connection to one of the server's ports from a process outside the group (5-tuple not seen in the previous scan) | catches page reloads, Playwright, curl; long-lived HMR websockets do not count |
 | `started` | server first seen | grace period = `idleMinutes` |
 | `manual` | user/agent ran `open`, `touch`, or un-pinned | |
@@ -225,7 +225,10 @@ focused browser connection.
 - Adoption: any tab whose origin matches a known server port is moved into the
   window's "Dev" group (created on demand; colour configurable). Tabs the user
   drags out of the group stay out (remember per tabId).
-- Activity heartbeat per §5.
+- Activity heartbeat per §5: a static content script on the host-permission origins
+  reports `visibilitychange` and ticks every 30 s while visible; the background checks
+  `idle.queryState(60)` and forwards `browser.activity`. Chromium reports occluded
+  windows as hidden; Firefox never treats its key window as occluded.
 - Executes `tab.*` commands.
 - Without the daemon running, the extension does nothing and shows a badge.
 - Builds: Chromium MV3 (service worker; an open native port keeps it alive) and
