@@ -193,6 +193,11 @@ Socket: `~/Library/Application Support/lull/daemon.sock`, mode `0600`.
 Framing: one JSON-RPC 2.0 message per line (NDJSON). Every client sends `hello`
 first.
 
+Trust model (ADR-0004): the boundary is the uid. Every client — app, CLI, browser via
+nm-host, coding agents — may call every method; there are no roles. Visibility, not
+access control, is the defence: the app shows every live server, every pin and every
+recent stop.
+
 ### Client → daemon
 
 | Method | Params | Result |
@@ -264,8 +269,10 @@ focused browser connection.
 ## 10. Menu-bar app
 
 - Not sandboxed (Developer ID distribution): a sandboxed app cannot reach the socket.
-- `MenuBarExtra` list grouped by project: name, framework icon, port, origin badge
-  (agent / you), idle countdown, CPU / RSS.
+- `MenuBarExtra` list of **every live server** (agent- and user-started, pinned or
+  not) grouped by project: name, framework icon, port, origin badge (agent / you),
+  pin badge, idle countdown, CPU / RSS. Monitoring and actions work on all of them.
+- **Recently stopped** section below the live list (see §7 history).
 - Row actions: Open, Stop, Pin/Unpin, Copy URL, Reveal in Finder, Show log.
 - Settings: idle minutes, auto-stop scope, warning, browser for `open`, per-project
   rules, "Install browser extension…" helper, launch at login.
