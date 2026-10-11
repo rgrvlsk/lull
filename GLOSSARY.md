@@ -25,6 +25,36 @@ A group of processes lull must never list or signal because it contains lull its
 agent, an agent-hosting app or a browser.
 _Avoid_: whitelist, excluded server
 
+## Lifecycle
+
+**Stop**:
+To end a server's processes for good; its in-memory state is lost.
+_Avoid_: sleep, pause, suspend, kill, reap
+
+**Stopping soon**:
+The short warning period before an idle server is stopped, during which the user can keep
+it alive.
+_Avoid_: sleeping soon, grace
+
+**Stopped-server record**:
+What lull remembers about a recently stopped server so the user can see it and restart it.
+_Avoid_: history item, tombstone
+
+**Restart**:
+To start a stopped server again, by hand, from its stopped-server record; the result is a
+new server.
+_Avoid_: wake, resume, revive
+
+## Browser
+
+**Dev group**:
+The tab group in each browser window that holds the tabs showing servers.
+_Avoid_: localhost group, dev tabs folder
+
+**Bound tab**:
+A tab that lull has matched to a particular server or stopped-server record.
+_Avoid_: adopted tab, linked tab
+
 ## Activity
 
 **Activity**:

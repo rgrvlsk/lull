@@ -25,7 +25,7 @@ the browser.
 Goals (v1)
 - G1 Discover every dev server owned by the current user, label its origin
   (agent / user) and project.
-- G2 Put idle **agent-started** servers to sleep after `idleMinutes` (default 30).
+- G2 Stop idle **agent-started** servers after `idleMinutes` (default 30).
   User-started servers are shown but never auto-stopped unless the user opts in.
 - G3 Keep dev-server tabs in one "Dev" tab group per browser window and use tab
   visibility as the primary activity signal.
@@ -119,8 +119,8 @@ Scan every `scanIntervalSec` (default 5):
   "idleMinutes": 30,                    // effective policy value
   "autoStop": true,                     // effective policy value
   "pinned": false,
-  "state": "running",                   // running | sleeping-soon | stopping
-  "sleepsAt": "2026-10-11T20:42:00Z",   // null when autoStop=false or pinned
+  "state": "running",                   // running | stopping-soon | stopping
+  "stopsAt": "2026-10-11T20:42:00Z",   // null when autoStop=false or pinned
   "tabs": [{ "browser": "helium", "tabId": 812, "windowId": 3 }]
 }
 ```
@@ -162,7 +162,7 @@ persisted in `state.json`, dropped when the server goes away) → per-project ru
 # ~/Library/Application Support/lull/config.toml
 idle_minutes = 30
 auto_stop = "agent"          # "agent" | "all" | "none"
-warn_before_minutes = 2      # sleeping-soon state + notification
+warn_before_minutes = 2      # stopping-soon state + notification
 tabs_on_stop = "discard"   # "discard" | "close" | "keep"
 history_size = 20
 history_hours = 24
@@ -178,9 +178,9 @@ Opt-out per process: env `LULL_KEEP=1` → `pinned = true`.
 
 ## 7. Stopping
 
-1. `state = "sleeping-soon"` at `sleepsAt - warn_before_minutes`; app may show a
+1. `state = "stopping-soon"` at `stopsAt - warn_before_minutes`; app may show a
    notification with *Keep alive* (→ `manual` activity).
-2. At `sleepsAt`: `SIGTERM` to the pgid, `state = "stopping"`, non-blocking.
+2. At `stopsAt`: `SIGTERM` to the pgid, `state = "stopping"`, non-blocking.
 3. After 5 s, `SIGKILL` to whatever remains in the pgid.
 4. Emit `server.removed {id, reason}` and apply `tabs_on_stop` to the server's tabs in
    every connected browser: `discard` (default — `tabs.discard`: the tab keeps its URL
@@ -317,9 +317,10 @@ focused browser connection.
 - Row actions: Open, Stop, Pin/Unpin, Copy URL, Reveal in Finder, Show log.
 - Settings: idle minutes, auto-stop scope, warning, browser for `open`, per-project
   rules, "Install browser extension…" helper, launch at login.
-- Icon state: count of running servers; dot when something is `sleeping-soon`.
-- Wording: "lull" suggests a resumable pause, but v1 **terminates** processes.
-  Every surface (notification, row, log, CLI) must say *stopped*, never *paused*.
+- Icon state: count of running servers; dot when something is `stopping-soon`.
+- Wording: "lull" suggests a resumable pause, but lull **terminates** processes.
+  Every surface (protocol, notification, row, log, CLI) says *stop* / *stopped* /
+  *restart*, never *sleep*, *pause*, *wake* or *kill* (see GLOSSARY.md).
 
 ## 11. Agent integration
 

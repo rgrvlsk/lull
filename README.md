@@ -1,6 +1,6 @@
 # lull
 
-Puts forgotten dev servers to sleep.
+Stops the dev servers you forgot.
 
 AI coding agents start `vite`, `next dev`, `astro dev`, `php -S`… and leave them running for days.
 lull finds them, keeps their tabs in one "Dev" tab group, notices when you stop looking,
