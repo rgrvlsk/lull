@@ -157,6 +157,15 @@ A server is **active** at time *t* if any source fired within the last
 
 CPU is reported for display only and is **not** an activity source.
 
+Clock: idle time counts **awake time only**. Activity instants are kept as
+`CLOCK_UPTIME_RAW` (stops while the Mac sleeps) plus `kern.bootsessionuuid`; persisted
+entries store both, so idle time survives daemon restarts within one boot and wall-clock
+changes never move deadlines. `lastActivityAt` (wall clock) is for display only. After a
+wake (detected when wall time advances much more than uptime between two scans) and
+after daemon start, no server is stopped for `wake_grace_minutes` (default 5) so browsers
+can reconnect and report visible tabs. Activity timestamps are the daemon's receipt
+time, never the sender's.
+
 `traffic` is observed through the kernel network-statistics control socket
 (`com.apple.network.statistics`, ABI in xnu `bsd/net/ntstat.h`; ADR-0003): the daemon
 subscribes to TCP source add events and fires `traffic` when a connection's local port
@@ -179,6 +188,7 @@ config and is reported by `lull doctor`).
 idle_minutes = 30
 auto_stop = "agent"          # "agent" | "all" | "none"
 warn_before_minutes = 2      # stopping-soon state + notification
+wake_grace_minutes = 5       # no stops right after wake or daemon start (§5)
 tabs_on_stop = "discard"   # "discard" | "close" | "keep"
 history_size = 20
 history_hours = 24
@@ -199,8 +209,10 @@ pin, `autoStop` change or policy change that makes the server ineligible returns
 `stopping-soon → running`; once `SIGTERM` is sent the stop cannot be cancelled. A manual
 `servers.stop` skips `stopping-soon`; concurrent stops of the same id are coalesced.
 
-1. `state = "stopping-soon"` at `stopsAt - warn_before_minutes`; app may show a
-   notification with *Keep alive* (→ `manual` activity).
+1. `state = "stopping-soon"` at `stopsAt - warn_before_minutes`; the app, if running,
+   shows a notification with *Keep alive* (→ `manual` activity). The warning is a
+   courtesy: with no app connected the stop proceeds on time and is logged and listed
+   under *Recently stopped*.
 2. At `stopsAt`: `SIGTERM` to the pgid, `state = "stopping"`, non-blocking.
 3. After 5 s, `SIGKILL` to whatever remains in the pgid.
 4. Emit `server.removed {id, reason}` and apply `tabs_on_stop` to the server's tabs in
@@ -340,6 +352,11 @@ Delivery rules:
   `tabGroups` in 139 (title/colour set via `tabGroups.update`); Zen hides native groups
   in its UI and builds "folders" on them — how API-created groups render in Zen is
   unverified. Browsers without tab-group APIs degrade to "no grouping".
+- Distribution (ADR-0007): not on the stores. Chromium: unpacked from
+  `~/Library/Application Support/lull/extension/chromium`, id pinned by the manifest
+  `key`. Firefox/Zen: unlisted AMO-signed XPI, id `lull@rgrvlsk.github.io`, auto-updates
+  via `gecko.update_url` on GitHub releases. `lull browsers install` places the files,
+  opens the browser's extensions page or the XPI, and writes the NM manifest.
 - Native-messaging manifests are installed by `lull browsers install` into each
   detected browser's `NativeMessagingHosts` dir. Helium:
   `~/Library/Application Support/net.imput.helium/NativeMessagingHosts` (it also falls
@@ -353,6 +370,7 @@ Delivery rules:
 
 ## 10. Menu-bar app
 
+- Minimum macOS 14 Sonoma (whole product).
 - Not sandboxed (Developer ID distribution): a sandboxed app cannot reach the socket.
 - `MenuBarExtra` list of **every live server** (agent- and user-started, pinned or
   not) grouped by project: name, framework icon, port, origin badge (agent / you),
@@ -395,7 +413,8 @@ GLOSSARY.md      domain vocabulary
 2. **M2** nm-host + Chromium extension (Helium first), `tab` activity, grouping.
 3. **M3** Firefox/Zen build.
 4. **M4** menu-bar app.
-5. **M5** packaging: Homebrew cask, signing/notarisation, CWS/AMO listings. (Before M4
+5. **M5** packaging: Homebrew cask, signing/notarisation, unlisted AMO signing with
+   self-hosted updates, unpacked Chromium bundle (ADR-0007). (Before M4
    the daemon runs through the dev-only `scripts/dev-launchagent.sh`, ADR-0006.)
 
 ## 14. Identifiers and licence
@@ -408,4 +427,4 @@ GLOSSARY.md      domain vocabulary
 ## 15. Open decisions
 
 ~~OPEN-1~~ (ADR-0001) · ~~OPEN-2~~ (ADR-0003) · ~~OPEN-3~~ (§9) · ~~OPEN-4~~ (post-v1,
-§11) · ~~OPEN-5~~ (§14) · OPEN-6 extension distribution · ~~OPEN-7~~ (§14).
+§11) · ~~OPEN-5~~ (§14) · ~~OPEN-6~~ (ADR-0007) · ~~OPEN-7~~ (§14).
