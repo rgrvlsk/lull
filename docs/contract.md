@@ -130,16 +130,20 @@ A server is **active** at time *t* if any source fired within the last
 | Source | Fires when | Notes |
 |---|---|---|
 | `tab` | one of the server's tabs is **visible** (`document.visibilityState == "visible"`, reported by a content script) and the OS user is present (`idle.queryState(60) == "active"`), whether or not its window has focus | heartbeat every 30 s while the condition holds; primary signal. Focus is used only for display and `open` routing. A visible window on a second monitor counts — that is intended |
-| `traffic` | a **new** TCP connection to one of the server's ports from a process outside the group (5-tuple not seen in the previous scan) | catches page reloads, Playwright, curl; long-lived HMR websockets do not count |
+| `traffic` | a **new** TCP connection to one of the server's ports from a process outside the group (ntstat event; fallback: 5-tuple not seen in the previous scan) | catches new page loads, Playwright, curl; traffic on already-open connections (keep-alive reloads, HMR websockets) does not count |
 | `started` | server first seen | grace period = `idleMinutes` |
 | `manual` | user/agent ran `open`, `touch`, or un-pinned | |
 
 CPU is reported for display only and is **not** an activity source.
 
-**OPEN-2**: short-lived connections (agent `curl`, 50 ms) can fall between 5 s
-scans. Options: (a) accept the miss — agents verify right after starting, inside
-the grace period; (b) shorten scans for agent-origin servers; (c) NStat private
-API. Proposed: (a).
+`traffic` is observed through the kernel network-statistics control socket
+(`com.apple.network.statistics`, ABI in xnu `bsd/net/ntstat.h`; ADR-0003): the daemon
+subscribes to TCP source add events and fires `traffic` when a connection's local port
+belongs to a server and its client end is owned by a pid outside the group and other than
+the daemon. This catches 50 ms agent `curl`s that a periodic scan misses. If the control
+socket cannot be opened (`net.statistics_privcheck=1`) or reports an unknown message
+version, the daemon falls back to diffing the group's accepted sockets every scan and
+reports `activityBackend: "scan"` in `hello`/`lull doctor`.
 
 ## 6. Policy
 
@@ -291,7 +295,7 @@ GLOSSARY.md      domain vocabulary
 
 ## 14. Open decisions
 
-~~OPEN-1 Codex env marker~~ (ADR-0001) · OPEN-2 short-connection detection · OPEN-3 Firefox/Zen
+~~OPEN-1 Codex env marker~~ (ADR-0001) · ~~OPEN-2 short-connection detection~~ (ADR-0003) · OPEN-3 Firefox/Zen
 tab groups & manifest paths · OPEN-4 T3 thread mapping · OPEN-5 licence
 (MIT vs MIT/Apache-2.0) · OPEN-6 extension distribution (stores vs unpacked +
 pinned key) · OPEN-7 bundle id / reverse-DNS (`<reverse-dns, OPEN-7>`).
