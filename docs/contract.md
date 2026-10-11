@@ -114,7 +114,9 @@ Scan every `scanIntervalSec` (default 5):
 ```
 
 `primaryUrl`: the listener whose port is not an inspector/internal port (heuristic:
-port mentioned in argv, else lowest port that answers HTTP `HEAD /` within 300 ms).
+port mentioned in argv, else lowest port that answers HTTP `HEAD /` within 300 ms;
+inspector ports 9229–9239 are skipped). The probe runs **once per server id** and is
+cached. Connections opened by the daemon itself never count as activity (§5).
 
 ## 5. Activity model
 
@@ -148,7 +150,7 @@ warn_before_minutes = 2      # sleeping-soon state + notification
 close_tabs_on_stop = true
 
 [[project]]
-path = "~/dev/example-app"   # prefix match on cwd
+path = "~/dev/example-app"   # `~` expanded; prefix match on whole path components of cwd
 idle_minutes = 90
 # auto_stop = "none"
 ```
@@ -161,12 +163,14 @@ Opt-out per process: env `LULL_KEEP=1` → `pinned = true`.
    notification with *Keep alive* (→ `manual` activity).
 2. At `sleepsAt`: `SIGTERM` to the pgid, `state = "stopping"`, non-blocking.
 3. After 5 s, `SIGKILL` to whatever remains in the pgid.
-4. Emit `server.stopped {id, reason}`; if `close_tabs_on_stop`, ask every
+4. Emit `server.removed {id, reason}`; if `close_tabs_on_stop`, ask every
    connected browser to close that server's tabs.
 5. Append a line to `~/Library/Logs/lull.log`.
 
 Never signal a pgid that is protected (§4.4) or not owned by the current uid,
-re-checked immediately before each signal.
+re-checked immediately before each signal. Additionally refuse pgid ≤ 1 and the
+daemon's own pgid, and abort if the group's member set (pid + start time) changed
+since the decision. Membership is re-read after the 5 s wait, before `SIGKILL`.
 
 ## 8. IPC
 
@@ -183,7 +187,7 @@ first.
 | `servers.stop` | `{id}` | `{}` |
 | `servers.pin` | `{id, pinned}` | `Server` |
 | `servers.touch` | `{id}` | `Server` (manual activity) |
-| `servers.open` | `{id}` or `{url}` | `{opened: bool, browser?}` — routed to a connected browser, else `open(1)` with the configured browser |
+| `servers.open` | `{id, path?}` or `{url}` | `{opened: bool, browser?}` — routed to a connected browser, else `open(1)` with the configured browser. `url` must be `http(s)` with a loopback or `*.localhost` host; anything else is rejected (never passed to `open(1)`) |
 | `config.get` / `config.set` | `{}` / `{patch}` | `Config` |
 | `subscribe` | `{topics: ["servers","browsers"]}` | stream of notifications below |
 
@@ -196,8 +200,14 @@ first.
 
 ### Daemon → client notifications
 
-`server.added`, `server.updated`, `server.removed {id, reason}`,
-`server.stopped {id, reason: "idle"|"manual"|"exited"}`.
+`server.added`, `server.updated`,
+`server.removed {id, reason: "idle"|"manual"|"exited"}` — `exited` means the server went
+away without lull stopping it.
+
+Each connection gets a daemon-assigned `connectionId` in the `hello` result. Several
+browser profiles (or browsers) are several connections; `tabs[]` entries and `tab.*`
+commands are keyed by `connectionId`, and `servers.open` goes to the most recently
+focused browser connection.
 
 ### Daemon → browser commands (notifications the extension must act on)
 
@@ -205,9 +215,8 @@ first.
 
 ## 9. Browser extension
 
-- Host permissions: `http://localhost/*`, `http://127.0.0.1/*`, `http://[::1]/*`,
-  `http://*.localhost/*`. Permissions: `tabs`, `tabGroups`, `idle`,
-  `nativeMessaging`.
+- Host permissions: `http://` and `https://` for `localhost`, `127.0.0.1`, `[::1]`,
+  `*.localhost`. Permissions: `tabs`, `tabGroups`, `idle`, `nativeMessaging`.
 - On connect: `connectNative("<reverse-dns, OPEN-7>")`, send `hello`, then a tab snapshot.
 - Adoption: any tab whose origin matches a known server port is moved into the
   window's "Dev" group (created on demand; colour configurable). Tabs the user
@@ -216,15 +225,27 @@ first.
 - Executes `tab.*` commands.
 - Without the daemon running, the extension does nothing and shows a badge.
 - Builds: Chromium MV3 (service worker; an open native port keeps it alive) and
-  Firefox MV3 (event page). **OPEN-3**: confirm Firefox/Zen `tabGroups` API
-  coverage and Zen's native-messaging manifest directory; Arc lacks tab-group APIs
-  (degrade to "no grouping").
+  Firefox MV3 (event page). **OPEN-3**: Firefox/Zen build shape — see §14.
+  Verified facts: Chrome ≥105 keeps the service worker alive while a native port is
+  open; Firefox's event page is likewise kept alive by an open native port (source:
+  `ext-backgroundPage.js`, contrary to MDN); `tabs.group` ships in Firefox 138 and
+  `tabGroups` in 139 (title/colour set via `tabGroups.update`); Zen hides native groups
+  in its UI and builds "folders" on them — how API-created groups render in Zen is
+  unverified. Browsers without tab-group APIs degrade to "no grouping".
 - Native-messaging manifests are installed by `lull browsers install` into each
-  detected browser's `NativeMessagingHosts` dir (Helium:
-  `~/Library/Application Support/net.imput.helium/NativeMessagingHosts`).
+  detected browser's `NativeMessagingHosts` dir. Helium:
+  `~/Library/Application Support/net.imput.helium/NativeMessagingHosts` (it also falls
+  back to Chrome's dir). Firefox **and Zen**:
+  `~/Library/Application Support/Mozilla/NativeMessagingHosts` (Zen does not read its
+  own dir; Zen < 1.22 on macOS 27 never spawns hosts).
+- `lull-nm-host` validates the caller it is launched with (Chromium passes the origin
+  `chrome-extension://<id>/` as argv[1]; Firefox passes the manifest path and add-on id)
+  against the allowed extension ids, caps messages at 1 MiB, and never logs tab URLs
+  beyond origin + path.
 
 ## 10. Menu-bar app
 
+- Not sandboxed (Developer ID distribution): a sandboxed app cannot reach the socket.
 - `MenuBarExtra` list grouped by project: name, framework icon, port, origin badge
   (agent / you), idle countdown, CPU / RSS.
 - Row actions: Open, Stop, Pin/Unpin, Copy URL, Reveal in Finder, Show log.
