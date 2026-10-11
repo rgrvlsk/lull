@@ -6,9 +6,24 @@ still using each one, and stops the forgotten ones.
 ## Servers
 
 **Server**:
-A group of processes started together that accepts connections on at least one local
-port, treated as one unit for listing and stopping.
+A group of processes started together from a project location that accepts connections
+on at least one local port, treated as one unit for listing and stopping.
 _Avoid_: service, app, process, instance
+
+**Project location**:
+A directory a developer works in: somewhere inside their home folder other than the home
+folder itself and its Library, or a temporary directory.
+_Avoid_: workspace, repo
+
+**Unmanaged listener**:
+Something else of the user's that accepts local connections (system services, installed
+apps, background databases); lull can show it but never acts on it.
+_Avoid_: service, daemon
+
+**Protected group**:
+A group of processes lull must never list or signal because it contains lull itself, an
+agent, an agent-hosting app or a browser.
+_Avoid_: whitelist, excluded server
 
 ## Origin
 

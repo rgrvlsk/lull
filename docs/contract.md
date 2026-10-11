@@ -65,13 +65,17 @@ Scan every `scanIntervalSec` (default 5):
 
 1. Listening TCP sockets of processes owned by the current uid (libproc on macOS;
    trait `ProcessSource` so Linux `/proc` can be added later).
-2. Group by **process group** (pgid). A *server* = one pgid with ≥1 listener.
-3. Read argv, env and cwd of the group leader (or lowest pid) via
+2. Group by **process group** (pgid). Read argv, env and cwd of every member via
    `KERN_PROCARGS2` / `proc_pidinfo`.
+3. A *server* = one pgid with ≥1 listener where some listening member's cwd is a
+   **project location** — strictly inside `$HOME` but neither `$HOME` itself nor under
+   `~/Library`, or under `/tmp`, `/private/tmp`, `/private/var/folders` — and no member's
+   executable is under `/Applications`, `~/Applications` or `/System` (ADR-0002). Every
+   other listening group is an **unmanaged listener**: shown only by `lull ls --all`,
+   never stopped, no activity tracking.
 4. Exclude **protected** groups: any pgid that contains the daemon itself, an agent
    runtime (`claude`, `codex`), the T3 Code app or its direct children (e.g. its
-   `cloudflared` tunnel), a browser, or `launchd`-managed services (parent = 1 *and*
-   a matching launchd job / brew service). Excluded groups are never listed.
+   `cloudflared` tunnel), or a browser. Protected groups are never listed.
 5. Classify:
    - `origin.kind = "agent"` if any member's initial env carries an agent marker
      (`CLAUDECODE=1`, `CODEX_THREAD_ID`, or an entry of the built-in marker table —
