@@ -288,8 +288,12 @@ focused browser connection.
   windows as hidden; Firefox never treats its key window as occluded.
 - Executes `tab.*` commands.
 - Without the daemon running, the extension does nothing and shows a badge.
-- Builds: Chromium MV3 (service worker; an open native port keeps it alive) and
-  Firefox MV3 (event page). **OPEN-3**: Firefox/Zen build shape — see §14.
+- Builds: one MV3 codebase, two manifests — Chromium (service worker) and Firefox
+  (event page; minimum Firefox 139 for `tabGroups`). In both, the open native port keeps
+  the background alive; a 30 s `alarms` tick reconnects the port if it was dropped.
+  Zen: M3 starts with a spike on Zen 1.23 — if API-created groups do not render
+  correctly or collide with Zen folders, Zen runs with grouping disabled (visibility,
+  open, discard still work) until fixed.
   Verified facts: Chrome ≥105 keeps the service worker alive while a native port is
   open; Firefox's event page is likewise kept alive by an open native port (source:
   `ext-backgroundPage.js`, contrary to MDN); `tabs.group` ships in Firefox 138 and
@@ -354,7 +358,7 @@ GLOSSARY.md      domain vocabulary
 
 ## 14. Open decisions
 
-~~OPEN-1 Codex env marker~~ (ADR-0001) · ~~OPEN-2 short-connection detection~~ (ADR-0003) · OPEN-3 Firefox/Zen
-tab groups & manifest paths · OPEN-4 T3 thread mapping · OPEN-5 licence
+~~OPEN-1 Codex env marker~~ (ADR-0001) · ~~OPEN-2 short-connection detection~~ (ADR-0003) · ~~OPEN-3 Firefox/Zen
+tab groups & manifest paths~~ (§9) · OPEN-4 T3 thread mapping · OPEN-5 licence
 (MIT vs MIT/Apache-2.0) · OPEN-6 extension distribution (stores vs unpacked +
 pinned key) · OPEN-7 bundle id / reverse-DNS (`<reverse-dns, OPEN-7>`).
