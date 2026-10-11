@@ -163,7 +163,7 @@ persisted in `state.json`, dropped when the server goes away) → per-project ru
 idle_minutes = 30
 auto_stop = "agent"          # "agent" | "all" | "none"
 warn_before_minutes = 2      # sleeping-soon state + notification
-close_tabs_on_stop = true
+tabs_on_stop = "discard"   # "discard" | "close" | "keep"
 history_size = 20
 history_hours = 24
 faithful_restart = false     # store env in $TMPDIR for faithful restarts (§7)
@@ -182,12 +182,14 @@ Opt-out per process: env `LULL_KEEP=1` → `pinned = true`.
    notification with *Keep alive* (→ `manual` activity).
 2. At `sleepsAt`: `SIGTERM` to the pgid, `state = "stopping"`, non-blocking.
 3. After 5 s, `SIGKILL` to whatever remains in the pgid.
-4. Emit `server.removed {id, reason}`; if `close_tabs_on_stop`, ask every
-   connected browser to close that server's tabs.
+4. Emit `server.removed {id, reason}` and apply `tabs_on_stop` to the server's tabs in
+   every connected browser: `discard` (default — `tabs.discard`: the tab keeps its URL
+   and place in the Dev group but frees its memory; the active tab cannot be discarded
+   and is left as is), `close`, or `keep`.
 5. Append a line to `~/Library/Logs/lull.log`.
 6. Record a **stopped-server record** in `state.json` history (last `history_size` = 20
    entries, none older than `history_hours` = 24): `{id, project, framework, command,
-   argv, cwd, ports, origin, stoppedAt, reason, restartEnv}`. `argv` is the oldest
+   argv, cwd, ports, origin, stoppedAt, reason, restartEnv, tabs}`. `argv` is the oldest
    member's argv captured when the server was first seen (e.g. `npm run dev`).
    `restartEnv` keeps only `PORT`, `HOST`, `NODE_ENV` when present. Servers that exit on
    their own (`reason: "exited"`) are recorded too.
@@ -207,7 +209,8 @@ Opt-out per process: env `LULL_KEEP=1` → `pinned = true`.
   login env. Lost after a reboot by design.
 - The restarted process has no agent marker and no tty, so it is classified
   `origin.kind = "user"` and not auto-stopped by default; it gets a new id. The record is
-  removed from history. If the port is taken, the server's own behaviour applies (fail
+  removed from history; its `tabs` (still bound to the record, §9) are reloaded once
+  the new server listens. If the port is taken, the server's own behaviour applies (fail
   or pick another port); the log shows it.
 
 Never signal a pgid that is protected (§4.4) or not owned by the current uid,
@@ -262,7 +265,8 @@ focused browser connection.
 
 ### Daemon → browser commands (notifications the extension must act on)
 
-`tab.open {url, focus: bool}`, `tab.close {tabIds}`, `tab.focus {tabId}`.
+`tab.open {url, focus: bool}`, `tab.close {tabIds}`, `tab.discard {tabIds}`,
+`tab.reload {tabIds}`, `tab.focus {tabId}`.
 
 ## 9. Browser extension
 
@@ -272,6 +276,10 @@ focused browser connection.
 - Adoption: any tab whose origin matches a known server port is moved into the
   window's "Dev" group (created on demand; colour configurable). Tabs the user
   drags out of the group stay out (remember per tabId).
+- Binding: a tab is bound to the server id it was matched to. After a stop it stays
+  bound to the stopped-server record; a different server later listening on the same
+  port (Vite reuses 5173) does **not** take it over until the tab loads again (user
+  reload or navigation), at which point it is matched afresh.
 - Activity heartbeat per §5: a static content script on the host-permission origins
   reports `visibilitychange` and ticks every 30 s while visible; the background checks
   `idle.queryState(60)` and forwards `browser.activity`. Chromium reports occluded
