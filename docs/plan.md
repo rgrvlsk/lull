@@ -110,10 +110,12 @@ and `traits.rs` at its boundaries.
 ## M1 — Daemon + CLI (replaces the prototype)
 
 **WP1.1 — macOS `ProcessSource`** (`crates/core/src/platform/macos/proc.rs`).
-- **Listeners first:** one `net.inet.tcp.pcblist_n` read gives every TCP socket with
-  its state and last pid; only same-uid listener pids, their group members and
-  connection peers on server ports are inspected further. Never walk every fd of every
-  process (browsers hold thousands).
+- **Listeners first:** walk the socket fds of every same-uid process with libproc
+  (`PROC_PIDLISTFDS`, then `proc_pidfdinfo(PROC_PIDFDSOCKETINFO)` on socket fds only);
+  that gives every TCP socket with its state and exact owning pid. Only listener pids,
+  their group members and connection peers on server ports are inspected further.
+  (Revised 2026-10-12: `pcblist_n` only returns the caller's own sockets on macOS 27;
+  the fd walk measured 3 ms.)
 - **Process details:** pgid, ppid, start time, executable path, controlling tty, cwd
   (`proc_pidinfo`), and argv + initial env (`KERN_PROCARGS2`, tolerating env omitted
   for restricted binaries), cached per (pid, start time).

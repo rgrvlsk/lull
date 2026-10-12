@@ -75,10 +75,14 @@ recently-stopped list is in scope (§7) — remote/containers (Docker, VMs).
 
 Scan every `scanIntervalSec` (default 5):
 
-1. Listening TCP sockets of processes owned by the current uid (on macOS one
-   `net.inet.tcp.pcblist_n` read finds the listeners and their pids, then libproc reads
-   only those processes and their groups; trait `ProcessSource` so Linux `/proc` can be
-   added later). One scan must stay under 50 ms on the author's machine.
+1. Listening TCP sockets of processes owned by the current uid (on macOS libproc lists
+   the uid's processes and reads only their socket fds — `proc_listpids`,
+   `PROC_PIDLISTFDS`, `proc_pidfdinfo(PROC_PIDFDSOCKETINFO)` — which also yields both ends
+   of local connections with their pids; trait `ProcessSource` so Linux `/proc` can be
+   added later). One scan must stay under 50 ms on the author's machine (measured
+   2026-10-12: 3 ms for 751 processes). `net.inet.tcp.pcblist_n` is not usable: since
+   macOS 27 it returns only the caller's own sockets unless the caller is an Apple
+   platform binary.
 2. Group by **process group** (pgid). Read argv, env and cwd of every member via
    `KERN_PROCARGS2` / `proc_pidinfo`. argv and initial env never change for a running
    process, so they are cached per (pid, start time).
