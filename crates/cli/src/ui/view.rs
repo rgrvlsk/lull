@@ -112,9 +112,10 @@ fn table<'a>(rows: Vec<Row<'a>>, widths: Vec<Constraint>, block: Block<'a>) -> T
     Table::new(rows, widths)
         .block(block)
         .column_spacing(2)
-        .highlight_symbol(Line::from("▌ ").cyan())
+        // The marker uses the text colour and the row stays unbolded: a thin cyan bar and
+        // bold (drawn bright) colours both fade on light backgrounds.
+        .highlight_symbol("▌ ")
         .highlight_spacing(HighlightSpacing::Always)
-        .row_highlight_style(Style::new().bold())
 }
 
 /// Width of the widest cell, for `Constraint::Length`.
@@ -160,7 +161,8 @@ fn servers(f: &mut Frame, main: Rect, side: Option<Rect>, app: &mut App) {
         .count();
     let mut title = vec![format!(" {} running ", app.servers.len()).into()];
     if soon > 0 {
-        title.push(format!("· {soon} stopping soon ").yellow());
+        // Titles sit on the dimmed border; undim the warning.
+        title.push(format!("· {soon} stopping soon ").yellow().not_dim());
     }
     let block = panel(Line::from(title));
     if app.servers.is_empty() {
