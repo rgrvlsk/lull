@@ -9,7 +9,13 @@ use serde_json::{Value, json};
 
 const BIN: &str = env!("CARGO_BIN_EXE_lull");
 const HOST: &str = "io.github.rgrvlsk.lull";
-const ORIGIN: &str = "chrome-extension://lullplaceholderlullplaceholderaa/";
+#[allow(dead_code)]
+#[path = "../src/browsers/ids.rs"]
+mod ids;
+
+fn origin() -> String {
+    format!("chrome-extension://{}/", ids::CHROMIUM_EXTENSION_ID)
+}
 
 struct Fixture {
     root: PathBuf,
@@ -150,7 +156,7 @@ fn detect_install_replace_and_uninstall() {
             );
             assert!(manifest.get("allowed_origins").is_none());
         } else {
-            assert_eq!(manifest["allowed_origins"], json!([ORIGIN]));
+            assert_eq!(manifest["allowed_origins"], json!([origin()]));
             assert!(manifest.get("allowed_extensions").is_none());
         }
     }
