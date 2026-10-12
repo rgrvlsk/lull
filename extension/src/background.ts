@@ -6,10 +6,18 @@ const ORIGIN_ERROR = "tab url no longer matches server origin";
 export function loopbackUrl(value: string | undefined): URL | undefined {
   if (!value) return;
   try {
+    // Validate the raw authority before URL normalizes credentials, escapes or IPv4.
+    const authority = value.match(/^https?:\/\/([^/?#]*)/i)?.[1];
+    if (!authority || authority.includes("@")) return;
+    const host = authority.replace(/:\d+$/, "").toLowerCase();
+    const plain = host === "[::1]" || /^[a-z0-9.-]+$/.test(host);
+    const octets = host.split(".");
+    const loopback = host === "localhost" || host.endsWith(".localhost") || host === "[::1]"
+      || (octets.length === 4 && octets[0] === "127"
+        && octets.slice(1).every((octet) => /^\d+$/.test(octet) && Number(octet) <= 255));
+    if (!plain || !loopback) return;
     const url = new URL(value);
-    if ((url.protocol === "http:" || url.protocol === "https:")
-        && (url.hostname === "localhost" || url.hostname === "127.0.0.1"
-          || url.hostname === "[::1]" || url.hostname.endsWith(".localhost"))) return url;
+    if ((url.protocol === "http:" || url.protocol === "https:") && !url.username && !url.password) return url;
   } catch { /* Incomplete navigation. */ }
 }
 export function browserInfo(version: string, agent: { userAgent: string; userAgentData?: { brands: readonly { brand: string; version: string }[] } }): BrowserInfo {
@@ -35,7 +43,6 @@ export function startBackground(api: typeof chrome, agent: Parameters<typeof bro
   let snapshots = Promise.resolve();
   let commands = Promise.resolve();
   let groupChanges = Promise.resolve();
-  let focusedWindow: number | undefined;
   const pending = new Map<RequestId, Pending>();
   const servers = new Map<string, Server>();
   const origins = new Map<number, string>();
@@ -43,8 +50,8 @@ export function startBackground(api: typeof chrome, agent: Parameters<typeof bro
   const devGroups = new Set<number>();
   const grouping = new Set<number>();
   const buffered: DaemonNotification[] = [];
-  // ponytail: Drag-out choices live for this worker only; use session storage if
-  // preserving choices across worker/browser restarts becomes a requirement.
+  // ponytail: Drag-out choices survive native disconnects for this worker only.
+  // Service-worker restart persistence needs the storage permission and is out of scope.
   const optedOut = new Set<number>();
   const visibility = new Map<number, object>();
   function badge(text: string, title = "lull") {
@@ -57,7 +64,7 @@ export function startBackground(api: typeof chrome, agent: Parameters<typeof bro
   function drop(connection: chrome.runtime.Port) {
     if (port !== connection) return;
     port = undefined; ready = false; synced = false; seq = undefined; subscribing = false;
-    servers.clear(); origins.clear(); observedGroups.clear(); devGroups.clear(); grouping.clear(); visibility.clear(); buffered.length = 0;
+    servers.clear(); origins.clear(); visibility.clear(); buffered.length = 0;
     if (timer !== undefined) clearTimeout(timer);
     timer = undefined;
     for (const call of pending.values()) { clearTimeout(call.timeout); call.reject(new Error("native host disconnected")); }
@@ -87,8 +94,13 @@ export function startBackground(api: typeof chrome, agent: Parameters<typeof bro
       requireConnection(connection);
       if (optedOut.has(id)) return;
       for (const group of groups) devGroups.add(group.id);
+      // Re-read immediately before grouping: navigation can happen during lookup.
+      const latest = await api.tabs.get(id); requireConnection(connection);
+      const url = loopbackUrl(latest.pendingUrl ?? latest.url);
+      const live = url && [...servers.values()].some((server) => server.ports.includes(Number(url.port || (url.protocol === "https:" ? 443 : 80))));
+      if (!live || optedOut.has(id) || latest.windowId !== tab.windowId) return;
       const group = groups[0];
-      if (group && tab.groupId === group.id) return;
+      if (group && latest.groupId === group.id) return;
       grouping.add(id);
       try {
         const groupId = await api.tabs.group(group ? { tabIds: id, groupId: group.id }
@@ -104,8 +116,6 @@ export function startBackground(api: typeof chrome, agent: Parameters<typeof bro
   async function snapshot(connection: chrome.runtime.Port) {
     if (port !== connection || !ready) return;
     const windows = await api.windows.getAll(); requireConnection(connection);
-    const focused = windows.find((window) => window.focused);
-    if (focused?.id !== undefined) focusedWindow = focused.id;
     const focusedIds = new Set(windows.filter((window) => window.focused).map((window) => window.id));
     let tabs = await api.tabs.query({}); requireConnection(connection);
     if (api.tabGroups) {
@@ -179,9 +189,7 @@ export function startBackground(api: typeof chrome, agent: Parameters<typeof bro
     if (!ready || !synced) throw new Error("browser snapshot not ready");
     if (command.method === "tab.open") {
       if (!loopbackUrl(command.params.url)) throw new Error("url must be http(s) with a loopback or *.localhost host");
-      let windowId = focusedWindow;
-      if (windowId !== undefined) { try { await api.windows.get(windowId); } catch { windowId = undefined; } }
-      if (windowId === undefined) windowId = (await api.windows.getLastFocused()).id;
+      const windowId = (await api.windows.getLastFocused()).id;
       requireConnection(connection);
       const tab = await api.tabs.create({ url: command.params.url, active: command.params.focus, ...(windowId === undefined ? {} : { windowId }) });
       requireConnection(connection); await groupTab({ ...tab, url: command.params.url }, connection);
@@ -258,7 +266,6 @@ export function startBackground(api: typeof chrome, agent: Parameters<typeof bro
   }
   api.tabs.onCreated.addListener((tab) => { if (loopbackUrl(tab.url) || loopbackUrl(tab.pendingUrl)) scheduleSync(); });
   api.tabs.onUpdated.addListener((id, change, tab) => {
-    if (!ready) return;
     const previous = observedGroups.get(id);
     if (change.groupId !== undefined) {
       if (previous !== undefined && devGroups.has(previous) && change.groupId !== previous && !grouping.has(id)) optedOut.add(id);
@@ -271,8 +278,16 @@ export function startBackground(api: typeof chrome, agent: Parameters<typeof bro
     if (origins.has(id)) scheduleSync();
     origins.delete(id); observedGroups.delete(id); optedOut.delete(id); visibility.delete(id);
   });
+  function windowMove(id: number) {
+    if (origins.has(id)) { scheduleSync(); return; }
+    void api.tabs.get(id).then((tab) => {
+      if (loopbackUrl(tab.pendingUrl ?? tab.url)) scheduleSync();
+    }).catch(() => {}); // Detached tabs can be temporarily unavailable.
+  }
+  api.tabs.onAttached.addListener(windowMove);
+  api.tabs.onDetached.addListener(windowMove);
   api.tabs.onActivated.addListener(() => scheduleSync());
-  api.windows.onFocusChanged.addListener((id) => { if (id !== api.windows.WINDOW_ID_NONE) focusedWindow = id; scheduleSync(); });
+  api.windows.onFocusChanged.addListener(() => scheduleSync());
   api.runtime.onMessage.addListener((message: unknown, sender) => {
     if (!ready || !synced || !port || sender.tab?.id === undefined || sender.frameId !== 0
         || typeof message !== "object" || message === null || !("type" in message) || message.type !== "lull.visibility"

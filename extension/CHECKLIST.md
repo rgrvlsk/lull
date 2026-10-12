@@ -33,8 +33,10 @@ and results beside each step. Browser/runtime integration depends on WP2.1–WP2
    and switch windows. It must remain outside **Dev** during this worker's lifetime.
 4. Quit the daemon, confirm `off`, then start it again. After at most 30 seconds,
    the badge must clear, the tabs must resync, and the dragged tab must stay outside
-   **Dev** if the service worker was not restarted. Reloading the extension resets
-   the in-memory opt-out.
+   **Dev** if the service worker was not restarted. Also drag a grouped tab out while
+   disconnected, then reconnect and confirm it stays out. Service-worker restart
+   persistence is out of scope because it needs the `storage` permission. Restarting
+   the worker or reloading the extension resets the in-memory opt-out.
 
 ## Visible but unfocused on a second monitor
 

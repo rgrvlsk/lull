@@ -21,7 +21,7 @@ export interface StoppedServer {
   ports: number[]; origin: Origin; stoppedAt: string; reason: StopReason; restartEnv: Record<string, string>;
   tabs: TabRef[]; status: "stopped" | "restarting" | "restartFailed";
 }
-export interface BrowserTab { tabId: number; windowId: number; url: string; groupId?: number; active: boolean; windowFocused: boolean }
+export interface BrowserTab { tabId: number; windowId: number; url: string; groupId?: number | null; active: boolean; windowFocused: boolean }
 export interface TabsSyncParams { tabs: BrowserTab[] }
 export interface BrowserActivityParams { tabId: number; url: string }
 export interface SubscribeParams { topics: ("servers" | "browsers")[] }
@@ -151,7 +151,7 @@ const params: { [M in Method]: Guard<ParamsByMethod[M]> } = {
   "servers.history": empty, "servers.restart": id, "servers.forget": id,
   "servers.open": either(object<{ id: string; path?: string; focus?: boolean }>({ id: string, path: optional(string), focus: optional(boolean) }), object<{ url: string; focus?: boolean }>({ url: string, focus: optional(boolean) })),
   "config.get": empty, "config.set": object({ patch }), subscribe: object({ topics: array(literal("servers", "browsers")) }),
-  "browser.tabs.sync": object({ tabs: array(object<BrowserTab>({ tabId: integer, windowId: integer, url: string, groupId: optional(integer), active: boolean, windowFocused: boolean })) }),
+  "browser.tabs.sync": object({ tabs: array(object<BrowserTab>({ tabId: integer, windowId: integer, url: string, groupId: optional(nullable(integer)), active: boolean, windowFocused: boolean })) }),
   "browser.activity": object({ tabId: integer, url: string }),
   "tab.open": object({ url: string, focus: boolean }), "tab.close": tabIds, "tab.discard": tabIds,
   "tab.reload": tabIds, "tab.focus": object({ tabId: integer }),
