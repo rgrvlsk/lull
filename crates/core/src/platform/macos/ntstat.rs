@@ -336,6 +336,9 @@ impl Reader {
             let (port, client_pid) = if remote.loopback {
                 (remote.port, (desc.pid != 0).then_some(desc.pid))
             } else {
+                // ponytail: a non-loopback client counts as outside the group, even a
+                // same-machine one via the LAN address. Upgrade path: pair the reversed
+                // tuple for local non-loopback addresses too.
                 (local.port, None)
             };
             self.tx

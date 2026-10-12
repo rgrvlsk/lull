@@ -629,6 +629,8 @@ impl Daemon {
     }
 
     /// Internal status for `lull doctor` (not part of the protocol).
+    // ponytail: doctor reads this as `status.json`, not through a protocol method.
+    // Upgrade path: a `daemon.status` method when the v1.1 app needs the same data.
     pub fn status(&mut self) -> Option<&Value> {
         let ineligible: BTreeMap<_, _> = self
             .discovery

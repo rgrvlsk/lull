@@ -165,6 +165,9 @@ impl Activity {
 /// group and not the daemon (a `None` client is outside; covered browsers count); (b) an
 /// established connection in the snapshot from such a client that is not covered. One
 /// event per server per scan, at the latest receipt time.
+// ponytail: traffic is matched to a server by port alone; two groups listening on the
+// same port at different addresses would share it. Upgrade path: carry the local address
+// in `TrafficEvent`/`Connection` if that ever happens.
 fn resolve(input: &ScanInput, events: &[TrafficEvent]) -> Vec<ActivityEvent> {
     let mut fired: BTreeMap<ServerId, Instant> = BTreeMap::new();
     for server in &input.discovery.servers {
