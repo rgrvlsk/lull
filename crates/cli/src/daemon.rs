@@ -29,6 +29,7 @@ use ratatui::crossterm::style::{Color, Stylize};
 use ratatui::crossterm::terminal;
 
 use crate::paths::{Paths, home};
+use crate::ui::{LOGO, LOGO_WIDTH};
 
 enum Msg {
     /// Connection id, writer, `LOCAL_PEERPID`, whether the peer runs under an agent.
@@ -309,18 +310,6 @@ fn clock() -> String {
     };
     format!("{:02}:{:02}:{:02}", tm.tm_hour, tm.tm_min, tm.tm_sec)
 }
-
-/// The logo, sleeping cat and wordmark, two pixel rows per line in half blocks.
-const LOGO: [&str; 7] = [
-    "          ▄█▄     ▄",
-    "    ▄▄███████▄▄ ▄██     ██         ██ ██",
-    "  ▄████████████████     ██ ▄▄   ▄▄ ██ ██",
-    " ███▄▄▄▀███▀▀██████     ██ ██   ██ ██ ██",
-    " ███████▄▀█████▀▀██     ██ ██   ██ ██ ██",
-    " ▀███████▄▀▀▀▀▀██▀      ██ ▀█████▀ ██ ██",
-    "   ▀▀█████████▀",
-];
-const LOGO_WIDTH: usize = 40;
 
 /// Brand lavender on indigo, or the nearest 256-colour pair when the terminal does not
 /// announce 24-bit colour. A filled plate reads the same on light and dark themes.
