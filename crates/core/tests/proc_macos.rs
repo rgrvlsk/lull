@@ -25,7 +25,8 @@ impl Server {
             .local_addr()
             .unwrap()
             .port();
-        let dir = std::env::temp_dir().join(format!("lull-proc-test-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("lull-proc-test-{}-{port}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let mut cmd = Command::new("python3");
         cmd.args([
@@ -105,11 +106,7 @@ fn group_reads_setsid_agent_server() {
     assert!(proc.errors.is_empty(), "{:?}", proc.errors);
 }
 
-// Blocked: on Darwin 27 `net.inet.tcp.pcblist_n` returns only the caller's own sockets
-// (the full list needs the private `com.apple.private.network.statistics` entitlement),
-// so the snapshot never sees the server's listener. Needs a contract decision (§4.1).
 #[test]
-#[ignore = "pcblist_n is filtered to the caller's own sockets on Darwin 27"]
 fn finds_setsid_agent_server_and_its_local_client() {
     let server = Server::spawn();
     let mut source = MacProcessSource::new();
@@ -191,22 +188,4 @@ fn scan_time() {
         snap.connections.len()
     );
     assert!(warm < Duration::from_millis(50), "warm scan took {warm:?}");
-}
-
-/// Dumps listeners for comparison with `lsof -nP -iTCP -sTCP:LISTEN`.
-#[test]
-#[ignore]
-fn dump_listeners() {
-    let snap = MacProcessSource::new().snapshot(&[]).unwrap();
-    for l in &snap.listeners {
-        println!("LISTEN pid={} {}:{}", l.pid, l.addr, l.port);
-    }
-    for p in &snap.processes {
-        println!(
-            "PROC pid={} pgid={} tty={:?} exe={:?} errors={:?}",
-            p.pid, p.pgid, p.has_tty, p.exe, p.errors
-        );
-    }
-    println!("unreadable {:?}", snap.unreadable_groups);
-    println!("connections {}", snap.connections.len());
 }

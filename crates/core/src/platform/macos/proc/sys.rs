@@ -11,6 +11,8 @@ use std::sync::OnceLock;
 /// `e_tdev` of a process whose session has no controlling terminal.
 pub(super) const NODEV: u32 = u32::MAX;
 const PROC_PGRP_ONLY: u32 = 2;
+const PROC_UID_ONLY: u32 = 4;
+const PROC_PIDFDSOCKETINFO: c_int = 3;
 
 /// `proc_pidinfo` for a flavor whose result is the plain C struct `T`.
 fn pidinfo<T: Copy>(pid: u32, flavor: c_int) -> io::Result<T> {
@@ -72,13 +74,21 @@ pub(super) fn exe(pid: u32) -> io::Result<String> {
 
 /// Pids whose process group is `pgid`; empty when the group has no members.
 pub(super) fn group_pids(pgid: u32) -> io::Result<Vec<u32>> {
-    let mut cap = 64;
+    list_pids(PROC_PGRP_ONLY, pgid)
+}
+
+/// Pids of every process whose uid is `uid`.
+pub(super) fn uid_pids(uid: u32) -> io::Result<Vec<u32>> {
+    list_pids(PROC_UID_ONLY, uid)
+}
+
+fn list_pids(kind: u32, arg: u32) -> io::Result<Vec<u32>> {
+    let mut cap = 1024;
     loop {
         let mut buf = vec![0 as c_int; cap];
         let bytes = (cap * size_of::<c_int>()) as c_int;
         // SAFETY: the kernel writes at most `bytes` bytes into `buf`.
-        let n =
-            unsafe { libc::proc_listpids(PROC_PGRP_ONLY, pgid, buf.as_mut_ptr().cast(), bytes) };
+        let n = unsafe { libc::proc_listpids(kind, arg, buf.as_mut_ptr().cast(), bytes) };
         if n < 0 {
             return Err(io::Error::last_os_error());
         }
@@ -91,6 +101,74 @@ pub(super) fn group_pids(pgid: u32) -> io::Result<Vec<u32>> {
                 .collect());
         }
         cap *= 4; // buffer was full: the list may be truncated
+    }
+}
+
+/// Replaces `out` with the socket fds of `pid`.
+pub(super) fn socket_fds(pid: u32, out: &mut Vec<i32>) -> io::Result<()> {
+    let mut buf: Vec<libc::proc_fdinfo> = Vec::new();
+    let mut cap = 1024;
+    let n = loop {
+        buf.resize(
+            cap,
+            libc::proc_fdinfo {
+                proc_fd: 0,
+                proc_fdtype: 0,
+            },
+        );
+        let bytes = (cap * size_of::<libc::proc_fdinfo>()) as c_int;
+        // SAFETY: the kernel writes at most `bytes` bytes into `buf`.
+        let n = unsafe {
+            libc::proc_pidinfo(
+                pid as c_int,
+                libc::PROC_PIDLISTFDS,
+                0,
+                buf.as_mut_ptr().cast(),
+                bytes,
+            )
+        };
+        if n <= 0 {
+            return Err(io::Error::last_os_error());
+        }
+        if n < bytes {
+            break n as usize / size_of::<libc::proc_fdinfo>();
+        }
+        cap *= 4; // buffer was full: the list may be truncated
+    };
+    out.clear();
+    out.extend(
+        buf[..n]
+            .iter()
+            .filter(|f| f.proc_fdtype == libc::PROX_FDTYPE_SOCKET as u32)
+            .map(|f| f.proc_fd),
+    );
+    Ok(())
+}
+
+/// `struct socket_fdinfo` of one socket fd, as raw bytes.
+pub(super) fn socket_fdinfo(
+    pid: u32,
+    fd: i32,
+    out: &mut [u8; super::socket::SOCKET_FDINFO_SIZE],
+) -> io::Result<()> {
+    let size = out.len() as c_int;
+    // SAFETY: the kernel writes at most `size` bytes into `out`.
+    let n = unsafe {
+        libc::proc_pidfdinfo(
+            pid as c_int,
+            fd,
+            PROC_PIDFDSOCKETINFO,
+            out.as_mut_ptr().cast(),
+            size,
+        )
+    };
+    match n {
+        n if n == size => Ok(()),
+        n if n <= 0 => Err(io::Error::last_os_error()),
+        _ => Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "short socket_fdinfo",
+        )),
     }
 }
 
@@ -120,39 +198,6 @@ pub(super) fn procargs(pid: u32) -> io::Result<Vec<u8>> {
     }
     buf.truncate(len);
     Ok(buf)
-}
-
-/// Whole value of a sysctl whose size can change between the size query and the read.
-pub(super) fn sysctl_by_name(name: &CStr) -> io::Result<Vec<u8>> {
-    for _ in 0..4 {
-        let mut len = 0usize;
-        // SAFETY: a null buffer asks the kernel for the size only.
-        let rc = unsafe { libc::sysctlbyname(name.as_ptr(), null_mut(), &mut len, null_mut(), 0) };
-        if rc != 0 {
-            return Err(io::Error::last_os_error());
-        }
-        let mut buf = vec![0u8; len + len / 4 + 4096];
-        let mut got = buf.len();
-        // SAFETY: the kernel writes at most `got` bytes and updates `got`.
-        let rc = unsafe {
-            libc::sysctlbyname(
-                name.as_ptr(),
-                buf.as_mut_ptr().cast(),
-                &mut got,
-                null_mut(),
-                0,
-            )
-        };
-        if rc == 0 {
-            buf.truncate(got);
-            return Ok(buf);
-        }
-        let err = io::Error::last_os_error();
-        if err.raw_os_error() != Some(libc::ENOMEM) {
-            return Err(err);
-        }
-    }
-    Err(io::Error::other(format!("{name:?} kept growing")))
 }
 
 /// `mach_timebase_info_data_t`; declared here because libc deprecates its copy.

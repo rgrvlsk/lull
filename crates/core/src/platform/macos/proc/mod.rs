@@ -1,20 +1,19 @@
-//! WP1.1 — `ProcessSource` over `net.inet.tcp.pcblist_n`, libproc and `KERN_PROCARGS2`
-//! (contract §4.1–4.2, §4.8, §5).
+//! WP1.1 — `ProcessSource` over libproc and `KERN_PROCARGS2` (contract §4.1–4.2, §4.8,
+//! §5).
 //!
-//! One scan reads every TCP pcb once, keeps the same-uid listeners, and only then asks
-//! libproc about the listeners' process groups (plus any requested pgids). File
-//! descriptors are never walked.
+//! One scan walks the socket fds of every same-uid process (`socket.rs`), keeps the TCP
+//! listeners and established connections, and only then reads process details for the
+//! listeners' process groups (plus any requested pgids).
 //!
 //! Decisions:
-//! - **Listener pid** is `so_last_pid`, the last process that did I/O on the socket (for
-//!   a listener: `listen`/`accept`). `so_e_pid` is the creator (or delegate) and can be a
-//!   wrapper that has exited. Not yet verified against `lsof`: on Darwin 27 the pcb list
-//!   only contains the caller's own sockets (see `pcb.rs`).
+//! - **Listener pid** is the pid holding the fd, exact. A listening socket shared by
+//!   several processes (fork) yields one `Listener` per holder; identical
+//!   (pid, addr, port) entries (dup'd fds) are merged.
 //! - **Controlling tty** is `e_tdev != NODEV` (the session still has a terminal), the same
 //!   test `ps` uses for its TTY column. A process started under `setsid` without a
 //!   terminal reports `Some(false)`.
 
-mod pcb;
+mod socket;
 mod sys;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -25,7 +24,7 @@ use std::time::Instant;
 use crate::model::{Connection, Listener, ProcessInfo, Snapshot};
 use crate::traits::ProcessSource;
 
-use pcb::{Pcb, TCPS_ESTABLISHED, TCPS_LISTEN};
+use socket::{Sock, TSI_S_ESTABLISHED, TSI_S_LISTEN};
 use sys::Args;
 
 /// Env keys a scrubbed fixture always keeps (§7.6 restart env).
@@ -172,23 +171,19 @@ impl MacProcessSource {
 
 impl ProcessSource for MacProcessSource {
     fn snapshot(&mut self, also_pgids: &[u32]) -> io::Result<Snapshot> {
-        let pcbs = pcb::read()?;
-        let mine = |p: &&Pcb| p.uid == self.uid;
-
-        let listeners: Vec<Listener> = pcbs
+        let socks = socket::tcp_sockets(self.uid)?;
+        let mut listeners: Vec<Listener> = socks
             .iter()
-            .filter(mine)
-            .filter(|p| p.state == TCPS_LISTEN)
-            .map(|p| Listener {
-                pid: p.pid,
-                addr: p.local.to_string(),
-                port: p.lport,
+            .filter(|s| s.state == TSI_S_LISTEN)
+            .map(|s| Listener {
+                pid: s.pid,
+                addr: s.local.to_string(),
+                port: s.lport,
             })
             .collect();
+        listeners.sort_by(|a, b| (a.port, a.pid, &a.addr).cmp(&(b.port, b.pid, &b.addr)));
+        listeners.dedup();
 
-        // ponytail: a listener whose pid already exited (socket inherited by a child that
-        // never touched it) has no group here; discovery sees a listener without a member.
-        // Upgrade path: fall back to `so_e_pid`, if real cases show up.
         let mut pgids: Vec<u32> = listeners
             .iter()
             .filter_map(|l| sys::shortinfo(l.pid).ok().map(|s| s.pbsi_pgid))
@@ -220,7 +215,7 @@ impl ProcessSource for MacProcessSource {
 
         let ports: HashSet<u16> = snap.listeners.iter().map(|l| l.port).collect();
         let mut ancestry: HashMap<u32, Vec<u32>> = HashMap::new();
-        for (server, client_pid) in connections(&pcbs, self.uid, &ports) {
+        for (server, client_pid) in connections(&socks, &ports) {
             let client_ancestry = match client_pid {
                 Some(pid) => ancestry
                     .entry(pid)
@@ -249,20 +244,35 @@ impl ProcessSource for MacProcessSource {
     }
 }
 
-/// Server ends of established connections to `ports`, each with the pid of the same-uid
-/// pcb holding the reversed 4-tuple (the client end on this machine), if any.
-fn connections<'a>(pcbs: &'a [Pcb], uid: u32, ports: &HashSet<u16>) -> Vec<(&'a Pcb, Option<u32>)> {
-    let established = || pcbs.iter().filter(move |p| p.state == TCPS_ESTABLISHED);
-    let ends: HashMap<(IpAddr, u16, IpAddr, u16), &Pcb> = established()
-        .map(|p| ((p.local, p.lport, p.foreign, p.fport), p))
-        .collect();
+/// Server ends of established connections to `ports` (one per 4-tuple, however many
+/// processes share the socket), each with the pid holding the reversed 4-tuple: the
+/// client end, when it is a same-uid process on this machine.
+fn connections<'a>(socks: &'a [Sock], ports: &HashSet<u16>) -> Vec<(&'a Sock, Option<u32>)> {
+    let established = || socks.iter().filter(|s| s.state == TSI_S_ESTABLISHED);
+    let tuple = |s: &Sock| (s.local, s.lport, s.foreign, s.fport);
+    let mut holders: HashMap<(IpAddr, u16, IpAddr, u16), u32> = HashMap::new();
+    for s in established() {
+        let pid = holders.entry(tuple(s)).or_insert(s.pid);
+        *pid = (*pid).min(s.pid);
+    }
+    let mut seen = HashSet::new();
     established()
-        .filter(|p| p.uid == uid && ports.contains(&p.lport))
-        .map(|p| {
-            let client = ends.get(&(p.foreign, p.fport, p.local, p.lport));
-            (p, client.filter(|c| c.uid == uid).map(|c| c.pid))
+        .filter(|s| ports.contains(&s.lport) && seen.insert(tuple(s)))
+        .map(|s| {
+            (
+                s,
+                holders
+                    .get(&(s.foreign, s.fport, s.local, s.lport))
+                    .copied(),
+            )
         })
         .collect()
+}
+
+/// Initial environment of one process (`KERN_PROCARGS2`); `None` when it cannot be read
+/// or the kernel omits it. Used to tell whether a socket peer runs under an agent.
+pub fn process_env(pid: u32) -> Option<BTreeMap<String, String>> {
+    sys::parse_procargs(&sys::procargs(pid).ok()?)?.env
 }
 
 /// A fixture-safe copy of `snapshot` (plan, "Fixtures"): env keeps only keys accepted by
@@ -304,41 +314,45 @@ pub fn scrub(snapshot: &Snapshot, home: &str, keep_env: &dyn Fn(&str) -> bool) -
 mod tests {
     use super::*;
 
-    fn pcb(state: i32, local: ([u8; 4], u16), foreign: ([u8; 4], u16), uid: u32, pid: u32) -> Pcb {
-        Pcb {
-            state,
-            local: local.0.into(),
-            lport: local.1,
-            foreign: foreign.0.into(),
-            fport: foreign.1,
-            uid,
+    fn sock(pid: u32, state: i32, local: (IpAddr, u16), foreign: (IpAddr, u16)) -> Sock {
+        Sock {
             pid,
+            state,
+            local: local.0,
+            lport: local.1,
+            foreign: foreign.0,
+            fport: foreign.1,
         }
     }
 
     #[test]
-    fn connections_find_local_same_uid_clients() {
-        let lo = [127, 0, 0, 1];
-        let pcbs = [
-            pcb(TCPS_LISTEN, (lo, 8000), ([0; 4], 0), 501, 10),
-            pcb(TCPS_ESTABLISHED, (lo, 8000), (lo, 50000), 501, 10),
-            pcb(TCPS_ESTABLISHED, (lo, 50000), (lo, 8000), 501, 20),
-            pcb(TCPS_ESTABLISHED, (lo, 8000), (lo, 50001), 501, 10),
-            pcb(TCPS_ESTABLISHED, (lo, 50001), (lo, 8000), 0, 30),
-            pcb(
-                TCPS_ESTABLISHED,
-                (lo, 8000),
-                ([10, 0, 0, 2], 40000),
-                501,
-                10,
-            ),
-            pcb(TCPS_ESTABLISHED, (lo, 9000), (lo, 50002), 501, 11),
+    fn connections_pair_local_clients() {
+        let (lo, any) = (IpAddr::from([127, 0, 0, 1]), IpAddr::from([0, 0, 0, 0]));
+        let lo6 = IpAddr::from(std::net::Ipv6Addr::LOCALHOST);
+        let remote = IpAddr::from([10, 0, 0, 2]);
+        let est = TSI_S_ESTABLISHED;
+        let socks = [
+            sock(10, TSI_S_LISTEN, (any, 8000), (any, 0)),
+            sock(10, est, (lo, 8000), (lo, 50000)),
+            sock(11, est, (lo, 8000), (lo, 50000)), // same socket in a forked worker
+            sock(20, est, (lo, 50000), (lo, 8000)),
+            sock(10, est, (lo, 8000), (lo, 50001)), // client is another uid: unseen
+            sock(10, est, (lo, 8000), (remote, 40000)),
+            sock(10, est, (lo6, 8000), (lo6, 50003)),
+            sock(21, est, (lo6, 50003), (lo6, 8000)),
+            sock(12, est, (lo, 9000), (lo, 50002)), // not a listener port
         ];
-        let got: Vec<_> = connections(&pcbs, 501, &HashSet::from([8000]))
+        let got: Vec<_> = connections(&socks, &HashSet::from([8000]))
             .into_iter()
-            .map(|(p, c)| (p.fport, c))
+            .map(|(s, c)| (s.fport, c))
             .collect();
-        assert_eq!(got, [(50000, Some(20)), (50001, None), (40000, None)]);
+        let want = [
+            (50000, Some(20)),
+            (50001, None),
+            (40000, None),
+            (50003, Some(21)),
+        ];
+        assert_eq!(got, want);
     }
 
     #[test]
