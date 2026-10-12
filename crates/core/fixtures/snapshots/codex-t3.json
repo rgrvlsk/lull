@@ -1,0 +1,208 @@
+{
+ "processes": [
+  {
+   "pid": 1257,
+   "pgid": 1257,
+   "ppid": 93154,
+   "uid": 501,
+   "startEpochMs": 1791526555000,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/Applications/T3 Code (Nightly).app/Contents/MacOS/T3 Code (Nightly)",
+   "argv": [
+    "node",
+    "/opt/homebrew/bin/codex",
+    "app-server"
+   ],
+   "env": {
+    "T3CODE_CLI_PATH": "/Users/x/.t3/bin/t3"
+   },
+   "cwd": "/Users/x",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 1262,
+   "pgid": 1257,
+   "ppid": 1257,
+   "uid": 501,
+   "startEpochMs": 1791526556000,
+   "exe": "/opt/homebrew/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "/opt/homebrew/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex",
+    "app-server"
+   ],
+   "env": {
+    "T3CODE_CLI_PATH": "/Users/x/.t3/bin/t3"
+   },
+   "cwd": "/Users/x",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 71000,
+   "pgid": 71000,
+   "ppid": 1262,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/bin/zsh",
+   "parentExe": "/opt/homebrew/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex",
+   "argv": [
+    "/bin/zsh",
+    "-lc",
+    "PORT=3001 pnpm dev"
+   ],
+   "env": {
+    "T3CODE_CLI_PATH": "/Users/x/.t3/bin/t3",
+    "CODEX_THREAD_ID": "0199c2a1-7e4b-7d10-a3f2-5b8e9c0d1e2f"
+   },
+   "cwd": "/Users/x/dev/acme/app",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 71001,
+   "pgid": 71000,
+   "ppid": 71000,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/Users/x/Library/pnpm/pnpm",
+   "parentExe": "/bin/zsh",
+   "argv": [
+    "pnpm",
+    "dev"
+   ],
+   "env": {
+    "T3CODE_CLI_PATH": "/Users/x/.t3/bin/t3",
+    "CODEX_THREAD_ID": "0199c2a1-7e4b-7d10-a3f2-5b8e9c0d1e2f",
+    "PORT": "3001"
+   },
+   "cwd": "/Users/x/dev/acme/app",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 71004,
+   "pgid": 71000,
+   "ppid": 71001,
+   "uid": 501,
+   "startEpochMs": 1791530155500,
+   "exe": "/bin/sh",
+   "parentExe": "/Users/x/Library/pnpm/pnpm",
+   "argv": [
+    "sh",
+    "-c",
+    "next dev"
+   ],
+   "env": {
+    "T3CODE_CLI_PATH": "/Users/x/.t3/bin/t3",
+    "CODEX_THREAD_ID": "0199c2a1-7e4b-7d10-a3f2-5b8e9c0d1e2f",
+    "PORT": "3001"
+   },
+   "cwd": "/Users/x/dev/acme/app",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 71005,
+   "pgid": 71000,
+   "ppid": 71004,
+   "uid": 501,
+   "startEpochMs": 1791530155510,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/bin/sh",
+   "argv": [
+    "node",
+    "/Users/x/dev/acme/app/node_modules/.bin/next",
+    "dev"
+   ],
+   "env": {
+    "T3CODE_CLI_PATH": "/Users/x/.t3/bin/t3",
+    "CODEX_THREAD_ID": "0199c2a1-7e4b-7d10-a3f2-5b8e9c0d1e2f",
+    "PORT": "3001"
+   },
+   "cwd": "/Users/x/dev/acme/app",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 71009,
+   "pgid": 71000,
+   "ppid": 71005,
+   "uid": 501,
+   "startEpochMs": 1791530156500,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "next-server (v15.5.0)",
+    "",
+    ""
+   ],
+   "env": {
+    "T3CODE_CLI_PATH": "/Users/x/.t3/bin/t3",
+    "CODEX_THREAD_ID": "0199c2a1-7e4b-7d10-a3f2-5b8e9c0d1e2f",
+    "PORT": "3001",
+    "NODE_ENV": "development"
+   },
+   "cwd": "/Users/x/dev/acme/app",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 72000,
+   "pgid": 72000,
+   "ppid": 64567,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/Applications/Zed.app/Contents/MacOS/zed",
+   "argv": [
+    "node",
+    "/Users/x/dev/acme/app/node_modules/.bin/vite",
+    "--port",
+    "5180"
+   ],
+   "env": {
+    "T3CODE_CLI_PATH": "/Users/x/.t3/bin/t3"
+   },
+   "cwd": "/Users/x/dev/acme/app",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  }
+ ],
+ "listeners": [
+  {
+   "pid": 1262,
+   "addr": "127.0.0.1",
+   "port": 47123
+  },
+  {
+   "pid": 71009,
+   "addr": "127.0.0.1",
+   "port": 3001
+  },
+  {
+   "pid": 72000,
+   "addr": "127.0.0.1",
+   "port": 5180
+  }
+ ],
+ "connections": [],
+ "unreadableGroups": []
+}

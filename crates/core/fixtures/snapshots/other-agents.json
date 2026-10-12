@@ -1,0 +1,237 @@
+{
+ "processes": [
+  {
+   "pid": 73000,
+   "pgid": 73000,
+   "ppid": 72990,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/bin/bash",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "/bin/bash",
+    "-c",
+    "{ npm run dev; }; __code=$?; pgrep -g 0 >/tmp/shell_pgrep_a1b2.tmp; exit $__code;"
+   ],
+   "env": {
+    "GEMINI_CLI": "1"
+   },
+   "cwd": "/Users/x/dev/docs",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 73001,
+   "pgid": 73000,
+   "ppid": 73000,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/bin/bash",
+   "argv": [
+    "npm run dev",
+    "",
+    "",
+    ""
+   ],
+   "env": {
+    "GEMINI_CLI": "1"
+   },
+   "cwd": "/Users/x/dev/docs",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 73004,
+   "pgid": 73000,
+   "ppid": 73001,
+   "uid": 501,
+   "startEpochMs": 1791530155400,
+   "exe": "/bin/sh",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "sh",
+    "-c",
+    "nuxi dev"
+   ],
+   "env": {
+    "GEMINI_CLI": "1"
+   },
+   "cwd": "/Users/x/dev/docs",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 73005,
+   "pgid": 73000,
+   "ppid": 73004,
+   "uid": 501,
+   "startEpochMs": 1791530155410,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/bin/sh",
+   "argv": [
+    "node",
+    "/Users/x/dev/docs/node_modules/.bin/nuxi",
+    "dev"
+   ],
+   "env": {
+    "GEMINI_CLI": "1"
+   },
+   "cwd": "/Users/x/dev/docs",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 74000,
+   "pgid": 74000,
+   "ppid": 73990,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/bin/bash",
+   "parentExe": "/Users/x/.opencode/bin/opencode",
+   "argv": [
+    "/bin/bash",
+    "-c",
+    "php artisan serve --port=8001"
+   ],
+   "env": {
+    "OPENCODE_CLIENT": "cli"
+   },
+   "cwd": "/Users/x/dev/api",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 74001,
+   "pgid": 74000,
+   "ppid": 74000,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/opt/homebrew/Cellar/php/8.4.12/bin/php",
+   "parentExe": "/bin/bash",
+   "argv": [
+    "php",
+    "artisan",
+    "serve",
+    "--port=8001"
+   ],
+   "env": {
+    "OPENCODE_CLIENT": "cli"
+   },
+   "cwd": "/Users/x/dev/api",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 74003,
+   "pgid": 74000,
+   "ppid": 74001,
+   "uid": 501,
+   "startEpochMs": 1791530155300,
+   "exe": "/opt/homebrew/Cellar/php/8.4.12/bin/php",
+   "parentExe": "/opt/homebrew/Cellar/php/8.4.12/bin/php",
+   "argv": [
+    "/opt/homebrew/Cellar/php/8.4.12/bin/php",
+    "-S",
+    "127.0.0.1:8001",
+    "/Users/x/dev/api/vendor/laravel/framework/src/Illuminate/Foundation/Resources/server.php"
+   ],
+   "env": {
+    "OPENCODE_CLIENT": "cli",
+    "PHP_CLI_SERVER_WORKERS": "1"
+   },
+   "cwd": "/Users/x/dev/api",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 75000,
+   "pgid": 75000,
+   "ppid": 74990,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": null,
+   "argv": [
+    "node",
+    "/Users/x/dev/site/node_modules/.bin/astro",
+    "dev"
+   ],
+   "env": {
+    "AI_AGENT": "v0"
+   },
+   "cwd": "/Users/x/dev/site",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 76000,
+   "pgid": 76000,
+   "ppid": 75990,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/opt/homebrew/Cellar/ruby/3.4.5/bin/ruby",
+   "parentExe": null,
+   "argv": [
+    "ruby",
+    "bin/rails",
+    "server",
+    "-p",
+    "3002"
+   ],
+   "env": {
+    "AIDER_CHAT": "1"
+   },
+   "cwd": "/Users/x/dev/store",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  }
+ ],
+ "listeners": [
+  {
+   "pid": 73005,
+   "addr": "127.0.0.1",
+   "port": 3000
+  },
+  {
+   "pid": 73005,
+   "addr": "127.0.0.1",
+   "port": 24678
+  },
+  {
+   "pid": 74003,
+   "addr": "127.0.0.1",
+   "port": 8001
+  },
+  {
+   "pid": 75000,
+   "addr": "127.0.0.1",
+   "port": 4321
+  },
+  {
+   "pid": 76000,
+   "addr": "127.0.0.1",
+   "port": 3002
+  }
+ ],
+ "connections": [],
+ "unreadableGroups": []
+}

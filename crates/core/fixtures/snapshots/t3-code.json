@@ -1,0 +1,77 @@
+{
+ "processes": [
+  {
+   "pid": 93154,
+   "pgid": 93154,
+   "ppid": 92777,
+   "uid": 501,
+   "startEpochMs": 1791522955000,
+   "exe": "/Applications/T3 Code (Nightly).app/Contents/MacOS/T3 Code (Nightly)",
+   "parentExe": "/Applications/T3 Code (Nightly).app/Contents/MacOS/T3 Code (Nightly)",
+   "argv": [
+    "/Applications/T3 Code (Nightly).app/Contents/MacOS/T3 Code (Nightly)",
+    "--require",
+    "/Applications/T3 Code (Nightly).app/Contents/Resources/app.asar/apps/desktop/dist/server.js"
+   ],
+   "env": {},
+   "cwd": "/Users/x",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 92781,
+   "pgid": 93154,
+   "ppid": 93154,
+   "uid": 501,
+   "startEpochMs": 1791523055000,
+   "exe": "/Applications/T3 Code (Nightly).app/Contents/Frameworks/T3 Code (Nightly) Helper.app/Contents/MacOS/T3 Code (Nightly) Helper",
+   "parentExe": "/Applications/T3 Code (Nightly).app/Contents/MacOS/T3 Code (Nightly)",
+   "argv": [
+    "/Applications/T3 Code (Nightly).app/Contents/Frameworks/T3 Code (Nightly) Helper.app/Contents/MacOS/T3 Code (Nightly) Helper",
+    "--type=utility"
+   ],
+   "env": {},
+   "cwd": "/Users/x",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 5460,
+   "pgid": 5460,
+   "ppid": 93154,
+   "uid": 501,
+   "startEpochMs": 1791523155000,
+   "exe": "/Users/x/.local/bin/cloudflared",
+   "parentExe": "/Applications/T3 Code (Nightly).app/Contents/MacOS/T3 Code (Nightly)",
+   "argv": [
+    "/Users/x/.local/bin/cloudflared",
+    "tunnel",
+    "run"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  }
+ ],
+ "listeners": [
+  {
+   "pid": 93154,
+   "addr": "127.0.0.1",
+   "port": 3773
+  },
+  {
+   "pid": 5460,
+   "addr": "127.0.0.1",
+   "port": 20241
+  }
+ ],
+ "connections": [],
+ "unreadableGroups": []
+}

@@ -1,0 +1,265 @@
+{
+ "processes": [
+  {
+   "pid": 50100,
+   "pgid": 50100,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530154000,
+   "exe": "/opt/homebrew/Caskroom/claude-code/2.1.296/claude",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "claude"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 50200,
+   "pgid": 50200,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530154000,
+   "exe": "/Users/x/.local/share/claude/versions/2.1.296",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "claude"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 50300,
+   "pgid": 50300,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530154000,
+   "exe": "/Users/x/.local/bin/codex",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "codex"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 50400,
+   "pgid": 50400,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530154000,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "node",
+    "/opt/homebrew/lib/node_modules/@anthropic-ai/claude-code/cli.js"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 50500,
+   "pgid": 50500,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530154000,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "node",
+    "/opt/homebrew/bin/claude"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 50600,
+   "pgid": 50600,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530154000,
+   "exe": "/Users/x/.bun/bin/bun",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "bun",
+    "/Users/x/.bun/install/global/node_modules/@openai/codex/bin/codex.js"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 50700,
+   "pgid": 50700,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530154000,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "node",
+    "/opt/homebrew/bin/codex",
+    "app-server"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 50900,
+   "pgid": 50900,
+   "ppid": 50890,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/bin/zsh",
+   "argv": [
+    "node",
+    "/Users/x/dev/lull/node_modules/.bin/concurrently",
+    "vite",
+    "target/debug/lull daemon --dry-run"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/lull",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 50905,
+   "pgid": 50900,
+   "ppid": 50900,
+   "uid": 501,
+   "startEpochMs": 1791530155200,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "node",
+    "/Users/x/dev/lull/node_modules/.bin/vite"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/lull",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 50906,
+   "pgid": 50900,
+   "ppid": 50900,
+   "uid": 501,
+   "startEpochMs": 1791530155200,
+   "exe": "/Users/x/dev/lull/target/debug/lull",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "target/debug/lull",
+    "daemon",
+    "--dry-run"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/lull",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 51000,
+   "pgid": 51000,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "node",
+    "/Users/x/dev/claude/index.js"
+   ],
+   "env": {
+    "PORT": "8080"
+   },
+   "cwd": "/Users/x/dev/claude",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  }
+ ],
+ "listeners": [
+  {
+   "pid": 50100,
+   "addr": "127.0.0.1",
+   "port": 50101
+  },
+  {
+   "pid": 50200,
+   "addr": "127.0.0.1",
+   "port": 50201
+  },
+  {
+   "pid": 50300,
+   "addr": "127.0.0.1",
+   "port": 50301
+  },
+  {
+   "pid": 50400,
+   "addr": "127.0.0.1",
+   "port": 50401
+  },
+  {
+   "pid": 50500,
+   "addr": "127.0.0.1",
+   "port": 50501
+  },
+  {
+   "pid": 50600,
+   "addr": "127.0.0.1",
+   "port": 50601
+  },
+  {
+   "pid": 50700,
+   "addr": "127.0.0.1",
+   "port": 50701
+  },
+  {
+   "pid": 50905,
+   "addr": "127.0.0.1",
+   "port": 5174
+  },
+  {
+   "pid": 51000,
+   "addr": "127.0.0.1",
+   "port": 8080
+  }
+ ],
+ "connections": [],
+ "unreadableGroups": []
+}

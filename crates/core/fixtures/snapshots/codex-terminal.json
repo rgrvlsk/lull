@@ -1,0 +1,122 @@
+{
+ "processes": [
+  {
+   "pid": 69990,
+   "pgid": 69990,
+   "ppid": 69980,
+   "uid": 501,
+   "startEpochMs": 1791530095000,
+   "exe": "/opt/homebrew/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "/opt/homebrew/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/blog",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 70000,
+   "pgid": 70000,
+   "ppid": 69990,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/bin/zsh",
+   "parentExe": "/opt/homebrew/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex",
+   "argv": [
+    "/bin/zsh",
+    "-lc",
+    "pnpm dev"
+   ],
+   "env": {
+    "CODEX_THREAD_ID": "0199c2a1-0000-7000-8000-terminal0001",
+    "CODEX_SANDBOX": "seatbelt"
+   },
+   "cwd": "/Users/x/dev/blog",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 70001,
+   "pgid": 70000,
+   "ppid": 70000,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/Users/x/Library/pnpm/pnpm",
+   "parentExe": "/bin/zsh",
+   "argv": [
+    "pnpm",
+    "dev"
+   ],
+   "env": {
+    "CODEX_THREAD_ID": "0199c2a1-0000-7000-8000-terminal0001",
+    "CODEX_SANDBOX": "seatbelt"
+   },
+   "cwd": "/Users/x/dev/blog",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 70005,
+   "pgid": 70000,
+   "ppid": 70001,
+   "uid": 501,
+   "startEpochMs": 1791530155400,
+   "exe": "/bin/sh",
+   "parentExe": "/Users/x/Library/pnpm/pnpm",
+   "argv": [
+    "sh",
+    "-c",
+    "remix vite:dev"
+   ],
+   "env": {
+    "CODEX_THREAD_ID": "0199c2a1-0000-7000-8000-terminal0001",
+    "CODEX_SANDBOX": "seatbelt"
+   },
+   "cwd": "/Users/x/dev/blog",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 70006,
+   "pgid": 70000,
+   "ppid": 70005,
+   "uid": 501,
+   "startEpochMs": 1791530155410,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/bin/sh",
+   "argv": [
+    "node",
+    "/Users/x/dev/blog/node_modules/.bin/remix",
+    "vite:dev"
+   ],
+   "env": {
+    "CODEX_THREAD_ID": "0199c2a1-0000-7000-8000-terminal0001",
+    "CODEX_SANDBOX": "seatbelt"
+   },
+   "cwd": "/Users/x/dev/blog",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  }
+ ],
+ "listeners": [
+  {
+   "pid": 70006,
+   "addr": "127.0.0.1",
+   "port": 5173
+  }
+ ],
+ "connections": [],
+ "unreadableGroups": []
+}

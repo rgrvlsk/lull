@@ -1,0 +1,628 @@
+{
+ "processes": [
+  {
+   "pid": 22250,
+   "pgid": 22249,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530156000,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "npm run dev",
+    "",
+    "",
+    ""
+   ],
+   "env": {
+    "CLAUDECODE": "1",
+    "CLAUDE_CODE_SESSION_ID": "d263f0c2-5b1e-4f7a-9c11-2e8f7d4b6a90"
+   },
+   "cwd": "/Users/x/proj/apps/crm",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 22276,
+   "pgid": 22249,
+   "ppid": 22250,
+   "uid": 501,
+   "startEpochMs": 1791530156400,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "node",
+    "/Users/x/proj/apps/crm/node_modules/.bin/vite"
+   ],
+   "env": {
+    "CLAUDECODE": "1",
+    "CLAUDE_CODE_SESSION_ID": "d263f0c2-5b1e-4f7a-9c11-2e8f7d4b6a90"
+   },
+   "cwd": "/Users/x/proj/apps/crm",
+   "hasTty": false,
+   "cpuPercent": 0.1,
+   "rssBytes": 120000000,
+   "errors": []
+  },
+  {
+   "pid": 22293,
+   "pgid": 22249,
+   "ppid": 22276,
+   "uid": 501,
+   "startEpochMs": 1791530157100,
+   "exe": "/Users/x/proj/apps/crm/node_modules/@cloudflare/workerd-darwin-arm64/bin/workerd",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "/Users/x/proj/apps/crm/node_modules/@cloudflare/workerd-darwin-arm64/bin/workerd",
+    "serve",
+    "--binary",
+    "--experimental",
+    "--socket-addr=entry=127.0.0.1:0",
+    "--external-addr=loopback=127.0.0.1:56306",
+    "--control-fd=3",
+    "-"
+   ],
+   "env": {
+    "CLAUDECODE": "1",
+    "CLAUDE_CODE_SESSION_ID": "d263f0c2-5b1e-4f7a-9c11-2e8f7d4b6a90"
+   },
+   "cwd": "/Users/x/proj/apps/crm",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 42452224,
+   "errors": []
+  },
+  {
+   "pid": 5827,
+   "pgid": 5826,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791443755000,
+   "exe": "/opt/homebrew/bin/node",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "node",
+    "./node_modules/.bin/astro",
+    "dev",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "4328",
+    "--strictPort"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/example-landing",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 5830,
+   "pgid": 5826,
+   "ppid": 5827,
+   "uid": 501,
+   "startEpochMs": 1791443757000,
+   "exe": "/Users/x/dev/example-landing/node_modules/@astrojs/cloudflare/node_modules/@cloudflare/workerd-darwin-arm64/bin/workerd",
+   "parentExe": "/opt/homebrew/bin/node",
+   "argv": [
+    "/Users/x/dev/example-landing/node_modules/@astrojs/cloudflare/node_modules/@cloudflare/workerd-darwin-arm64/bin/workerd",
+    "serve",
+    "--binary",
+    "--experimental",
+    "--socket-addr=entry=127.0.0.1:0",
+    "--external-addr=loopback=127.0.0.1:62430",
+    "--control-fd=3",
+    "-"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/example-landing",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 5833,
+   "pgid": 5826,
+   "ppid": 5827,
+   "uid": 501,
+   "startEpochMs": 1791443758000,
+   "exe": "/Users/x/dev/example-landing/node_modules/vite/node_modules/@esbuild/darwin-arm64/bin/esbuild",
+   "parentExe": "/opt/homebrew/bin/node",
+   "argv": [
+    "/Users/x/dev/example-landing/node_modules/vite/node_modules/@esbuild/darwin-arm64/bin/esbuild",
+    "--service=0.25.12",
+    "--ping"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/example-landing",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 64567,
+   "pgid": 64567,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791526555000,
+   "exe": "/Applications/Zed.app/Contents/MacOS/zed",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/Applications/Zed.app/Contents/MacOS/zed"
+   ],
+   "env": {
+    "T3CODE_CLI_PATH": "/Users/x/.t3/bin/t3"
+   },
+   "cwd": "/",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 1824,
+   "pgid": 1824,
+   "ppid": 1798,
+   "uid": 501,
+   "startEpochMs": 1791440155000,
+   "exe": "/Applications/Herd.app/Contents/Resources/nginx-arm64",
+   "parentExe": "/Applications/Herd.app/Contents/MacOS/Herd",
+   "argv": [
+    "nginx: master process /Applications/Herd.app/Contents/Resources/nginx-arm64 -g daemon off; -c /Users/x/Library/Application Support/Herd/config/nginx/nginx.conf",
+    "",
+    "",
+    "",
+    ""
+   ],
+   "env": {},
+   "cwd": "/Users/x/Library/Application Support/Herd/bin",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 3605,
+   "pgid": 1824,
+   "ppid": 1824,
+   "uid": 501,
+   "startEpochMs": 1791441155000,
+   "exe": "/Applications/Herd.app/Contents/Resources/nginx-arm64",
+   "parentExe": "/Applications/Herd.app/Contents/Resources/nginx-arm64",
+   "argv": [
+    "nginx: worker process",
+    ""
+   ],
+   "env": {},
+   "cwd": "/Users/x/Library/Application Support/Herd/bin",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 3606,
+   "pgid": 1824,
+   "ppid": 1824,
+   "uid": 501,
+   "startEpochMs": 1791441155000,
+   "exe": "/Applications/Herd.app/Contents/Resources/nginx-arm64",
+   "parentExe": "/Applications/Herd.app/Contents/Resources/nginx-arm64",
+   "argv": [
+    "nginx: worker process",
+    ""
+   ],
+   "env": {},
+   "cwd": "/Users/x/Library/Application Support/Herd/bin",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 5397,
+   "pgid": 5397,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791440155000,
+   "exe": "/opt/homebrew/Cellar/redis/8.8.1/bin/redis-server",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/opt/homebrew/opt/redis/bin/redis-server 127.0.0.1:6379",
+    ""
+   ],
+   "env": {},
+   "cwd": "/opt/homebrew/var/db/redis",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 5411,
+   "pgid": 5411,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791440155000,
+   "exe": "/opt/homebrew/Cellar/postgresql@17/17.10/bin/postgres",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/opt/homebrew/opt/postgresql@17/bin/postgres",
+    "-D",
+    "/opt/homebrew/var/postgresql@17"
+   ],
+   "env": {},
+   "cwd": "/opt/homebrew/var/postgresql@17",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 5420,
+   "pgid": 5411,
+   "ppid": 5411,
+   "uid": 501,
+   "startEpochMs": 1791440155000,
+   "exe": "/opt/homebrew/Cellar/postgresql@17/17.10/bin/postgres",
+   "parentExe": "/opt/homebrew/Cellar/postgresql@17/17.10/bin/postgres",
+   "argv": [
+    "postgres: checkpointer   ",
+    ""
+   ],
+   "env": {},
+   "cwd": "/opt/homebrew/var/postgresql@17",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 5414,
+   "pgid": 5414,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791440155000,
+   "exe": "/bin/bash",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/bin/sh",
+    "/opt/homebrew/opt/mariadb/bin/mysqld_safe",
+    "--datadir=/opt/homebrew/var/mysql"
+   ],
+   "env": {},
+   "cwd": "/opt/homebrew/var",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 5525,
+   "pgid": 5414,
+   "ppid": 5414,
+   "uid": 501,
+   "startEpochMs": 1791440155000,
+   "exe": "/opt/homebrew/Cellar/mariadb/12.3.2/bin/mariadbd",
+   "parentExe": "/bin/bash",
+   "argv": [
+    "/opt/homebrew/opt/mariadb/bin/mariadbd",
+    "--basedir=/opt/homebrew/opt/mariadb",
+    "--datadir=/opt/homebrew/var/mysql",
+    "--port=3306"
+   ],
+   "env": {},
+   "cwd": "/opt/homebrew/var/mysql",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 659,
+   "pgid": 659,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791435155000,
+   "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+   ],
+   "env": {},
+   "cwd": "/",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 612,
+   "pgid": 612,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791435155000,
+   "exe": "/usr/libexec/rapportd",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/usr/libexec/rapportd"
+   ],
+   "env": {},
+   "cwd": "/",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 21961,
+   "pgid": 21961,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791450155000,
+   "exe": "/Applications/Canary Mail.app/Contents/MacOS/Canary Mail",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/Applications/Canary Mail.app/Contents/MacOS/Canary Mail"
+   ],
+   "env": {},
+   "cwd": "/Users/x/Library/Containers/io.canarymail.mac/Data",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 733,
+   "pgid": 733,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791435155000,
+   "exe": "/Applications/Raycast.app/Contents/MacOS/Raycast",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/Applications/Raycast.app/Contents/MacOS/Raycast"
+   ],
+   "env": {},
+   "cwd": "/",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 93154,
+   "pgid": 93154,
+   "ppid": 92777,
+   "uid": 501,
+   "startEpochMs": 1791522955000,
+   "exe": "/Applications/T3 Code (Nightly).app/Contents/MacOS/T3 Code (Nightly)",
+   "parentExe": "/Applications/T3 Code (Nightly).app/Contents/MacOS/T3 Code (Nightly)",
+   "argv": [
+    "/Applications/T3 Code (Nightly).app/Contents/MacOS/T3 Code (Nightly)",
+    "--require",
+    "/Applications/T3 Code (Nightly).app/Contents/Resources/app.asar/apps/desktop/dist/server.js"
+   ],
+   "env": {
+    "T3CODE_CLI_PATH": "/Users/x/.t3/bin/t3"
+   },
+   "cwd": "/Users/x",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 5460,
+   "pgid": 93154,
+   "ppid": 93154,
+   "uid": 501,
+   "startEpochMs": 1791523055000,
+   "exe": "/Users/x/.local/bin/cloudflared",
+   "parentExe": "/Applications/T3 Code (Nightly).app/Contents/MacOS/T3 Code (Nightly)",
+   "argv": [
+    "/Users/x/.local/bin/cloudflared",
+    "tunnel",
+    "--no-autoupdate",
+    "--loglevel",
+    "info",
+    "--output",
+    "default",
+    "run"
+   ],
+   "env": {
+    "T3CODE_CLI_PATH": "/Users/x/.t3/bin/t3"
+   },
+   "cwd": "/Users/x",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 53699,
+   "pgid": 93154,
+   "ppid": 93154,
+   "uid": 501,
+   "startEpochMs": 1791529555000,
+   "exe": "/Users/x/.local/share/claude/versions/2.1.296",
+   "parentExe": "/Applications/T3 Code (Nightly).app/Contents/MacOS/T3 Code (Nightly)",
+   "argv": [
+    "claude",
+    "--output-format",
+    "stream-json"
+   ],
+   "env": {
+    "T3CODE_CLI_PATH": "/Users/x/.t3/bin/t3"
+   },
+   "cwd": "/Users/x/proj",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 701,
+   "pgid": 701,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791435155000,
+   "exe": "/Applications/Helium.app/Contents/MacOS/Helium",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/Applications/Helium.app/Contents/MacOS/Helium",
+    "--remote-debugging-port=9222"
+   ],
+   "env": {},
+   "cwd": "/",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  }
+ ],
+ "listeners": [
+  {
+   "pid": 22276,
+   "addr": "127.0.0.1",
+   "port": 5187
+  },
+  {
+   "pid": 22276,
+   "addr": "127.0.0.1",
+   "port": 56306
+  },
+  {
+   "pid": 22293,
+   "addr": "127.0.0.1",
+   "port": 61811
+  },
+  {
+   "pid": 5827,
+   "addr": "127.0.0.1",
+   "port": 4328
+  },
+  {
+   "pid": 5827,
+   "addr": "127.0.0.1",
+   "port": 62430
+  },
+  {
+   "pid": 5827,
+   "addr": "127.0.0.1",
+   "port": 62431
+  },
+  {
+   "pid": 5830,
+   "addr": "127.0.0.1",
+   "port": 62432
+  },
+  {
+   "pid": 64567,
+   "addr": "127.0.0.1",
+   "port": 44438
+  },
+  {
+   "pid": 3605,
+   "addr": "127.0.0.1",
+   "port": 80
+  },
+  {
+   "pid": 3605,
+   "addr": "127.0.0.1",
+   "port": 443
+  },
+  {
+   "pid": 3605,
+   "addr": "127.0.0.1",
+   "port": 60
+  },
+  {
+   "pid": 3606,
+   "addr": "127.0.0.1",
+   "port": 80
+  },
+  {
+   "pid": 3606,
+   "addr": "127.0.0.1",
+   "port": 443
+  },
+  {
+   "pid": 3606,
+   "addr": "127.0.0.1",
+   "port": 60
+  },
+  {
+   "pid": 5397,
+   "addr": "127.0.0.1",
+   "port": 6379
+  },
+  {
+   "pid": 5411,
+   "addr": "127.0.0.1",
+   "port": 5432
+  },
+  {
+   "pid": 5525,
+   "addr": "*",
+   "port": 3306
+  },
+  {
+   "pid": 659,
+   "addr": "*",
+   "port": 5000
+  },
+  {
+   "pid": 659,
+   "addr": "*",
+   "port": 7000
+  },
+  {
+   "pid": 612,
+   "addr": "*",
+   "port": 49895
+  },
+  {
+   "pid": 612,
+   "addr": "*",
+   "port": 50515
+  },
+  {
+   "pid": 612,
+   "addr": "*",
+   "port": 50516
+  },
+  {
+   "pid": 21961,
+   "addr": "127.0.0.1",
+   "port": 10054
+  },
+  {
+   "pid": 733,
+   "addr": "127.0.0.1",
+   "port": 7265
+  },
+  {
+   "pid": 93154,
+   "addr": "127.0.0.1",
+   "port": 3773
+  },
+  {
+   "pid": 5460,
+   "addr": "127.0.0.1",
+   "port": 20241
+  },
+  {
+   "pid": 701,
+   "addr": "127.0.0.1",
+   "port": 9222
+  }
+ ],
+ "connections": [],
+ "unreadableGroups": []
+}

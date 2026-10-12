@@ -1,0 +1,36 @@
+{
+ "processes": [
+  {
+   "pid": 42000,
+   "pgid": 42000,
+   "ppid": 41990,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/opt/homebrew/Cellar/python@3.13/3.13.7/Frameworks/Python.framework/Versions/3.13/Resources/Python.app/Contents/MacOS/Python",
+   "parentExe": "/bin/zsh",
+   "argv": [
+    "/opt/homebrew/opt/python@3.13/bin/python3.13",
+    "-m",
+    "http.server",
+    "8000"
+   ],
+   "env": {
+    "CODEX_THREAD_ID": "0199c2a1-7e4b-7d10-a3f2-5b8e9c0d1e2f"
+   },
+   "cwd": "/private/tmp/preview",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  }
+ ],
+ "listeners": [
+  {
+   "pid": 42000,
+   "addr": "*",
+   "port": 8000
+  }
+ ],
+ "connections": [],
+ "unreadableGroups": []
+}

@@ -1,0 +1,652 @@
+{
+ "processes": [
+  {
+   "pid": 80000,
+   "pgid": 80000,
+   "ppid": 79990,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/bin/zsh",
+   "argv": [
+    "npm run dev",
+    "",
+    "",
+    ""
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/mono",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80001,
+   "pgid": 80000,
+   "ppid": 80000,
+   "uid": 501,
+   "startEpochMs": 1791530155050,
+   "exe": "/bin/sh",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "sh",
+    "-c",
+    "concurrently \"npm:dev:web\" \"npm:watch:types\""
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/mono",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80002,
+   "pgid": 80000,
+   "ppid": 80001,
+   "uid": 501,
+   "startEpochMs": 1791530155060,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/bin/sh",
+   "argv": [
+    "node",
+    "/Users/x/dev/mono/node_modules/.bin/concurrently",
+    "npm:dev:web",
+    "npm:watch:types"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/mono",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80010,
+   "pgid": 80000,
+   "ppid": 80002,
+   "uid": 501,
+   "startEpochMs": 1791530155300,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "npm run dev:web",
+    "",
+    "",
+    ""
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/mono",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80011,
+   "pgid": 80000,
+   "ppid": 80002,
+   "uid": 501,
+   "startEpochMs": 1791530155300,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "npm run watch:types",
+    "",
+    "",
+    ""
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/mono",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80012,
+   "pgid": 80000,
+   "ppid": 80010,
+   "uid": 501,
+   "startEpochMs": 1791530155500,
+   "exe": "/bin/sh",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "sh",
+    "-c",
+    "vite"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/mono",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80013,
+   "pgid": 80000,
+   "ppid": 80011,
+   "uid": 501,
+   "startEpochMs": 1791530155500,
+   "exe": "/bin/sh",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "sh",
+    "-c",
+    "tsc --noEmit --watch"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/mono",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80014,
+   "pgid": 80000,
+   "ppid": 80012,
+   "uid": 501,
+   "startEpochMs": 1791530155520,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/bin/sh",
+   "argv": [
+    "node",
+    "/Users/x/dev/mono/node_modules/.bin/vite"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/mono",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80015,
+   "pgid": 80000,
+   "ppid": 80013,
+   "uid": 501,
+   "startEpochMs": 1791530155520,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/bin/sh",
+   "argv": [
+    "node",
+    "/Users/x/dev/mono/node_modules/.bin/tsc",
+    "--noEmit",
+    "--watch"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/mono",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80016,
+   "pgid": 80000,
+   "ppid": 80014,
+   "uid": 501,
+   "startEpochMs": 1791530155800,
+   "exe": "/Users/x/dev/mono/node_modules/@esbuild/darwin-arm64/bin/esbuild",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "/Users/x/dev/mono/node_modules/@esbuild/darwin-arm64/bin/esbuild",
+    "--service=0.25.12",
+    "--ping"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/mono",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80100,
+   "pgid": 80100,
+   "ppid": 80090,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/bin/zsh",
+   "argv": [
+    "npm run dev:api",
+    "",
+    "",
+    ""
+   ],
+   "env": {
+    "DEVSERVER_KEEP": "1"
+   },
+   "cwd": "/Users/x/dev/api-server",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80101,
+   "pgid": 80100,
+   "ppid": 80100,
+   "uid": 501,
+   "startEpochMs": 1791530155050,
+   "exe": "/bin/sh",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "sh",
+    "-c",
+    "nodemon --inspect src/index.js"
+   ],
+   "env": {
+    "DEVSERVER_KEEP": "1"
+   },
+   "cwd": "/Users/x/dev/api-server",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80102,
+   "pgid": 80100,
+   "ppid": 80101,
+   "uid": 501,
+   "startEpochMs": 1791530155060,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/bin/sh",
+   "argv": [
+    "node",
+    "/Users/x/dev/api-server/node_modules/.bin/nodemon",
+    "--inspect",
+    "src/index.js"
+   ],
+   "env": {
+    "DEVSERVER_KEEP": "1"
+   },
+   "cwd": "/Users/x/dev/api-server",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80103,
+   "pgid": 80100,
+   "ppid": 80102,
+   "uid": 501,
+   "startEpochMs": 1791530155400,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "node",
+    "--inspect",
+    "src/index.js"
+   ],
+   "env": {
+    "DEVSERVER_KEEP": "1"
+   },
+   "cwd": "/Users/x/dev/api-server",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80200,
+   "pgid": 80200,
+   "ppid": 80190,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/bin/zsh",
+   "parentExe": "/Users/x/.local/share/claude/versions/2.1.296",
+   "argv": [
+    "/bin/zsh",
+    "-c",
+    "-l",
+    "source /Users/x/.claude/shell-snapshots/snapshot-zsh-1791530150000-q1w2e3.sh && eval 'turbo run dev' < /dev/null && pwd -P >| /var/folders/zz/T/claude-5f2a-cwd"
+   ],
+   "env": {
+    "CLAUDECODE": "1",
+    "CLAUDE_CODE_SESSION_ID": "d263f0c2-5b1e-4f7a-9c11-2e8f7d4b6a90"
+   },
+   "cwd": "/Users/x/dev/turbo-mono",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80201,
+   "pgid": 80200,
+   "ppid": 80200,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/opt/homebrew/Cellar/turbo/2.5.4/bin/turbo",
+   "parentExe": "/bin/zsh",
+   "argv": [
+    "turbo",
+    "run",
+    "dev"
+   ],
+   "env": {
+    "CLAUDECODE": "1",
+    "CLAUDE_CODE_SESSION_ID": "d263f0c2-5b1e-4f7a-9c11-2e8f7d4b6a90"
+   },
+   "cwd": "/Users/x/dev/turbo-mono",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80210,
+   "pgid": 80200,
+   "ppid": 80201,
+   "uid": 501,
+   "startEpochMs": 1791530155600,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/opt/homebrew/Cellar/turbo/2.5.4/bin/turbo",
+   "argv": [
+    "npm run dev",
+    "",
+    "",
+    ""
+   ],
+   "env": {
+    "CLAUDECODE": "1",
+    "CLAUDE_CODE_SESSION_ID": "d263f0c2-5b1e-4f7a-9c11-2e8f7d4b6a90"
+   },
+   "cwd": "/Users/x/dev/turbo-mono/apps/web",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80211,
+   "pgid": 80200,
+   "ppid": 80210,
+   "uid": 501,
+   "startEpochMs": 1791530155900,
+   "exe": "/bin/sh",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "sh",
+    "-c",
+    "next dev --port 3100"
+   ],
+   "env": {
+    "CLAUDECODE": "1",
+    "CLAUDE_CODE_SESSION_ID": "d263f0c2-5b1e-4f7a-9c11-2e8f7d4b6a90"
+   },
+   "cwd": "/Users/x/dev/turbo-mono/apps/web",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80212,
+   "pgid": 80200,
+   "ppid": 80211,
+   "uid": 501,
+   "startEpochMs": 1791530155910,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/bin/sh",
+   "argv": [
+    "node",
+    "/Users/x/dev/turbo-mono/node_modules/.bin/next",
+    "dev",
+    "--port",
+    "3100"
+   ],
+   "env": {
+    "CLAUDECODE": "1",
+    "CLAUDE_CODE_SESSION_ID": "d263f0c2-5b1e-4f7a-9c11-2e8f7d4b6a90"
+   },
+   "cwd": "/Users/x/dev/turbo-mono/apps/web",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80213,
+   "pgid": 80200,
+   "ppid": 80212,
+   "uid": 501,
+   "startEpochMs": 1791530156500,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "next-server (v15.5.0)",
+    "",
+    ""
+   ],
+   "env": {
+    "CLAUDECODE": "1",
+    "CLAUDE_CODE_SESSION_ID": "d263f0c2-5b1e-4f7a-9c11-2e8f7d4b6a90",
+    "NODE_ENV": "development"
+   },
+   "cwd": "/Users/x/dev/turbo-mono/apps/web",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80220,
+   "pgid": 80200,
+   "ppid": 80201,
+   "uid": 501,
+   "startEpochMs": 1791530155600,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/opt/homebrew/Cellar/turbo/2.5.4/bin/turbo",
+   "argv": [
+    "npm run dev",
+    "",
+    "",
+    ""
+   ],
+   "env": {
+    "CLAUDECODE": "1",
+    "CLAUDE_CODE_SESSION_ID": "d263f0c2-5b1e-4f7a-9c11-2e8f7d4b6a90"
+   },
+   "cwd": "/Users/x/dev/turbo-mono/apps/docs",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80221,
+   "pgid": 80200,
+   "ppid": 80220,
+   "uid": 501,
+   "startEpochMs": 1791530155900,
+   "exe": "/bin/sh",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "sh",
+    "-c",
+    "vite"
+   ],
+   "env": {
+    "CLAUDECODE": "1",
+    "CLAUDE_CODE_SESSION_ID": "d263f0c2-5b1e-4f7a-9c11-2e8f7d4b6a90"
+   },
+   "cwd": "/Users/x/dev/turbo-mono/apps/docs",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80222,
+   "pgid": 80200,
+   "ppid": 80221,
+   "uid": 501,
+   "startEpochMs": 1791530155910,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/bin/sh",
+   "argv": [
+    "node",
+    "/Users/x/dev/turbo-mono/node_modules/.bin/vite"
+   ],
+   "env": {
+    "CLAUDECODE": "1",
+    "CLAUDE_CODE_SESSION_ID": "d263f0c2-5b1e-4f7a-9c11-2e8f7d4b6a90"
+   },
+   "cwd": "/Users/x/dev/turbo-mono/apps/docs",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80300,
+   "pgid": 80300,
+   "ppid": 80290,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/bin/zsh",
+   "argv": [
+    "npm exec wrangler dev",
+    "",
+    "",
+    "",
+    ""
+   ],
+   "env": {
+    "LULL_KEEP": "1"
+   },
+   "cwd": "/Users/x/dev/worker",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80301,
+   "pgid": 80300,
+   "ppid": 80300,
+   "uid": 501,
+   "startEpochMs": 1791530155300,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "node",
+    "--no-warnings",
+    "--experimental-vm-modules",
+    "/Users/x/dev/worker/node_modules/wrangler/wrangler-dist/cli.js",
+    "dev"
+   ],
+   "env": {
+    "LULL_KEEP": "1"
+   },
+   "cwd": "/Users/x/dev/worker",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80302,
+   "pgid": 80300,
+   "ppid": 80301,
+   "uid": 501,
+   "startEpochMs": 1791530155500,
+   "exe": "/Users/x/dev/worker/node_modules/@esbuild/darwin-arm64/bin/esbuild",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "/Users/x/dev/worker/node_modules/@esbuild/darwin-arm64/bin/esbuild",
+    "--service=0.25.12",
+    "--ping"
+   ],
+   "env": {
+    "LULL_KEEP": "1"
+   },
+   "cwd": "/Users/x/dev/worker",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 80303,
+   "pgid": 80300,
+   "ppid": 80301,
+   "uid": 501,
+   "startEpochMs": 1791530155900,
+   "exe": "/Users/x/dev/worker/node_modules/@cloudflare/workerd-darwin-arm64/bin/workerd",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "/Users/x/dev/worker/node_modules/@cloudflare/workerd-darwin-arm64/bin/workerd",
+    "serve",
+    "--binary",
+    "--experimental",
+    "--socket-addr=entry=127.0.0.1:8787",
+    "--external-addr=loopback=127.0.0.1:61234",
+    "--inspector-addr=127.0.0.1:9229",
+    "--control-fd=3",
+    "-"
+   ],
+   "env": {
+    "LULL_KEEP": "1"
+   },
+   "cwd": "/Users/x/dev/worker",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  }
+ ],
+ "listeners": [
+  {
+   "pid": 80014,
+   "addr": "127.0.0.1",
+   "port": 5173
+  },
+  {
+   "pid": 80103,
+   "addr": "127.0.0.1",
+   "port": 9229
+  },
+  {
+   "pid": 80103,
+   "addr": "127.0.0.1",
+   "port": 10000
+  },
+  {
+   "pid": 80213,
+   "addr": "127.0.0.1",
+   "port": 3100
+  },
+  {
+   "pid": 80222,
+   "addr": "127.0.0.1",
+   "port": 5173
+  },
+  {
+   "pid": 80301,
+   "addr": "127.0.0.1",
+   "port": 61234
+  },
+  {
+   "pid": 80303,
+   "addr": "127.0.0.1",
+   "port": 8787
+  },
+  {
+   "pid": 80303,
+   "addr": "127.0.0.1",
+   "port": 9229
+  }
+ ],
+ "connections": [],
+ "unreadableGroups": []
+}

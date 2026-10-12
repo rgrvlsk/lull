@@ -1,0 +1,154 @@
+{
+ "processes": [
+  {
+   "pid": 30990,
+   "pgid": 30990,
+   "ppid": 30980,
+   "uid": 501,
+   "startEpochMs": 1791530095000,
+   "exe": "/Users/x/.local/share/claude/versions/2.1.296",
+   "parentExe": "/bin/zsh",
+   "argv": [
+    "claude"
+   ],
+   "env": {
+    "CLAUDE_CODE_SSE_PORT": "54545"
+   },
+   "cwd": "/Users/x/dev/acme/web",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 31000,
+   "pgid": 31000,
+   "ppid": 30990,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/bin/zsh",
+   "parentExe": "/Users/x/.local/share/claude/versions/2.1.296",
+   "argv": [
+    "/bin/zsh",
+    "-c",
+    "-l",
+    "source /Users/x/.claude/shell-snapshots/snapshot-zsh-1791530150000-q1w2e3.sh && eval 'npm run dev' < /dev/null && pwd -P >| /var/folders/zz/T/claude-5f2a-cwd"
+   ],
+   "env": {
+    "CLAUDECODE": "1",
+    "CLAUDE_CODE_SESSION_ID": "d263f0c2-5b1e-4f7a-9c11-2e8f7d4b6a90"
+   },
+   "cwd": "/Users/x/dev/acme/web",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 31002,
+   "pgid": 31000,
+   "ppid": 31000,
+   "uid": 501,
+   "startEpochMs": 1791530155150,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/bin/zsh",
+   "argv": [
+    "npm run dev",
+    "",
+    "",
+    ""
+   ],
+   "env": {
+    "CLAUDECODE": "1",
+    "CLAUDE_CODE_SESSION_ID": "d263f0c2-5b1e-4f7a-9c11-2e8f7d4b6a90"
+   },
+   "cwd": "/Users/x/dev/acme/web",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 31010,
+   "pgid": 31000,
+   "ppid": 31002,
+   "uid": 501,
+   "startEpochMs": 1791530155600,
+   "exe": "/bin/sh",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "sh",
+    "-c",
+    "vite"
+   ],
+   "env": {
+    "CLAUDECODE": "1",
+    "CLAUDE_CODE_SESSION_ID": "d263f0c2-5b1e-4f7a-9c11-2e8f7d4b6a90"
+   },
+   "cwd": "/Users/x/dev/acme/web",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 31011,
+   "pgid": 31000,
+   "ppid": 31010,
+   "uid": 501,
+   "startEpochMs": 1791530155620,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/bin/sh",
+   "argv": [
+    "node",
+    "/Users/x/dev/acme/web/node_modules/.bin/vite"
+   ],
+   "env": {
+    "CLAUDECODE": "1",
+    "CLAUDE_CODE_SESSION_ID": "d263f0c2-5b1e-4f7a-9c11-2e8f7d4b6a90"
+   },
+   "cwd": "/Users/x/dev/acme/web",
+   "hasTty": false,
+   "cpuPercent": 0.4,
+   "rssBytes": 150000000,
+   "errors": []
+  },
+  {
+   "pid": 31020,
+   "pgid": 31000,
+   "ppid": 31011,
+   "uid": 501,
+   "startEpochMs": 1791530155900,
+   "exe": "/Users/x/dev/acme/web/node_modules/@esbuild/darwin-arm64/bin/esbuild",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "/Users/x/dev/acme/web/node_modules/@esbuild/darwin-arm64/bin/esbuild",
+    "--service=0.25.12",
+    "--ping"
+   ],
+   "env": {
+    "CLAUDECODE": "1",
+    "CLAUDE_CODE_SESSION_ID": "d263f0c2-5b1e-4f7a-9c11-2e8f7d4b6a90"
+   },
+   "cwd": "/Users/x/dev/acme/web",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 12000000,
+   "errors": []
+  }
+ ],
+ "listeners": [
+  {
+   "pid": 30990,
+   "addr": "127.0.0.1",
+   "port": 54545
+  },
+  {
+   "pid": 31011,
+   "addr": "::1",
+   "port": 5173
+  }
+ ],
+ "connections": [],
+ "unreadableGroups": []
+}
