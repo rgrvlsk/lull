@@ -48,7 +48,6 @@ fn config_defaults_match_contract_and_toml_round_trips() {
     assert_eq!(d.tabs_on_stop, TabsOnStop::Discard);
     assert_eq!(d.history_size, 20);
     assert_eq!(d.history_hours, 24);
-    assert!(!d.faithful_restart);
 
     let text = r#"
 idle_minutes = 30
@@ -59,7 +58,6 @@ tabs_on_stop = "discard"
 open_with = ""
 history_size = 20
 history_hours = 24
-faithful_restart = false
 
 [[project]]
 path = "~/dev/example-app"

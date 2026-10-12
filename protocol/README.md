@@ -18,6 +18,9 @@ Shapes the contract leaves implicit, pinned here (confirm or amend in `contract.
   The `browsers` topic has no payload yet.
 - Browser command acks are `{"ok": true}` or `{"error": "<reason>"}`.
 - `config.set` validation errors and rejected `servers.open` URLs use JSON-RPC
-  `-32602` (invalid params); only `-32010 protocol_mismatch` is lull-specific.
+  `-32602` (invalid params); the lull-specific codes are `-32010 protocol_mismatch` and
+  `-32011 not_restartable`.
+- Protocol 1.0 is not frozen until the first release: until then fields may be removed
+  without a `major` bump (as `faithful_restart` was on 2026-10-12).
 - `Config` keeps its TOML `snake_case` keys on the wire.
 - `[[agent_marker]]` entries are `{env, value?, agent}`.

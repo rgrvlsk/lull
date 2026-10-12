@@ -2,3 +2,5 @@
 {"jsonrpc":"2.0","id":11,"result":{"pid":40021}}
 {"jsonrpc":"2.0","id":12,"method":"servers.restart","params":{"id":"no-such-record"}}
 {"jsonrpc":"2.0","id":12,"error":{"code":-32602,"message":"unknown stopped-server record"}}
+{"jsonrpc":"2.0","id":13,"method":"servers.restart","params":{"id":"18300-1791410000000"}}
+{"jsonrpc":"2.0","id":13,"error":{"code":-32011,"message":"no launch command recorded; copy the command instead"}}

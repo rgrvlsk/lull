@@ -1,4 +1,4 @@
 {"jsonrpc":"2.0","id":18,"method":"config.set","params":{"patch":{"idle_minutes":45,"project":[{"path":"~/proj/crm","auto_stop":"none"}]}}}
-{"jsonrpc":"2.0","id":18,"result":{"idle_minutes":45,"auto_stop":"agent","warn_before_minutes":2,"wake_grace_minutes":5,"tabs_on_stop":"discard","open_with":"","history_size":20,"history_hours":24,"faithful_restart":false,"project":[{"path":"~/proj/crm","auto_stop":"none"}],"agent_marker":[{"env":"MY_AGENT","value":"1","agent":"my-agent"}]}}
+{"jsonrpc":"2.0","id":18,"result":{"idle_minutes":45,"auto_stop":"agent","warn_before_minutes":2,"wake_grace_minutes":5,"tabs_on_stop":"discard","open_with":"","history_size":20,"history_hours":24,"project":[{"path":"~/proj/crm","auto_stop":"none"}],"agent_marker":[{"env":"MY_AGENT","value":"1","agent":"my-agent"}]}}
 {"jsonrpc":"2.0","id":19,"method":"config.set","params":{"patch":{"idle_minutes":0}}}
 {"jsonrpc":"2.0","id":19,"error":{"code":-32602,"message":"idle_minutes must be at least 1"}}

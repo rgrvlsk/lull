@@ -19,7 +19,7 @@ pub struct Server {
     pub framework: Framework,
     /// Listening ports; empty while `state` is `no-listener` (§4.8).
     pub ports: Vec<u16>,
-    /// `null` until a probe has selected one (§4, "primaryUrl").
+    /// `null` while the server has no listener (§4, "primaryUrl").
     pub primary_url: Option<String>,
     pub origin: Origin,
     /// RFC 3339 wall-clock instant.

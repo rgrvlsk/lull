@@ -1,2 +1,2 @@
 {"jsonrpc":"2.0","id":17,"method":"config.get","params":{}}
-{"jsonrpc":"2.0","id":17,"result":{"idle_minutes":30,"auto_stop":"agent","warn_before_minutes":2,"wake_grace_minutes":5,"tabs_on_stop":"discard","open_with":"","history_size":20,"history_hours":24,"faithful_restart":false,"project":[{"path":"~/dev/example-app","idle_minutes":90}],"agent_marker":[{"env":"MY_AGENT","value":"1","agent":"my-agent"}]}}
+{"jsonrpc":"2.0","id":17,"result":{"idle_minutes":30,"auto_stop":"agent","warn_before_minutes":2,"wake_grace_minutes":5,"tabs_on_stop":"discard","open_with":"","history_size":20,"history_hours":24,"project":[{"path":"~/dev/example-app","idle_minutes":90}],"agent_marker":[{"env":"MY_AGENT","value":"1","agent":"my-agent"}]}}

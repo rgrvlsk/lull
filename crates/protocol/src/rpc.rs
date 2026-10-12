@@ -16,6 +16,8 @@ use crate::server::Server;
 /// `hello` was sent with a different `protocol.major` (§8). `error.data` carries a
 /// [`ProtocolMismatch`].
 pub const PROTOCOL_MISMATCH: i64 = -32010;
+/// `servers.restart` on a stopped-server record without a launch command (§7).
+pub const NOT_RESTARTABLE: i64 = -32011;
 /// JSON-RPC "Invalid params"; used for `config.set` validation errors and rejected
 /// `servers.open` URLs.
 pub const INVALID_PARAMS: i64 = -32602;

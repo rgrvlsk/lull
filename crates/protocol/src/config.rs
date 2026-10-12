@@ -19,7 +19,6 @@ pub struct Config {
     pub open_with: String,
     pub history_size: u32,
     pub history_hours: u32,
-    pub faithful_restart: bool,
     #[serde(rename = "project", skip_serializing_if = "Vec::is_empty")]
     pub projects: Vec<ProjectRule>,
     #[serde(rename = "agent_marker", skip_serializing_if = "Vec::is_empty")]
@@ -37,7 +36,6 @@ impl Default for Config {
             open_with: String::new(),
             history_size: 20,
             history_hours: 24,
-            faithful_restart: false,
             projects: Vec::new(),
             agent_markers: Vec::new(),
         }
@@ -65,8 +63,6 @@ pub struct ConfigPatch {
     pub history_size: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub history_hours: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub faithful_restart: Option<bool>,
     #[serde(rename = "project", skip_serializing_if = "Option::is_none")]
     pub projects: Option<Vec<ProjectRule>>,
     #[serde(rename = "agent_marker", skip_serializing_if = "Option::is_none")]

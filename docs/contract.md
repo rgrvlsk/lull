@@ -1,6 +1,8 @@
 # lull — v1 contract
 
-Status: **accepted for v1** (2026-10-12, after review and grilling). This file is the
+Status: **accepted for v1** (2026-10-12, after review and grilling; revised the same day
+after a three-way scope and safety review: v1 narrowed to daemon + CLI + Chromium
+extension, ADR-0008). This file is the
 single source of truth that the daemon, the browser extension and the menu-bar app are
 built against. Decisions and their reasons live in `docs/adr/`; vocabulary in
 `GLOSSARY.md`. Any change of behaviour updates this file in the same commit.
@@ -27,12 +29,17 @@ Goals (v1)
   (agent / user) and project.
 - G2 Stop idle **agent-started** servers after `idleMinutes` (default 30).
   User-started servers are shown but never auto-stopped unless the user opts in.
-- G3 Keep dev-server tabs in one "Dev" tab group per browser window and use tab
-  visibility as the primary activity signal.
-- G4 Menu-bar app to monitor, open, stop, pin servers and change policy.
+- G3 Keep dev-server tabs in one "Dev" tab group per window of a Chromium browser and
+  use tab visibility as the primary activity signal.
 - G5 A CLI agents can call (`lull open <url>`, `lull ls`).
 - G6 Zero instructions required for correctness; at most one line in agent
   instruction files for convenience.
+
+v1.1 (specified here so v1 does not paint them into a corner, built after v1 ships;
+ADR-0008):
+- G4 Menu-bar app to monitor, open, stop, pin servers and change policy (§10).
+- G3 for Firefox and Zen (§9).
+- Cask distribution with `SMAppService` and signed, notarised artefacts (ADR-0006).
 
 Non-goals (v1): Safari, Windows/Linux UI (core stays portable), *automatic* waking
 (restarting a stopped server when its port is requested) — manual restart from the
@@ -56,20 +63,25 @@ recently-stopped list is in scope (§7) — remote/containers (Docker, VMs).
 - One Rust binary, dispatched by `argv[0]` / subcommand: `lull daemon`,
   `lull <cli-cmd>`, and the symlink `lull-nm-host` (native messaging forbids
   arguments in the manifest `path`).
-- The daemon runs as a per-user LaunchAgent registered by the app via
-  `SMAppService.agent`; it keeps running when the app is closed. v1 ships only as a
-  Homebrew cask (app + embedded binary, `lull` linked onto `PATH`); single instance via
-  `flock` on `~/Library/Application Support/lull/daemon.lock` (ADR-0006).
-- The app is a pure client of the socket; it owns no policy.
+- The daemon runs as a per-user LaunchAgent. v1 ships as a Homebrew formula whose
+  `service` block runs `lull daemon` (`brew services start lull`, ADR-0008). From v1.1
+  the cask's app registers it via `SMAppService.agent` instead (ADR-0006). Either way:
+  single instance via `flock` on `~/Library/Application Support/lull/daemon.lock`.
+- The daemon exits cleanly when its own executable path no longer exists (checked every
+  scan), so after an upgrade launchd restarts it from the new version.
+- The app (v1.1) is a pure client of the socket; it owns no policy.
 
 ## 4. Discovery (daemon)
 
 Scan every `scanIntervalSec` (default 5):
 
-1. Listening TCP sockets of processes owned by the current uid (libproc on macOS;
-   trait `ProcessSource` so Linux `/proc` can be added later).
+1. Listening TCP sockets of processes owned by the current uid (on macOS one
+   `net.inet.tcp.pcblist_n` read finds the listeners and their pids, then libproc reads
+   only those processes and their groups; trait `ProcessSource` so Linux `/proc` can be
+   added later). One scan must stay under 50 ms on the author's machine.
 2. Group by **process group** (pgid). Read argv, env and cwd of every member via
-   `KERN_PROCARGS2` / `proc_pidinfo`.
+   `KERN_PROCARGS2` / `proc_pidinfo`. argv and initial env never change for a running
+   process, so they are cached per (pid, start time).
 3. A *server* = one pgid with ≥1 listener where some listening member's cwd is a
    **project location** — strictly inside `$HOME` but neither `$HOME` itself nor under
    `~/Library`, or under `/tmp`, `/private/tmp`, `/private/var/folders` — and no member's
@@ -77,8 +89,18 @@ Scan every `scanIntervalSec` (default 5):
    other listening group is an **unmanaged listener**: shown only by `lull ls --all`,
    never stopped, no activity tracking.
 4. Exclude **protected** groups: any pgid that contains the daemon itself, an agent
-   runtime (`claude`, `codex`), the T3 Code app or its direct children (e.g. its
-   `cloudflared` tunnel), or a browser. Protected groups are never listed.
+   runtime, the T3 Code app or its direct children (e.g. its `cloudflared` tunnel), or
+   a browser. Protected groups are never listed. Membership is decided by executable
+   path and argv, never by process name alone (an npm-installed Claude Code runs as
+   `node`):
+   - agent runtime: executable basename `claude` or `codex`, or a `node`/`bun` process
+     whose argv names a script inside `@anthropic-ai/claude-code` or `@openai/codex`;
+   - T3 Code: executable inside the T3 Code app bundle, or a direct child of it;
+   - browser: executable inside the app bundle of a browser from the
+     `lull browsers install` table (§9), wherever the bundle is installed. Other
+     installed apps are not protected; they are unmanaged listeners (step 3).
+   The pattern list lives in one table in `crates/core` and every entry has a snapshot
+   fixture.
 5. Classify:
    - `origin.kind = "agent"` if any member's initial env carries an agent marker
      (`CLAUDECODE=1`, `CODEX_THREAD_ID`, or an entry of the built-in marker table —
@@ -106,9 +128,10 @@ Scan every `scanIntervalSec` (default 5):
    with the `started` grace period and is never stopped on the first scan. A corrupt or
    unknown-version file is moved aside (`state.json.corrupt-<ts>`) and the daemon starts
    fresh, logging it.
-8. Incomplete observation: if a member's env, cwd or sockets cannot be read in a scan
-   (process exiting, permission), the server keeps its previous classification and is
-   **not eligible for an automatic stop** in that scan. A server is removed only when
+8. Incomplete observation: if the group's member list, or any member's env, cwd,
+   executable path, controlling tty or sockets cannot be read in a scan (process
+   exiting, permission), the server keeps its previous classification and is **not
+   eligible for an automatic stop** in that scan. Unknown is never treated as safe. A server is removed only when
    its pgid has no members left; losing its listeners while members survive keeps it
    listed with `ports: []` and `state: "no-listener"` (no auto-stop until a listener
    returns or the group exits).
@@ -138,11 +161,11 @@ Scan every `scanIntervalSec` (default 5):
 }
 ```
 
-`primaryUrl`: the listener whose port is not an inspector/internal port (heuristic:
-port mentioned in argv, else lowest port that answers HTTP `HEAD /` within 300 ms;
-inspector ports 9229–9239 are skipped). The probe runs once per server id and is cached,
-re-run only when the server's listener set changes or the previous probe failed.
-Connections opened by the daemon itself never count as activity (§5).
+`primaryUrl`: `http://127.0.0.1:<port>/` for the first of: a listening port mentioned
+in argv or in the `PORT` env of a member, else the lowest listening port that is not an
+inspector port (9229–9239). It is recomputed when the listener set changes. lull never
+sends requests to a server: an HTTP probe would make Next, Nuxt or Astro compile routes
+just to be labelled. Connections opened by the daemon itself never count as activity (§5).
 
 ## 5. Activity model
 
@@ -152,11 +175,19 @@ A server is **active** at time *t* if any source fired within the last
 | Source | Fires when | Notes |
 |---|---|---|
 | `tab` | one of the server's tabs is **visible** (`document.visibilityState == "visible"`, reported by a content script) and the OS user is present (`idle.queryState(60) == "active"`), whether or not its window has focus | heartbeat every 30 s while the condition holds; primary signal. Focus is used only for display and `open` routing. A visible window on a second monitor counts — that is intended |
-| `traffic` | a **new** TCP connection to one of the server's ports from a process outside the group (ntstat event; fallback: 5-tuple not seen in the previous scan) | catches new page loads, Playwright, curl; traffic on already-open connections (keep-alive reloads, HMR websockets) does not count |
+| `traffic` | (a) a **new** TCP connection to one of the server's ports from a process outside the group (ntstat event; fallback: 5-tuple not seen in the previous scan), or (b) at a scan, an **established** connection from a process outside the group that is not a *covered browser* | (a) catches new page loads, Playwright, curl. (b) keeps a server alive while an uninstrumented client holds a connection open — an HMR websocket from a browser without the extension, as the prototype did. Connections from covered browsers count only through (a); their open tabs are judged by `tab` |
 | `started` | server first seen | grace period = `idleMinutes` |
 | `manual` | user/agent ran `open`, `touch`, or un-pinned | |
 
 CPU is reported for display only and is **not** an activity source.
+
+**Covered browser:** a browser process with a live extension connection, plus all its
+descendants (Chromium opens connections from a network-service helper, not the main
+process). The daemon learns it per connection: `LOCAL_PEERPID` on the socket gives the
+nm-host's pid, whose parent is the browser. A connected browser covers only itself:
+another browser or profile without the extension stays uncovered, and its established
+connections keep servers alive through `traffic` (b). With no browser connected (all of
+M1), every established outside connection counts.
 
 Clock: idle time counts **awake time only**. Activity instants are kept as
 `CLOCK_UPTIME_RAW` (stops while the Mac sleeps) plus `kern.bootsessionuuid`; persisted
@@ -174,7 +205,12 @@ belongs to a server and its client end is owned by a pid outside the group and o
 the daemon. This catches 50 ms agent `curl`s that a periodic scan misses. If the control
 socket cannot be opened (`net.statistics_privcheck=1`) or reports an unknown message
 version, the daemon falls back to diffing the group's accepted sockets every scan and
-reports `activityBackend: "scan"` in `hello`/`lull doctor`.
+reports `activityBackend: "scan"` in `hello`/`lull doctor`. The scan fallback only sees
+connections that are open at a scan instant, so it misses most requests shorter than
+`scanIntervalSec`; `traffic` (b) and `tab` carry the load in that mode. A backend that
+fails while running (socket closed, read errors) reports itself unhealthy; the daemon
+switches to the scan fallback, and no server is stopped until one full scan interval
+has run on the new backend.
 
 ## 6. Policy
 
@@ -194,7 +230,6 @@ tabs_on_stop = "discard"     # "discard" | "close" | "keep"
 open_with = ""               # app for open(1) when no browser is connected; "" = system default
 history_size = 20
 history_hours = 24
-faithful_restart = false     # store env in $TMPDIR for faithful restarts (§7)
 
 [[project]]
 path = "~/dev/example-app"   # `~` expanded; prefix match on whole path components of cwd
@@ -211,6 +246,10 @@ persisted. `DEVSERVER_KEEP` from the prototype is **not** honoured.
 
 ## 7. Stopping
 
+A stop always targets the **whole process group**: every member, including ones that
+do not listen (a worker or watcher the agent started in the same command), ends with
+the server. That is the meaning of *server* in the glossary, not a side effect.
+
 Stop state machine: `running → stopping-soon → stopping → (removed)`. Any activity,
 pin, `autoStop` change or policy change that makes the server ineligible returns
 `stopping-soon → running`; once `SIGTERM` is sent the stop cannot be cancelled. A manual
@@ -220,20 +259,36 @@ pin, `autoStop` change or policy change that makes the server ineligible returns
    shows a notification with *Keep alive* (→ `manual` activity). The warning is a
    courtesy: with no app connected the stop proceeds on time and is logged and listed
    under *Recently stopped*.
-2. At `stopsAt`: `SIGTERM` to the pgid, `state = "stopping"`, non-blocking.
-3. After 5 s, `SIGKILL` to whatever remains in the pgid.
-4. Emit `server.removed {id, reason}` and apply `tabs_on_stop` to the server's tabs in
+2. At `stopsAt`, an automatic stop first takes a fresh observation of the group and
+   proceeds only if it is complete (§4.8) and the server is still eligible (origin,
+   policy, pin, no activity, not in wake grace). Then `SIGTERM` to the pgid,
+   `state = "stopping"`, non-blocking.
+3. After 5 s, `SIGKILL` to whatever remains in the pgid. If the witness check below
+   fails here — every member recorded at decision time has exited but the group still
+   has members — the stop is **aborted**: no `SIGKILL`, no `server.removed`, no tab
+   action, no stopped-server record. The server returns to `running` with `manual`
+   activity, and the abort is logged and shown by `lull doctor`.
+4. Only once the pgid has no members left: emit `server.removed {id, reason}` and apply
+   `tabs_on_stop` to the server's tabs in
    every connected browser: `discard` (default — `tabs.discard`: the tab keeps its URL
    and place in the Dev group but frees its memory; the active tab cannot be discarded
-   and is left as is), `close`, or `keep`.
+   and is left as is), `close`, or `keep`. If members survive 5 s after `SIGKILL`
+   (uninterruptible sleep), the server stays in `stopping`, is logged and shown by
+   `lull doctor`, and is removed when the group finally empties.
 5. Append a line to `~/Library/Logs/lull.log`.
 6. Record a **stopped-server record** in `state.json` history (last `history_size` = 20
    entries, none older than `history_hours` = 24): `{id, project, framework, command,
    argv, cwd, ports, origin, stoppedAt, reason, restartEnv, tabs, status}` with
-   `status ∈ {stopped, restarting, restartFailed}`. `argv` is the oldest
-   member's argv captured when the server was first seen (e.g. `npm run dev`).
-   `restartEnv` keeps only `PORT`, `HOST`, `NODE_ENV` when present. Servers that exit on
-   their own (`reason: "exited"`) are recorded too.
+   `status ∈ {stopped, restarting, restartFailed}`. `command` is the shell-quoted
+   launch command (below), or the oldest member's command line when there is none; it
+   is what Copy command copies. `argv` is the **launch command**, captured when
+   the server was first seen: walk up from a listening member through parents that are
+   still in the group; take the topmost, and if it is a shell run with `-c` (an agent
+   harness wrapper, or `sh -c 'migrate; dev'`), take its child on that path instead
+   (e.g. `npm run dev`). If no launch command can be found, `argv` is empty and the
+   record cannot be restarted, only copied. `restartEnv` keeps only `PORT`, `HOST`,
+   `NODE_ENV` when present. Servers that exit on their own (`reason: "exited"`) are
+   recorded too.
 
 ### Restart (ADR-0005)
 
@@ -243,11 +298,10 @@ pin, `autoStop` change or policy change that makes the server ineligible returns
   (`setsid`, so a new pgid outside the daemon's), stdin `/dev/null`, stdout+stderr to
   `~/Library/Logs/lull/restart-<id>.log`. The environment is the user's login-shell
   environment plus `restartEnv` — never the original environment, so secrets are not
-  persisted and agent markers are dropped.
-- Optional `faithful_restart = true`: at first sight the daemon also stores the server's
-  initial env minus agent markers in `$TMPDIR/lull/env/<id>.json` (`0600`; `$TMPDIR` is
-  per-user `0700` and emptied by macOS at boot), and restart applies it on top of the
-  login env. Lost after a reboot by design.
+  persisted and agent markers are dropped. (The opt-in env-preserving restart of
+  ADR-0005 is deferred past v1.)
+- A record with an empty `argv` is refused with error `-32011 not_restartable`; clients
+  offer Copy command and Open terminal instead.
 - The restarted process has no agent marker and no tty, so it is classified
   `origin.kind = "user"` and not auto-stopped by default; it gets a new id. The record is
   marked `restarting` (a second restart of the same record is refused) and removed from
@@ -287,7 +341,7 @@ recent stop.
 | `servers.setAutoStop` | `{id, autoStop: bool \| null}` | `Server` — per-server override; `null` clears it |
 | `servers.touch` | `{id}` | `Server` (manual activity) |
 | `servers.history` | `{}` | `StoppedServer[]` |
-| `servers.restart` | `{id}` (stopped-server record) | `{pid}` |
+| `servers.restart` | `{id}` (stopped-server record) | `{pid}` — a record without a launch command is refused with error `-32011 not_restartable` (§7) |
 | `servers.forget` | `{id}` | `{}` — drop a stopped-server record |
 | `servers.open` | `{id, path?}` or `{url}` | `{opened: bool, browser?}` — routed to a connected browser, else `open(1)` with the configured browser. `url` must be `http(s)` with a loopback or `*.localhost` host; anything else is rejected (never passed to `open(1)`) |
 | `config.get` / `config.set` | `{}` / `{patch}` | `Config` |
@@ -348,10 +402,10 @@ Delivery rules:
   windows as hidden; Firefox never treats its key window as occluded.
 - Executes `tab.*` commands.
 - Without the daemon running, the extension does nothing and shows a badge.
-- Builds: one MV3 codebase, two manifests — Chromium (service worker) and Firefox
-  (event page; minimum Firefox 139 for `tabGroups`). In both, the open native port keeps
+- Builds: one MV3 codebase, two manifests — Chromium (service worker, v1) and Firefox
+  (event page, v1.1; minimum Firefox 139 for `tabGroups`). In both, the open native port keeps
   the background alive; a 30 s `alarms` tick reconnects the port if it was dropped.
-  Zen: M3 starts with a spike on Zen 1.23 — if API-created groups do not render
+  Zen (v1.1): M3 starts with a spike on Zen 1.23 — if API-created groups do not render
   correctly or collide with Zen folders, Zen runs with grouping disabled (visibility,
   open, discard still work) until fixed.
   Verified facts: Chrome ≥105 keeps the service worker alive while a native port is
@@ -376,7 +430,10 @@ Delivery rules:
   against the allowed extension ids, caps messages at 1 MiB, and never logs tab URLs
   beyond origin + path.
 
-## 10. Menu-bar app
+## 10. Menu-bar app (v1.1)
+
+Until the app exists, v1 has no stopping-soon notification; stops are listed by
+`lull history` and logged (§7).
 
 - Minimum macOS 14 Sonoma (whole product).
 - Not sandboxed (Developer ID distribution): a sandboxed app cannot reach the socket.
@@ -421,33 +478,45 @@ GLOSSARY.md      domain vocabulary
 
 ## 13. Milestones
 
+v1:
 1. **M1** daemon + CLI (`ls`, `stop`, `pin`, `open`, `restart`, `doctor`, `daemon`)
-   with `traffic` activity; replaces the bash reaper by direct cutover:
-   `scripts/retire-prototype.sh` boots out `local.devserver-reaper` and removes its
-   plist and state, then the dev LaunchAgent for lull is loaded. No `DEVSERVER_KEEP`
-   alias.
-2. **M2** nm-host + Chromium extension (Helium first), `tab` activity, grouping.
-3. **M3** Firefox/Zen build.
-4. **M4** menu-bar app.
-5. **M5** packaging: Homebrew cask, signing/notarisation, unlisted AMO signing with
-   self-hosted updates, unpacked Chromium bundle (ADR-0007). (Before M4
-   the daemon runs through the dev-only `scripts/dev-launchagent.sh`, ADR-0006.)
+   with `traffic` activity, including established connections (§5); replaces the bash
+   reaper by direct cutover: `scripts/retire-prototype.sh` boots out
+   `local.devserver-reaper` and removes its plist and state, then the dev
+   LaunchAgent for lull is loaded. No `DEVSERVER_KEEP` alias.
+2. **M2** nm-host + Chromium extension (Helium first), `tab` activity, covered
+   browsers, grouping.
+3. **v1 release** Homebrew formula in `rgrvlsk/homebrew-tap` with a `service` block,
+   shipping the unpacked Chromium extension (ADR-0007, ADR-0008).
+
+v1.1:
+4. **M3** Firefox/Zen build, unlisted AMO signing with self-hosted updates.
+5. **M4** menu-bar app.
+6. **M5** cask packaging: app embedding the binary, `SMAppService`, Developer ID
+   signing and notarisation (ADR-0006); the formula is retired in favour of the cask.
+
+Until the formula exists the daemon runs through the dev-only
+`scripts/dev-launchagent.sh`.
 
 ## 14. Identifiers and licence
 
 - Reverse-DNS prefix `io.github.rgrvlsk.lull`: app bundle id `io.github.rgrvlsk.lull`,
-  LaunchAgent label `io.github.rgrvlsk.lull.daemon`, native-messaging host
+  LaunchAgent label `io.github.rgrvlsk.lull.daemon` (dev script and v1.1 app; under the
+  v1 formula `brew services` names it `homebrew.mxcl.lull`), native-messaging host
   `io.github.rgrvlsk.lull`, AMO add-on id `lull@rgrvlsk.github.io`.
 - Licence: `MIT OR Apache-2.0` (`LICENSE-MIT`, `LICENSE-APACHE`).
-- Signing: app, embedded `lull` binary and the `lull-nm-host` link target are signed with
-  Developer ID + hardened runtime and notarised in CI (certificate and notary key are
-  GitHub Actions secrets).
-- Cask lives in the tap `rgrvlsk/homebrew-tap`: `brew install --cask rgrvlsk/tap/lull`.
-- Privacy: lull makes no network requests other than the loopback `HEAD` probe — no
-  telemetry, no update checks of its own (Homebrew and the AMO `update_url` handle
-  updates).
+- Distribution: v1 is a formula in the tap `rgrvlsk/homebrew-tap`
+  (`brew install rgrvlsk/tap/lull`, then `brew services start lull`); Homebrew builds
+  or bottles the binary, so v1 needs no Developer ID. v1.1 replaces it with the cask
+  `brew install --cask rgrvlsk/tap/lull`.
+- Signing (v1.1): app, embedded `lull` binary and the `lull-nm-host` link target are
+  signed with Developer ID + hardened runtime and notarised in CI (certificate and
+  notary key are GitHub Actions secrets).
+- Privacy: lull makes no network requests at all — no probes, no telemetry, no update
+  checks of its own (Homebrew and the AMO `update_url` handle updates).
 
 ## 15. Open decisions
 
 ~~OPEN-1~~ (ADR-0001) · ~~OPEN-2~~ (ADR-0003) · ~~OPEN-3~~ (§9) · ~~OPEN-4~~ (post-v1,
-§11) · ~~OPEN-5~~ (§14) · ~~OPEN-6~~ (ADR-0007) · ~~OPEN-7~~ (§14).
+§11) · ~~OPEN-5~~ (§14) · ~~OPEN-6~~ (ADR-0007) · ~~OPEN-7~~ (§14) · ~~OPEN-8~~ v1
+scope (ADR-0008).
