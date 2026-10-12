@@ -23,4 +23,4 @@ pub use server::{Activity, Agent, Framework, Origin, OriginKind, Server, ServerS
 ///
 /// A different `major` is rejected with [`rpc::PROTOCOL_MISMATCH`]; `minor` grows with
 /// compatible additions.
-pub const PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion { major: 1, minor: 1 };
+pub const PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion { major: 1, minor: 2 };

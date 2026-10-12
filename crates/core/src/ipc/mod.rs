@@ -506,10 +506,11 @@ impl Daemon {
             // otherwise a new tab opens in the most recently focused browser. Either way
             // the reply waits for that browser's ack (§8).
             let (browser, id) = match self.browsers.tab_showing(&url) {
-                Some((browser, tab)) if !background => (
-                    browser,
-                    self.command(browser, "tab.focus", json!({"tabId": tab})),
-                ),
+                Some((browser, tab)) if !background => {
+                    let ports = self.ports_of(id.as_deref(), &url);
+                    let params = json!({"tabId": tab, "ports": ports});
+                    (browser, self.command(browser, "tab.focus", params))
+                }
                 Some((browser, _)) => {
                     let name = self.browsers.name(browser).map(str::to_owned);
                     return Ok(json!(OpenResult {
@@ -639,8 +640,10 @@ impl Daemon {
                     server_id,
                 } => {
                     self.browsers.rebind(&record_id, &server_id);
+                    let ports = self.ports_of(Some(&server_id), "");
                     for (browser, tab_ids) in self.browsers.bound_tabs(&server_id) {
-                        self.command(browser, "tab.reload", json!({"tabIds": tab_ids}));
+                        let params = json!({"tabIds": tab_ids, "ports": ports});
+                        self.command(browser, "tab.reload", params);
                     }
                 }
                 Effect::StopAborted { .. }
@@ -674,9 +677,27 @@ impl Daemon {
             TabsOnStop::Close => "tab.close",
             TabsOnStop::Keep => return,
         };
+        let ports = self.ports_of(Some(id), "");
         for (browser, tab_ids) in self.browsers.bound_tabs(id) {
-            self.command(browser, method, json!({"tabIds": tab_ids}));
+            self.command(browser, method, json!({"tabIds": tab_ids, "ports": ports}));
         }
+    }
+
+    /// Ports of a live server or stopped-server record, else the port of `url`: what a
+    /// `tab.*` command lets the extension act on (protocol 1.2).
+    fn ports_of(&self, id: Option<&str>, url: &str) -> Vec<u16> {
+        let live = id.and_then(|id| self.observed(id)).map(|s| s.ports.clone());
+        let stopped = || {
+            let history = self.lifecycle.history();
+            history
+                .into_iter()
+                .find(|h| Some(h.id.as_str()) == id)
+                .map(|h| h.ports)
+        };
+        live.or_else(stopped)
+            .filter(|p| !p.is_empty())
+            .or_else(|| loopback_url_port(url).map(|p| vec![p]))
+            .unwrap_or_default()
     }
 
     /// Milliseconds until the next scan is due.

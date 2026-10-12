@@ -385,8 +385,11 @@ Delivery rules:
 
 ### Daemon → browser commands (notifications the extension must act on)
 
-`tab.open {url, focus: bool}`, `tab.close {tabIds}`, `tab.discard {tabIds}`,
-`tab.reload {tabIds}`, `tab.focus {tabId}`.
+`tab.open {url, focus: bool}`, `tab.close {tabIds, ports?}`, `tab.discard {tabIds, ports?}`,
+`tab.reload {tabIds, ports?}`, `tab.focus {tabId, ports?}`. `ports` (protocol 1.2) are the
+ports of the server the command is about: the extension acts on a tab only while its
+current URL is loopback on one of them, so a tab that navigated elsewhere after the command
+was sent is left alone and the ack is an error.
 
 ## 9. Browser extension
 

@@ -384,12 +384,19 @@ pub struct TabOpen {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TabIds {
     pub tab_ids: Vec<i64>,
+    /// Ports of the server the command is about (protocol 1.2). The extension acts on a
+    /// tab only while its URL is loopback on one of them; absent → origin re-check only.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ports: Vec<u16>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TabId {
     pub tab_id: i64,
+    /// As in [`TabIds::ports`] (protocol 1.2).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ports: Vec<u16>,
 }
 
 /// Acknowledgement of a browser command: `{ok: true}` or `{error}` (§8, delivery rules).

@@ -120,6 +120,7 @@ fn requests_are_tagged_by_method() {
 
     let c = BrowserCommand::TabDiscard(TabIds {
         tab_ids: vec![1, 2],
+        ports: Vec::new(),
     });
     assert_eq!(
         json!(c),

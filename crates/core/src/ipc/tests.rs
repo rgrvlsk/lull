@@ -426,6 +426,8 @@ fn a_stopped_servers_tabs_are_discarded_in_the_browser() {
         .unwrap();
     assert_eq!(cmd["method"], "tab.discard");
     assert_eq!(cmd["params"]["tabIds"], json!([812]));
+    // The stopped record's ports travel along (protocol 1.2).
+    assert_eq!(cmd["params"]["ports"], json!([5187]));
     // The tab stays bound to the stopped-server record.
     let history = reply(
         &h.d.handle_line(
@@ -478,6 +480,7 @@ fn open_routes_to_the_browser_and_answers_after_its_ack() {
     let outs = h.d.handle_line(1, r#"{"jsonrpc":"2.0","id":8,"method":"servers.open","params":{"url":"http://127.0.0.1:5187/"}}"#);
     let cmd = lines(&outs, 2).remove(0);
     assert_eq!(cmd["method"], "tab.focus");
+    assert_eq!(cmd["params"]["ports"], json!([5187]));
     let ack = json!({"jsonrpc": "2.0", "id": cmd["id"], "result": {"ok": true}}).to_string();
     h.d.connected(3, None, false);
     assert!(
