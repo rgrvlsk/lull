@@ -1,7 +1,7 @@
-// Decodes every golden exchange in ../../protocol/fixtures. In M0 only the JSON-RPC
-// envelope is checked; the typed decode against the extension's own protocol types is
-// skipped until WP2.2 provides them.
+// Every golden line must pass the extension's wire guards, including CLI/app methods.
 import { test } from "node:test";
+import { decodeMessage } from "../src/protocol.ts";
+import type { Method } from "../src/protocol.ts";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -37,5 +37,27 @@ for (const file of files) {
     assert.equal(pending.size, 0, `${file}: unanswered requests`);
   });
 
-  test(`${file} decodes with the extension's typed protocol`, { skip: "until WP2.2" }, () => {});
+  test(`${file} decodes with the extension's typed protocol`, () => {
+    const pending = new Map<number | string, Method>();
+    for (const line of readFileSync(join(fixturesDir, file), "utf8").trimEnd().split("\n")) {
+      const raw: unknown = JSON.parse(line);
+      const envelope = raw as Envelope;
+      const message = decodeMessage(raw, envelope.id === undefined ? undefined : pending.get(envelope.id));
+      assert.deepEqual(message, raw);
+      if ("method" in message && "id" in message) pending.set(message.id, message.method);
+      else if ("id" in message) pending.delete(message.id);
+    }
+    assert.equal(pending.size, 0);
+  });
 }
+
+test("wire guards reject malformed payloads and unknown fields", () => {
+  const request = { jsonrpc: "2.0", id: "d1", method: "tab.open", params: { url: "http://localhost:5187", focus: false } };
+  for (const params of [{ url: 42, focus: true }, { url: "http://localhost", focus: "false" }, { ...request.params, extra: true }]) {
+    assert.throws(() => decodeMessage({ ...request, params }));
+  }
+  assert.throws(() => decodeMessage({ ...request, id: null }));
+  assert.throws(() => decodeMessage({ jsonrpc: "2.0", id: 1, result: { ok: true }, error: { code: 1, message: "no" } }, "tab.open"));
+  assert.throws(() => decodeMessage({ jsonrpc: "2.0", method: "server.removed", params: { seq: -1, id: "s", reason: "idle" } }));
+  assert.throws(() => decodeMessage({ jsonrpc: "2.0", id: 1, result: { seq: 1, servers: [{ id: "only-an-id" }] } }, "subscribe"));
+});
