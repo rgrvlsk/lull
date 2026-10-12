@@ -1,0 +1,19 @@
+[package]
+name = "lull"
+description = "lull binary: daemon, CLI and native-messaging host (argv[0] dispatch)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "lull"
+path = "src/main.rs"
+
+[dependencies]
+lull-core = { workspace = true }
+lull-protocol = { workspace = true }
+
+[lints]
+workspace = true
