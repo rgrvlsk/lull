@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, IsTerminal, Write};
 use std::os::fd::AsRawFd;
 use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
 use std::os::unix::net::{UnixListener, UnixStream};
@@ -24,6 +24,8 @@ use lull_core::platform::macos::{
 };
 use lull_core::state::FileStateStore;
 use lull_core::traits::ConfigStore;
+
+use ratatui::crossterm::style::Stylize;
 
 use crate::paths::{Paths, home};
 
@@ -73,6 +75,13 @@ fn serve(dry_run: bool) -> io::Result<()> {
             None
         }
     };
+    // Started by hand in a terminal rather than by launchd: say what is running, echo
+    // events, and let Enter open the UI next to it.
+    if io::stdin().is_terminal() && io::stdout().is_terminal() {
+        banner(&paths, ntstat.is_some(), dry_run);
+        log.echo = true;
+        thread::spawn(open_ui_on_enter);
+    }
     let scan_ms = env_u64("LULL_SCAN_MS").unwrap_or(5_000);
     let platform = Platform {
         source: Box::new(MacProcessSource::new()),
@@ -257,6 +266,8 @@ impl ConfigStore for FileConfigStore {
 /// `~/Library/Logs/lull.log`, rotated once to `lull.log.1` past 1 MiB.
 struct Logger {
     path: PathBuf,
+    /// Also print each line to the terminal the daemon was started from.
+    echo: bool,
 }
 
 impl Logger {
@@ -264,7 +275,7 @@ impl Logger {
         if let Some(dir) = path.parent() {
             let _ = fs::create_dir_all(dir);
         }
-        Logger { path }
+        Logger { path, echo: false }
     }
 
     fn line(&mut self, line: &str) {
@@ -278,6 +289,76 @@ impl Logger {
             .open(&self.path)
         {
             let _ = writeln!(f, "{stamp} {line}");
+        }
+        if self.echo {
+            // Lines name processes and commands, which agents control (ADR-0009).
+            println!("  {}  {}", clock().dim(), crate::ui::clean(line));
+        }
+    }
+}
+
+/// Local wall-clock time, `HH:MM:SS`.
+fn clock() -> String {
+    // SAFETY: `time` and `localtime_r` write only to the values we pass.
+    let tm = unsafe {
+        let t = libc::time(std::ptr::null_mut());
+        let mut tm: libc::tm = std::mem::zeroed();
+        libc::localtime_r(&t, &mut tm);
+        tm
+    };
+    format!("{:02}:{:02}:{:02}", tm.tm_hour, tm.tm_min, tm.tm_sec)
+}
+
+fn banner(paths: &Paths, ntstat: bool, dry_run: bool) {
+    let (l, u) = (["█   ", "█   ", "█▄▄ "], ["█  █", "█  █", "▀▄▄▀"]);
+    let side = [
+        String::new(),
+        format!("   lull {}", env!("CARGO_PKG_VERSION"))
+            .bold()
+            .to_string(),
+        "   stops the dev servers you forgot".dim().to_string(),
+    ];
+    println!();
+    for i in 0..3 {
+        let row = [l[i], u[i], l[i], l[i]].join("  ");
+        println!("  {}{}", row.cyan(), side[i]);
+    }
+    let backend = if ntstat { "ntstat" } else { "scan" };
+    let dry = if dry_run {
+        " · dry run, nothing is stopped"
+    } else {
+        ""
+    };
+    println!();
+    println!(
+        "  {} daemon running · pid {} · {backend}{dry}",
+        "●".green(),
+        std::process::id()
+    );
+    let tilde = |p: PathBuf| crate::ui::tilde(&p.display().to_string());
+    println!("    {}  {}", "socket".dim(), tilde(paths.socket()));
+    println!("    {}     {}", "log".dim(), tilde(paths.log_file()));
+    println!();
+    match crate::ui::tab::target() {
+        Some(place) => println!("  {} open the UI in {place}", "⏎".bold()),
+        None => println!(
+            "  open the UI from another tab: {}",
+            crate::ui::tab::typed().bold()
+        ),
+    }
+    println!("  {} stop the daemon", "ctrl-c".bold());
+    println!();
+}
+
+/// Enter in the daemon's terminal opens the UI next to it.
+fn open_ui_on_enter() {
+    for line in io::stdin().lines() {
+        if line.is_err() {
+            return;
+        }
+        match crate::ui::tab::open() {
+            Ok(place) => println!("  opened the UI in {place}"),
+            Err(e) => println!("  {e}"),
         }
     }
 }

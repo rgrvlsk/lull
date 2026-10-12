@@ -6,7 +6,10 @@
 //! uses no CPU.
 
 mod app;
+pub mod tab;
 mod view;
+
+pub(crate) use app::{clean, tilde};
 
 use std::collections::HashMap;
 use std::io::{self, BufRead, IsTerminal, Write};
