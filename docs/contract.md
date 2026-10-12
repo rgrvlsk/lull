@@ -409,11 +409,13 @@ Delivery rules:
 ## 12. Repository layout
 
 ```
-crates/core      discovery, activity, policy, stop (platform traits)
+crates/protocol  wire types (serde) — the one definition of §4/§7/§8 shapes
+crates/core      discovery, activity, policy, stop (platform traits + fakes)
 crates/cli       binary: daemon, CLI, nm-host
+protocol/        golden NDJSON fixtures every client decodes in tests
 extension/       shared TS source, manifests/{chromium,firefox}.json
 macos/           SwiftUI app (SwiftPM + Xcode project), embeds the binary
-docs/            contract.md, adr/
+docs/            contract.md, adr/, plan.md
 GLOSSARY.md      domain vocabulary
 ```
 

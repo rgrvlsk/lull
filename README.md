@@ -10,7 +10,7 @@ and stops idle servers after 30 minutes.
 - Browser extension for Chromium (Helium, Chrome, Brave, Edge) and Firefox/Zen
 - macOS menu-bar app
 
-**Status:** design phase. Start with [`docs/contract.md`](docs/contract.md).
+**Status:** design complete, implementation not started. Start with [`docs/contract.md`](docs/contract.md); decisions in [`docs/adr/`](docs/adr/), vocabulary in [`GLOSSARY.md`](GLOSSARY.md), work breakdown in [`docs/plan.md`](docs/plan.md).
 
 ## License
 
