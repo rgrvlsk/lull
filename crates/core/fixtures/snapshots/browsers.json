@@ -1,0 +1,745 @@
+{
+ "processes": [
+  {
+   "pid": 60000,
+   "pgid": 60000,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/Users/x/Downloads/Helium.app/Contents/MacOS/Helium",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/Users/x/Downloads/Helium.app/Contents/MacOS/Helium",
+    "--remote-debugging-port=9300"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60001,
+   "pgid": 60000,
+   "ppid": 60000,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/Users/x/Downloads/Helium.app/Contents/Frameworks/Helium Framework.framework/Versions/131.0/Helpers/Helium Helper.app/Contents/MacOS/Helium Helper",
+   "parentExe": "/Users/x/Downloads/Helium.app/Contents/MacOS/Helium",
+   "argv": [
+    "/Users/x/Downloads/Helium.app/Contents/Frameworks/Helium Framework.framework/Versions/131.0/Helpers/Helium Helper.app/Contents/MacOS/Helium Helper",
+    "--type=utility"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60010,
+   "pgid": 60010,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "--remote-debugging-port=9301"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60011,
+   "pgid": 60010,
+   "ppid": 60010,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/131.0/Helpers/Google Chrome Helper.app/Contents/MacOS/Google Chrome Helper",
+   "parentExe": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+   "argv": [
+    "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/131.0/Helpers/Google Chrome Helper.app/Contents/MacOS/Google Chrome Helper",
+    "--type=utility"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60020,
+   "pgid": 60020,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Google Chrome Beta.app/Contents/MacOS/Google Chrome Beta",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Google Chrome Beta.app/Contents/MacOS/Google Chrome Beta",
+    "--remote-debugging-port=9302"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60021,
+   "pgid": 60020,
+   "ppid": 60020,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Google Chrome Beta.app/Contents/Frameworks/Google Chrome Beta Framework.framework/Versions/131.0/Helpers/Google Chrome Beta Helper.app/Contents/MacOS/Google Chrome Beta Helper",
+   "parentExe": "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Google Chrome Beta.app/Contents/MacOS/Google Chrome Beta",
+   "argv": [
+    "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Google Chrome Beta.app/Contents/Frameworks/Google Chrome Beta Framework.framework/Versions/131.0/Helpers/Google Chrome Beta Helper.app/Contents/MacOS/Google Chrome Beta Helper",
+    "--type=utility"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60030,
+   "pgid": 60030,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/Users/x/Downloads/Google Chrome Dev.app/Contents/MacOS/Google Chrome Dev",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/Users/x/Downloads/Google Chrome Dev.app/Contents/MacOS/Google Chrome Dev",
+    "--remote-debugging-port=9303"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60031,
+   "pgid": 60030,
+   "ppid": 60030,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/Users/x/Downloads/Google Chrome Dev.app/Contents/Frameworks/Google Chrome Dev Framework.framework/Versions/131.0/Helpers/Google Chrome Dev Helper.app/Contents/MacOS/Google Chrome Dev Helper",
+   "parentExe": "/Users/x/Downloads/Google Chrome Dev.app/Contents/MacOS/Google Chrome Dev",
+   "argv": [
+    "/Users/x/Downloads/Google Chrome Dev.app/Contents/Frameworks/Google Chrome Dev Framework.framework/Versions/131.0/Helpers/Google Chrome Dev Helper.app/Contents/MacOS/Google Chrome Dev Helper",
+    "--type=utility"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60040,
+   "pgid": 60040,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+    "--remote-debugging-port=9304"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60041,
+   "pgid": 60040,
+   "ppid": 60040,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/Applications/Google Chrome Canary.app/Contents/Frameworks/Google Chrome Canary Framework.framework/Versions/131.0/Helpers/Google Chrome Canary Helper.app/Contents/MacOS/Google Chrome Canary Helper",
+   "parentExe": "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+   "argv": [
+    "/Applications/Google Chrome Canary.app/Contents/Frameworks/Google Chrome Canary Framework.framework/Versions/131.0/Helpers/Google Chrome Canary Helper.app/Contents/MacOS/Google Chrome Canary Helper",
+    "--type=utility"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60050,
+   "pgid": 60050,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "--remote-debugging-port=9305"
+   ],
+   "env": {
+    "CLAUDECODE": "1",
+    "CLAUDE_CODE_SESSION_ID": "d263f0c2-5b1e-4f7a-9c11-2e8f7d4b6a90"
+   },
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60051,
+   "pgid": 60050,
+   "ppid": 60050,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/131.0/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper",
+   "parentExe": "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+   "argv": [
+    "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/131.0/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper",
+    "--type=utility"
+   ],
+   "env": {
+    "CLAUDECODE": "1",
+    "CLAUDE_CODE_SESSION_ID": "d263f0c2-5b1e-4f7a-9c11-2e8f7d4b6a90"
+   },
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60060,
+   "pgid": 60060,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/Users/x/Downloads/Chromium.app/Contents/MacOS/Chromium",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/Users/x/Downloads/Chromium.app/Contents/MacOS/Chromium",
+    "--remote-debugging-port=9306"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60061,
+   "pgid": 60060,
+   "ppid": 60060,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/Users/x/Downloads/Chromium.app/Contents/Frameworks/Chromium Framework.framework/Versions/131.0/Helpers/Chromium Helper.app/Contents/MacOS/Chromium Helper",
+   "parentExe": "/Users/x/Downloads/Chromium.app/Contents/MacOS/Chromium",
+   "argv": [
+    "/Users/x/Downloads/Chromium.app/Contents/Frameworks/Chromium Framework.framework/Versions/131.0/Helpers/Chromium Helper.app/Contents/MacOS/Chromium Helper",
+    "--type=utility"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60070,
+   "pgid": 60070,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+    "--remote-debugging-port=9307"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60071,
+   "pgid": 60070,
+   "ppid": 60070,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/Applications/Brave Browser.app/Contents/Frameworks/Brave Browser Framework.framework/Versions/131.0/Helpers/Brave Browser Helper.app/Contents/MacOS/Brave Browser Helper",
+   "parentExe": "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+   "argv": [
+    "/Applications/Brave Browser.app/Contents/Frameworks/Brave Browser Framework.framework/Versions/131.0/Helpers/Brave Browser Helper.app/Contents/MacOS/Brave Browser Helper",
+    "--type=utility"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60080,
+   "pgid": 60080,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+    "--remote-debugging-port=9308"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60081,
+   "pgid": 60080,
+   "ppid": 60080,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Microsoft Edge.app/Contents/Frameworks/Microsoft Edge Framework.framework/Versions/131.0/Helpers/Microsoft Edge Helper.app/Contents/MacOS/Microsoft Edge Helper",
+   "parentExe": "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+   "argv": [
+    "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Microsoft Edge.app/Contents/Frameworks/Microsoft Edge Framework.framework/Versions/131.0/Helpers/Microsoft Edge Helper.app/Contents/MacOS/Microsoft Edge Helper",
+    "--type=utility"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60090,
+   "pgid": 60090,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/Users/x/Downloads/Arc.app/Contents/MacOS/Arc",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/Users/x/Downloads/Arc.app/Contents/MacOS/Arc",
+    "--remote-debugging-port=9309"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60091,
+   "pgid": 60090,
+   "ppid": 60090,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/Users/x/Downloads/Arc.app/Contents/Frameworks/Arc Framework.framework/Versions/131.0/Helpers/Arc Helper.app/Contents/MacOS/Arc Helper",
+   "parentExe": "/Users/x/Downloads/Arc.app/Contents/MacOS/Arc",
+   "argv": [
+    "/Users/x/Downloads/Arc.app/Contents/Frameworks/Arc Framework.framework/Versions/131.0/Helpers/Arc Helper.app/Contents/MacOS/Arc Helper",
+    "--type=utility"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60100,
+   "pgid": 60100,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/Applications/Vivaldi.app/Contents/MacOS/Vivaldi",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/Applications/Vivaldi.app/Contents/MacOS/Vivaldi",
+    "--remote-debugging-port=9310"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60101,
+   "pgid": 60100,
+   "ppid": 60100,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/Applications/Vivaldi.app/Contents/Frameworks/Vivaldi Framework.framework/Versions/131.0/Helpers/Vivaldi Helper.app/Contents/MacOS/Vivaldi Helper",
+   "parentExe": "/Applications/Vivaldi.app/Contents/MacOS/Vivaldi",
+   "argv": [
+    "/Applications/Vivaldi.app/Contents/Frameworks/Vivaldi Framework.framework/Versions/131.0/Helpers/Vivaldi Helper.app/Contents/MacOS/Vivaldi Helper",
+    "--type=utility"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60110,
+   "pgid": 60110,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Opera.app/Contents/MacOS/Opera",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Opera.app/Contents/MacOS/Opera",
+    "--remote-debugging-port=9311"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60111,
+   "pgid": 60110,
+   "ppid": 60110,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Opera.app/Contents/Frameworks/Opera Framework.framework/Versions/131.0/Helpers/Opera Helper.app/Contents/MacOS/Opera Helper",
+   "parentExe": "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Opera.app/Contents/MacOS/Opera",
+   "argv": [
+    "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Opera.app/Contents/Frameworks/Opera Framework.framework/Versions/131.0/Helpers/Opera Helper.app/Contents/MacOS/Opera Helper",
+    "--type=utility"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60120,
+   "pgid": 60120,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/Users/x/Downloads/Firefox.app/Contents/MacOS/Firefox",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/Users/x/Downloads/Firefox.app/Contents/MacOS/Firefox",
+    "--remote-debugging-port=9312"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60121,
+   "pgid": 60120,
+   "ppid": 60120,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/Users/x/Downloads/Firefox.app/Contents/Frameworks/Firefox Framework.framework/Versions/131.0/Helpers/Firefox Helper.app/Contents/MacOS/Firefox Helper",
+   "parentExe": "/Users/x/Downloads/Firefox.app/Contents/MacOS/Firefox",
+   "argv": [
+    "/Users/x/Downloads/Firefox.app/Contents/Frameworks/Firefox Framework.framework/Versions/131.0/Helpers/Firefox Helper.app/Contents/MacOS/Firefox Helper",
+    "--type=utility"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60130,
+   "pgid": 60130,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/Applications/Firefox Developer Edition.app/Contents/MacOS/Firefox Developer Edition",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/Applications/Firefox Developer Edition.app/Contents/MacOS/Firefox Developer Edition",
+    "--remote-debugging-port=9313"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60131,
+   "pgid": 60130,
+   "ppid": 60130,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/Applications/Firefox Developer Edition.app/Contents/Frameworks/Firefox Developer Edition Framework.framework/Versions/131.0/Helpers/Firefox Developer Edition Helper.app/Contents/MacOS/Firefox Developer Edition Helper",
+   "parentExe": "/Applications/Firefox Developer Edition.app/Contents/MacOS/Firefox Developer Edition",
+   "argv": [
+    "/Applications/Firefox Developer Edition.app/Contents/Frameworks/Firefox Developer Edition Framework.framework/Versions/131.0/Helpers/Firefox Developer Edition Helper.app/Contents/MacOS/Firefox Developer Edition Helper",
+    "--type=utility"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60140,
+   "pgid": 60140,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Firefox Nightly.app/Contents/MacOS/Firefox Nightly",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Firefox Nightly.app/Contents/MacOS/Firefox Nightly",
+    "--remote-debugging-port=9314"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60141,
+   "pgid": 60140,
+   "ppid": 60140,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Firefox Nightly.app/Contents/Frameworks/Firefox Nightly Framework.framework/Versions/131.0/Helpers/Firefox Nightly Helper.app/Contents/MacOS/Firefox Nightly Helper",
+   "parentExe": "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Firefox Nightly.app/Contents/MacOS/Firefox Nightly",
+   "argv": [
+    "/Users/x/.cache/puppeteer/chrome/mac_arm-131.0.6778.85/chrome-mac-arm64/Firefox Nightly.app/Contents/Frameworks/Firefox Nightly Framework.framework/Versions/131.0/Helpers/Firefox Nightly Helper.app/Contents/MacOS/Firefox Nightly Helper",
+    "--type=utility"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60150,
+   "pgid": 60150,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/Users/x/Downloads/Zen.app/Contents/MacOS/Zen",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/Users/x/Downloads/Zen.app/Contents/MacOS/Zen",
+    "--remote-debugging-port=9315"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60151,
+   "pgid": 60150,
+   "ppid": 60150,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/Users/x/Downloads/Zen.app/Contents/Frameworks/Zen Framework.framework/Versions/131.0/Helpers/Zen Helper.app/Contents/MacOS/Zen Helper",
+   "parentExe": "/Users/x/Downloads/Zen.app/Contents/MacOS/Zen",
+   "argv": [
+    "/Users/x/Downloads/Zen.app/Contents/Frameworks/Zen Framework.framework/Versions/131.0/Helpers/Zen Helper.app/Contents/MacOS/Zen Helper",
+    "--type=utility"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60160,
+   "pgid": 60160,
+   "ppid": 1,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/Applications/Zen Browser.app/Contents/MacOS/Zen Browser",
+   "parentExe": "/sbin/launchd",
+   "argv": [
+    "/Applications/Zen Browser.app/Contents/MacOS/Zen Browser",
+    "--remote-debugging-port=9316"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 60161,
+   "pgid": 60160,
+   "ppid": 60160,
+   "uid": 501,
+   "startEpochMs": 1791530155100,
+   "exe": "/Applications/Zen Browser.app/Contents/Frameworks/Zen Browser Framework.framework/Versions/131.0/Helpers/Zen Browser Helper.app/Contents/MacOS/Zen Browser Helper",
+   "parentExe": "/Applications/Zen Browser.app/Contents/MacOS/Zen Browser",
+   "argv": [
+    "/Applications/Zen Browser.app/Contents/Frameworks/Zen Browser Framework.framework/Versions/131.0/Helpers/Zen Browser Helper.app/Contents/MacOS/Zen Browser Helper",
+    "--type=utility"
+   ],
+   "env": {},
+   "cwd": "/Users/x/dev/acme",
+   "hasTty": false,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  }
+ ],
+ "listeners": [
+  {
+   "pid": 60001,
+   "addr": "127.0.0.1",
+   "port": 9300
+  },
+  {
+   "pid": 60011,
+   "addr": "127.0.0.1",
+   "port": 9301
+  },
+  {
+   "pid": 60021,
+   "addr": "127.0.0.1",
+   "port": 9302
+  },
+  {
+   "pid": 60031,
+   "addr": "127.0.0.1",
+   "port": 9303
+  },
+  {
+   "pid": 60041,
+   "addr": "127.0.0.1",
+   "port": 9304
+  },
+  {
+   "pid": 60051,
+   "addr": "127.0.0.1",
+   "port": 9305
+  },
+  {
+   "pid": 60061,
+   "addr": "127.0.0.1",
+   "port": 9306
+  },
+  {
+   "pid": 60071,
+   "addr": "127.0.0.1",
+   "port": 9307
+  },
+  {
+   "pid": 60081,
+   "addr": "127.0.0.1",
+   "port": 9308
+  },
+  {
+   "pid": 60091,
+   "addr": "127.0.0.1",
+   "port": 9309
+  },
+  {
+   "pid": 60101,
+   "addr": "127.0.0.1",
+   "port": 9310
+  },
+  {
+   "pid": 60111,
+   "addr": "127.0.0.1",
+   "port": 9311
+  },
+  {
+   "pid": 60121,
+   "addr": "127.0.0.1",
+   "port": 9312
+  },
+  {
+   "pid": 60131,
+   "addr": "127.0.0.1",
+   "port": 9313
+  },
+  {
+   "pid": 60141,
+   "addr": "127.0.0.1",
+   "port": 9314
+  },
+  {
+   "pid": 60151,
+   "addr": "127.0.0.1",
+   "port": 9315
+  },
+  {
+   "pid": 60161,
+   "addr": "127.0.0.1",
+   "port": 9316
+  }
+ ],
+ "connections": [],
+ "unreadableGroups": []
+}

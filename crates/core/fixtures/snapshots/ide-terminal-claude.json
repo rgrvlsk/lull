@@ -1,0 +1,81 @@
+{
+ "processes": [
+  {
+   "pid": 41000,
+   "pgid": 41000,
+   "ppid": 40990,
+   "uid": 501,
+   "startEpochMs": 1791530155000,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/bin/zsh",
+   "argv": [
+    "npm run dev",
+    "",
+    "",
+    ""
+   ],
+   "env": {
+    "CLAUDECODE": "1"
+   },
+   "cwd": "/Users/x/dev/shop",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 41001,
+   "pgid": 41000,
+   "ppid": 41000,
+   "uid": 501,
+   "startEpochMs": 1791530155300,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "node",
+    "/Users/x/dev/shop/node_modules/.bin/next",
+    "dev"
+   ],
+   "env": {
+    "CLAUDECODE": "1"
+   },
+   "cwd": "/Users/x/dev/shop",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  },
+  {
+   "pid": 41005,
+   "pgid": 41000,
+   "ppid": 41001,
+   "uid": 501,
+   "startEpochMs": 1791530155900,
+   "exe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "parentExe": "/opt/homebrew/Cellar/node/26.8.1/bin/node",
+   "argv": [
+    "next-server (v15.5.0)",
+    "",
+    ""
+   ],
+   "env": {
+    "CLAUDECODE": "1",
+    "NODE_ENV": "development"
+   },
+   "cwd": "/Users/x/dev/shop",
+   "hasTty": true,
+   "cpuPercent": 0.0,
+   "rssBytes": 20000000,
+   "errors": []
+  }
+ ],
+ "listeners": [
+  {
+   "pid": 41005,
+   "addr": "127.0.0.1",
+   "port": 3000
+  }
+ ],
+ "connections": [],
+ "unreadableGroups": []
+}
