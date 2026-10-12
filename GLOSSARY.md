@@ -40,6 +40,11 @@ _Avoid_: sleeping soon, grace
 What lull remembers about a recently stopped server so the user can see it and restart it.
 _Avoid_: history item, tombstone
 
+**Launch command**:
+The command that started a server, as lull would re-run it on restart (e.g. `npm run dev`),
+without the shell or agent wrapper around it.
+_Avoid_: start command, original command
+
 **Restart**:
 To start a stopped server again, by hand, from its stopped-server record; the result is a
 new server.
@@ -74,6 +79,11 @@ _Avoid_: focused tab, active tab
 **Idle**:
 A server with no activity for longer than its idle time.
 _Avoid_: inactive, unused, asleep
+
+**Covered browser**:
+A browser whose lull extension is connected, so its tabs are judged by visibility rather
+than by the connections it holds open.
+_Avoid_: connected browser, instrumented browser
 
 **Grace period**:
 The time a newly seen server is treated as active before any other activity is required.

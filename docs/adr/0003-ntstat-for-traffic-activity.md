@@ -22,4 +22,7 @@ This is undocumented ABI: Apple can change message versions or turn the privileg
 on. The ntstat reader lives behind the activity-backend trait, validates the message
 version, and the daemon falls back to the periodic accepted-socket diff when the socket
 cannot be opened or speaks an unknown version, surfacing the active backend in
-`lull doctor`. CI should include a smoke test that opens the socket on each new macOS.
+`lull doctor`. Because the fallback only sees connections open at a scan instant, contract
+§5 also counts established connections from clients that are not covered browsers, which
+keeps open but quiet pages alive in either mode. CI should include a smoke test that opens
+the socket on each new macOS.

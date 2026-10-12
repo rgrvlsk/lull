@@ -1,5 +1,8 @@
 # v1 ships only as a Homebrew cask; the app registers the daemon with SMAppService
 
+_Deferred to v1.1 by [ADR-0008](0008-v1-ships-as-formula.md): v1 ships as a formula; this
+decision applies once the app exists. Read "v1" below as "v1.1"._
+
 The first draft had two ways to run the daemon: the menu-bar app registering it with
 `SMAppService.agent` (which only reads plists from the app bundle) and a CLI-only Homebrew
 formula registering its own LaunchAgent. That allows two daemons and an app talking to a

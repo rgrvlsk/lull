@@ -7,8 +7,8 @@ lull finds them, keeps their tabs in one "Dev" tab group, notices when you stop 
 and stops idle servers after 30 minutes.
 
 - Rust daemon + CLI (`lull ls`, `lull open <url>`)
-- Browser extension for Chromium (Helium, Chrome, Brave, Edge) and Firefox/Zen
-- macOS menu-bar app
+- Browser extension for Chromium browsers (Helium, Chrome, Brave, Edge)
+- Later (v1.1): Firefox/Zen extension and a macOS menu-bar app
 
 **Status:** design complete, implementation not started. Start with [`docs/contract.md`](docs/contract.md); decisions in [`docs/adr/`](docs/adr/), vocabulary in [`GLOSSARY.md`](GLOSSARY.md), work breakdown in [`docs/plan.md`](docs/plan.md).
 

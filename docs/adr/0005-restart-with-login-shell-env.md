@@ -15,6 +15,7 @@ be re-classified as agent-started and stopped again. Dev servers normally read t
 - **Env diff in the Keychain.** Faithful and safer, but adds Keychain access from a
   background agent for a convenience feature.
 
-Chosen compromise: an opt-in `faithful_restart` stores the env (minus agent markers) in a
+Chosen compromise (deferred past v1 after the 2026-10-12 scope review; v1 only has the
+login-shell restart): an opt-in `faithful_restart` stores the env (minus agent markers) in a
 `0600` file under the per-user `$TMPDIR`, which macOS empties at boot, so secrets never
 outlive a reboot.

@@ -6,6 +6,10 @@ owns a disjoint set of paths, and names the interfaces it consumes and provides.
 must not change another WP's paths. If a WP needs to change the contract, it stops and
 reports instead of improvising.
 
+Revised 2026-10-12 after a three-way scope and safety review: v1 is M1 + M2 shipped as a
+Homebrew formula (ADR-0008); M3–M5 are v1.1. M0.5 was added so parallel agents share
+domain types instead of inventing them.
+
 ## Ground rules for every WP
 
 - **Toolchains:** Rust stable (edition 2024); Swift 6 with Xcode 26, deployment target
@@ -23,7 +27,11 @@ reports instead of improvising.
   process/socket snapshot. Env keeps only marker keys plus `PORT`/`HOST`/`NODE_ENV`, and
   paths under `$HOME` are rewritten to `/Users/x`. Classification tests run on
   snapshots, including the author's machine recorded on 2026-10-12: 13 listening
-  groups, 2 dev servers and Zed.
+  groups, 2 dev servers and Zed. Before auto-stop is trusted for a launch shape, a
+  snapshot fixture must cover it: one per supported agent (Claude Code's Bash tool,
+  Codex CLI in a terminal and under T3, at least one other marker-table agent) and one
+  per common wrapper (`npm run`, `concurrently`, `turbo`, `wrangler dev`/workerd,
+  esbuild/vite helpers).
 - **Definition of done:** tests green in CI (macOS runner), `cargo clippy -D warnings`,
   `swift test`, `tsc --noEmit`; behaviour matches the contract section the WP cites; new
   terms are in the glossary.
@@ -32,19 +40,21 @@ reports instead of improvising.
 ## Dependency graph
 
 ```
-M0 scaffold ──┬─▶ WP1.1 proc source ─┐
-              ├─▶ WP1.2 discovery ───┼─▶ WP1.5 daemon+CLI ─▶ WP1.7 e2e + cutover
-              ├─▶ WP1.3 activity ────┤
-              ├─▶ WP1.4 policy/stop ─┘
-              ├─▶ WP2.1 nm-host ───────────────┐
-              ├─▶ WP2.2 extension core (mock) ─┼─▶ WP2.4 daemon browser integ ─▶ M3
-              ├─▶ WP2.3 browsers install ──────┘
-              └─▶ WP4.1 Swift client (fixtures) ─▶ WP4.2/4.3/4.4 app ─▶ M5
+                                    v1
+M0 ─▶ M0.5 model ─┬─▶ WP1.1 proc source ─┐
+                  ├─▶ WP1.2 discovery ───┼─▶ WP1.5 daemon+CLI ─▶ WP1.7 e2e + cutover ─┐
+                  ├─▶ WP1.3 activity ────┤                                            │
+                  ├─▶ WP1.4 policy/stop ─┘                                            ├─▶ WP-R v1 release
+                  ├─▶ WP2.1 nm-host ───────────────┐                                  │
+                  ├─▶ WP2.2 extension core (mock) ─┼─▶ WP2.4 daemon browser integ ────┘
+                  └─▶ WP2.3 browsers install ──────┘
+                                    v1.1
+WP-R ─▶ M3 Firefox/Zen · M4 app (WP4.1 may start any time after M0.5) ─▶ M5 cask
 Spikes first: S1 ntstat parsing (in WP1.3) · S2 Zen tab groups (WP3.1) · S3 signed
-embedded binary + SMAppService + nm-host link (WP4.4)
+embedded binary + SMAppService + nm-host link (WP4.4, v1.1)
 ```
 
-After M0 lands, up to seven agents can work at once: WP1.1–1.4, 2.1, 2.2 and 4.1.
+After M0.5 lands, up to six agents can work at once on v1: WP1.1–1.4, 2.1 and 2.2.
 
 ---
 
@@ -70,15 +80,47 @@ and Swift fixture-decoding test harnesses exist (they may be skipped until WP2.2
 
 ---
 
+## M0.5 — Shared model (1 agent, serial, blocks M1/M2)
+
+**WP0.5 — domain types and ownership** (`crates/core/src/model.rs`,
+`crates/core/src/traits.rs`, `crates/cli/src/main.rs`). Types only, no logic:
+- **Discovery output:** an observed group (members, listeners, completeness flags per
+  §4.8) and a classified server (origin, framework, project, launch command,
+  `primaryUrl`, protected / unmanaged / server verdict).
+- **Lifecycle:** the per-server record WP1.4 owns (state, witnesses, activity instant
+  and source, overrides, `stopsAt`) and the stop outcome (`stopped`, `aborted`,
+  `stuck`).
+- **Activity:** one `ActivityEvent` stream that WP1.3 (traffic), WP2.4 (tab) and WP1.5
+  (manual) produce and **WP1.4 alone merges** into the lifecycle record.
+- **Backend health:** `ActivityBackend` gains a health report so failure is
+  distinguishable from silence (§5); `ActivityEvent::Traffic` gains whether the
+  connection is new or established, and the snapshot carries established connections
+  with client pids.
+- **Covered browsers:** a `CoveredBrowsers` input (set of browser pids) that WP2.4
+  provides and WP1.3 consumes; empty in M1.
+- **CLI dispatch:** `main.rs` is owned by WP1.5. M0.5 stubs the subcommand table with
+  one module per owner (`nm_host` → WP2.1, `browsers` → WP2.3), each exposing
+  `pub fn run(args) -> ExitCode`, so no other WP edits `main.rs`.
+
+Accept: compiles, fakes updated, every M1/M2 WP below names only types from `model.rs`
+and `traits.rs` at its boundaries.
+
+---
+
 ## M1 — Daemon + CLI (replaces the prototype)
 
 **WP1.1 — macOS `ProcessSource`** (`crates/core/src/platform/macos/proc.rs`).
-- **Listing:** list same-uid pids; for each, read pgid, ppid, start time, executable
-  path, controlling tty, cwd (`proc_pidinfo`), and argv + initial env
-  (`KERN_PROCARGS2`, tolerating env omitted for restricted binaries).
-- **Sockets:** TCP sockets via `PROC_PIDLISTFDS` / `PROC_PIDFDSOCKETINFO`: listeners
-  (v4/v6) and accepted connections with local/remote endpoints.
-- **Failures:** reported per process, never panicking (feeds contract §4.8).
+- **Listeners first:** one `net.inet.tcp.pcblist_n` read gives every TCP socket with
+  its state and last pid; only same-uid listener pids, their group members and
+  connection peers on server ports are inspected further. Never walk every fd of every
+  process (browsers hold thousands).
+- **Process details:** pgid, ppid, start time, executable path, controlling tty, cwd
+  (`proc_pidinfo`), and argv + initial env (`KERN_PROCARGS2`, tolerating env omitted
+  for restricted binaries), cached per (pid, start time).
+- **Sockets:** listeners (v4/v6), and established connections to server ports with
+  local/remote endpoints and the client pid where it is a same-uid process.
+- **Failures:** reported per process and per field (members, env, cwd, executable,
+  tty, sockets), never panicking (feeds contract §4.8).
 - **Debug command:** `lull debug snapshot` writes the scrubbed fixture format.
 
 Accept: integration test spawns `python3 -m http.server` under `setsid` with
@@ -88,18 +130,24 @@ author's machine takes under 50 ms.
 **WP1.2 — Discovery and classification** (`crates/core/src/discovery/`). Pure functions
 over a snapshot.
 - **Grouping:** group by pgid; apply the server rule (ADR-0002, project locations) and
-  sort the rest into protected groups and unmanaged listeners.
+  sort the rest into protected groups (§4.4 pattern table: exe path + argv, never
+  process name alone) and unmanaged listeners.
 - **Origin:** marker table (built-in + `[[agent_marker]]` config) with tty and
   installed-app vetoes (ADR-0001).
-- **Labels:** framework heuristics, project (git root), and `primaryUrl` selection
-  with the probe abstracted.
+- **Labels:** framework heuristics, project (git root), `primaryUrl` (argv/`PORT`
+  port, else lowest non-inspector port; no network probe), and the launch command
+  (§7 step 6: skip `-c` shell wrappers; empty when unknown).
+- **Eligibility input:** any unreadable field (§4.8) marks the group incomplete.
 - **Identity:** id assignment and witness matching (§4.6–4.7).
 
 Accept: snapshot tests cover the author's machine (only the vite+workerd and astro
 groups become servers; Zed, Herd nginx, brew databases, ControlCenter and Canary Mail
 do not). Also covered: an IDE terminal with `CLAUDECODE=1` plus a tty is `user`;
-Homebrew `Python.app` is a server; a leader exit keeps the id; a daemon restart
-re-matches via witness.
+Homebrew `Python.app` is a server; an npm-installed Claude Code (`node …/claude-code/…`)
+is protected; a leader exit keeps the id; a daemon restart re-matches via witness; the
+launch command of a Claude Code Bash-tool server is `npm run dev`, not the harness's
+shell wrapper; an unreadable tty makes the group incomplete; the per-agent and wrapper
+fixtures from the ground rules.
 
 **WP1.3 — Activity** (`crates/core/src/activity/`, `platform/macos/ntstat.rs`).
 - **S1 spike first:** subscribe to TCP sources on `com.apple.network.statistics`,
@@ -107,53 +155,71 @@ re-matches via witness.
   message version, and write the findings into ADR-0003 as an addendum. If parsing is
   not feasible in two days, ship the scan backend only and report.
 - **`ActivityBackend`:** ntstat implementation plus the accepted-socket-diff fallback;
-  exclude the daemon's own pid and same-group clients.
+  exclude the daemon's own pid and same-group clients; report health, and switch to the
+  fallback when ntstat fails at runtime (§5).
+- **Established connections (§5 `traffic` (b)):** at every scan, an established
+  connection from a client outside the group that is not in `CoveredBrowsers` fires
+  `traffic`. This keeps the prototype's behaviour for open tabs during M1.
 - **`Clock`:** `CLOCK_UPTIME_RAW` + `kern.bootsessionuuid`, wake detection, and the
   wake/start grace (§5).
 
 Accept: a short `curl` against a fixture server raises `traffic` with ntstat; the
-fallback catches a 2 s connection; `FakeClock` tests cover sleep (no idle accrual),
-wake grace and daemon restart within the same boot.
+fallback catches a connection held open across a scan (not a fixed duration: a
+connection shorter than the scan interval is caught only by chance); an idle open
+websocket from an uncovered client keeps a server active, and the same websocket from a
+covered pid does not; a failing ntstat fake reports unhealthy and the daemon falls back;
+`FakeClock` tests cover sleep (no idle accrual), wake grace and daemon restart within
+the same boot.
 
 **WP1.4 — Policy, stop state machine, persistence, history, restart**
 (`crates/core/src/{policy,lifecycle,state}/`).
 - **Policy:** effective policy per field (override → longest `[[project]]` → defaults)
   and config validation.
-- **Stop state machine:** cancellation rules, coalescing, the safety checks before
-  `SIGTERM`/`SIGKILL` with witnesses (§7), and dry-run.
+- **Stop state machine:** cancellation rules, coalescing, the fresh-observation and
+  eligibility re-check before an automatic `SIGTERM`, the witness checks before
+  `SIGTERM`/`SIGKILL`, the `aborted` and `stuck` outcomes, removal only once the group
+  is empty (§7), and dry-run.
+- **Activity merge:** sole owner of the per-server activity instant and source;
+  consumes every `ActivityEvent`.
 - **Persistence:** `StateStore` with an atomic, versioned `state.json` and
   corrupt-file handling.
 - **History:** retention (20 entries / 24 h).
-- **Restart:** login-shell spawn under `setsid`, success tracking within 60 s,
-  `restartFailed`, and the optional faithful env in `$TMPDIR` (ADR-0005).
+- **Restart:** login-shell spawn under `setsid` of the launch command, success
+  tracking within 60 s, `restartFailed`, and `not_restartable` for records without a
+  launch command (ADR-0005).
 
 Accept: table-driven tests using `FakeClock` + `RecordingSignaler` +
 `FakeProcessSource`, including: activity during `stopping-soon` returns the server to
-running; pgid reuse aborts the signal; a partial exit on SIGTERM still triggers
-SIGKILL; an env pin overridden by Unpin persists; a failed restart keeps the record.
+running; an incomplete observation at `stopsAt` defers the stop; pgid reuse aborts the
+signal; a partial exit on SIGTERM still triggers SIGKILL; all witnesses gone but new
+members present after SIGTERM aborts the stop with no history record; an env pin
+overridden by Unpin persists; a failed restart keeps the record.
 
 **WP1.5 — Daemon, IPC server, CLI** (`crates/cli/`, `crates/core/src/ipc/`).
 - **Runtime:** the daemon loop (5 s scan + backend events), single instance via
-  `flock`, socket `0600`, JSON-RPC/NDJSON with `hello` negotiation, `seq`'d
+  `flock`, exit when the daemon's own executable path disappears (§3), socket `0600`, JSON-RPC/NDJSON with `hello` negotiation, `seq`'d
   subscriptions, `connectionId`, idempotent mutations, loopback-only URL validation,
   logs with size-capped rotation.
 - **Commands:** `lull ls [--all] [--json]`, `stop`, `pin`/`unpin`, `touch`, `open`
   (agent env ⇒ no focus), `restart`, `history`, `forget`, `config get/set`,
   `daemon [--dry-run]`.
-- **`lull doctor`:** activity backend, socket/lock state, config validity, browsers
+- **Dispatch:** owns `crates/cli/src/main.rs` (stubbed in M0.5).
+- **`lull doctor`:** activity backend and its health, aborted or stuck stops, socket/lock state, config validity, browsers
   connected, NM manifests present, and reasons a server is not eligible to stop.
 
 Accept: every fixture in `protocol/fixtures/` replays against the daemon running on
 fakes; `lull ls` output matches a golden file.
 
-**WP1.6 — Dev scripts** (`scripts/dev-launchagent.sh`, `scripts/retire-prototype.sh`).
+**WP1.6 — Dev scripts** (`scripts/dev-launchagent.sh`, `scripts/retire-prototype.sh`;
+the first is deleted by WP-R).
 Bootstrap/bootout a dev LaunchAgent `io.github.rgrvlsk.lull.daemon` pointing at
 `target/release/lull`; retire `local.devserver-reaper` (bootout, remove plist,
 `~/.local/state/devserver-reaper`). Run them manually, never in CI.
 
 **WP1.7 — End-to-end and cutover** (`tests/e2e/`, after 1.1–1.6). Real daemon with
 `idle_minutes` set to seconds via a test config: agent-marked servers stop, user and tty
-servers stay, pins hold, `curl` keeps a server alive, restart brings it back as `user`.
+servers stay, pins hold, `curl` keeps a server alive, an open websocket keeps a server
+alive, restart brings it back as `user`.
 Then the author performs the direct cutover (M1 exit criterion).
 
 ---
@@ -192,9 +258,36 @@ Accept: tests against a temp `$HOME`; `lull doctor` reports per-browser state.
 
 **WP2.4 — Daemon browser integration** (`crates/core/src/browser/`). Per-connection tab
 registry, `tab` activity (receipt-timestamped), binding to server ids and stopped-server
-records, `tabs_on_stop`, `open` routing, dropping a connection's state on disconnect.
+records, `tabs_on_stop`, `open` routing, dropping a connection's state on disconnect,
+and `CoveredBrowsers`: the nm-host's pid from `LOCAL_PEERPID`, its parent as the
+browser pid, plus descendants (§5).
 Accept: fake-connection tests covering two profiles, a reused port (no takeover until
-reload) and disconnect clearing activity.
+reload), disconnect clearing activity and coverage, and a second browser without the
+extension staying uncovered.
+
+---
+
+## WP-R — v1 release (after WP1.7 and WP2.4)
+
+- **Formula:** `rgrvlsk/homebrew-tap` `Formula/lull.rb` building `lull` from the
+  release tag, installing the unpacked Chromium extension under `share/lull`, and a
+  `service do` block running `lull daemon` with logs in `~/Library/Logs/lull`.
+- **Chromium id:** generate the extension key pair; commit the public `key` to the
+  manifest; keep the private half as a maintainer secret (ADR-0007).
+- **Docs:** README install (`brew install rgrvlsk/tap/lull`, `brew services start
+  lull`, `lull browsers install`) and uninstall; delete `scripts/dev-launchagent.sh`.
+- Ask the author before creating any remote repository.
+
+Exit: on a clean macOS 14 VM, `brew install` → `brew services start lull` →
+`lull browsers install` → Helium groups tabs, and an agent-started server is stopped
+after its idle time while one shown in a visible tab is not.
+
+---
+
+# v1.1
+
+Specified so v1 keeps their seams; started after WP-R ships (WP4.1 may start earlier
+against fixtures).
 
 ---
 
@@ -209,13 +302,13 @@ Accept: same checklist as M2 in Firefox and Zen; the native host spawns on macOS
 
 ---
 
-## M4 — Menu-bar app (can start right after M0 against fixtures)
+## M4 — Menu-bar app (WP4.1 can start right after M0.5 against fixtures)
 
 **WP4.1 — `LullKit` client** (`macos/Sources/LullKit/`). Socket client, Codable models
 verified against `protocol/fixtures/`, subscription with gap recovery, `@Observable`
 store. Accept: decodes every fixture; reconnects after daemon restart.
 **WP4.2 — Menu UI** (`macos/Sources/LullApp/Menu/`). Live servers grouped by project
-with origin and pin badges and countdown; Recently stopped with Restart / Copy command /
+with origin and pin badges and countdown; Recently stopped with Restart (only when the record has a launch command) / Copy command /
 Reveal / Open terminal / Forget; row actions; icon count + stopping-soon dot; wording
 rules (§10). Preview data from fixtures, including worst cases (long paths, 30 servers,
 no servers).
@@ -234,10 +327,11 @@ stopping-soon notifications with *Keep alive*.
 
 **WP5.1 — Signing and notarisation CI.** Release workflow: build universal `lull`, the
 app, both extension builds; sign everything (hardened runtime), notarise, staple.
-**WP5.2 — Extension distribution.** Chromium `key` (private half as a secret); AMO
-unlisted signing via `web-ext sign`; `updates.json` published on GitHub releases.
-**WP5.3 — Cask and docs.** `rgrvlsk/homebrew-tap` cask with a `binary` stanza; README
-install and uninstall; delete `scripts/dev-launchagent.sh`. Ask the author before
+**WP5.2 — Firefox distribution.** AMO unlisted signing via `web-ext sign`;
+`updates.json` published on GitHub releases.
+**WP5.3 — Cask and docs.** `rgrvlsk/homebrew-tap` cask with a `binary` stanza and
+`conflicts_with formula: "lull"`, a caveat to `brew services stop lull` first, and the
+formula retired (ADR-0008); README install and uninstall. Ask the author before
 creating any remote repository.
 
 Exit: `brew install --cask rgrvlsk/tap/lull` on a clean macOS 14 VM → app registers
