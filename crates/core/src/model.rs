@@ -238,7 +238,9 @@ pub struct ServerRecord {
     pub last_activity_wall_ms: u64,
     pub last_activity_source: Activity,
     /// Starts as `ObservedServer::env_pin`, then only explicit pin/unpin changes it (§6).
-    // ponytail: no "pinned (env)" provenance; the wire `Server` has no field for it yet.
+    // ponytail: a bare bool, so a `LULL_KEEP=1` pin is indistinguishable from a manual one;
+    // the wire `Server` has no pin-source field either. Add one here and on the wire when
+    // the menu-bar app (M4, v1.1) must show "pinned (env)" (§6).
     pub pinned: bool,
     /// Per-server override; `None` follows the policy (§6).
     pub auto_stop: Option<bool>,
@@ -280,8 +282,8 @@ pub enum StopOutcome {
 
 /// Length of one policy minute (`idle_minutes`, `warn_before_minutes`,
 /// `wake_grace_minutes`) in ms.
-// ponytail: test-only knob — in debug builds `LULL_MINUTE_MS` lets the e2e suite run
-// "minutes" in seconds against a real daemon. Release builds always use 60 000.
+// Test seam: in debug builds `LULL_MINUTE_MS` lets the e2e suite run "minutes" in
+// seconds against a real daemon. Release builds always use 60 000.
 pub fn minute_ms() -> u64 {
     static MINUTE: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
     *MINUTE.get_or_init(|| {

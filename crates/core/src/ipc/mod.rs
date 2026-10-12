@@ -261,9 +261,8 @@ impl Daemon {
     }
 
     /// Send a daemon → browser command; returns its id (§8).
-    // ponytail: commands carry tab ids only, so the extension re-checks a tab against the
-    // origin it last synced; a navigation in the milliseconds before a command arrives is
-    // not caught. Upgrade path: an `origin` field on tab.* commands (protocol 1.2).
+    // Callers pass `ports_of` on tab.* so the extension acts only while the tab is still
+    // on the server, not merely on the origin it last synced (protocol 1.2, §8).
     fn command(&mut self, conn: ConnId, method: &str, params: Value) -> String {
         self.next_command += 1;
         let id = format!("d{}", self.next_command);

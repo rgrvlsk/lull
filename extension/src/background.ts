@@ -50,8 +50,9 @@ export function startBackground(api: typeof chrome, agent: Parameters<typeof bro
   const devGroups = new Set<number>();
   const grouping = new Set<number>();
   const buffered: DaemonNotification[] = [];
-  // ponytail: Drag-out choices survive native disconnects for this worker only.
-  // Service-worker restart persistence needs the storage permission and is out of scope.
+  // ponytail: tabs the user dragged out of the Dev group are remembered in memory only:
+  // they survive native disconnects but not a service-worker restart. Add the `storage`
+  // permission (chrome.storage.session) if users report dragged-out tabs being regrouped.
   const optedOut = new Set<number>();
   const visibility = new Map<number, object>();
   function badge(text: string, title = "lull") {
