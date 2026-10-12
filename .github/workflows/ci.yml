@@ -11,8 +11,14 @@ concurrency:
 
 jobs:
   rust:
-    name: Rust (test, clippy, fmt)
-    runs-on: macos-15
+    name: Rust (test, clippy, fmt) on ${{ matrix.os }}
+    # macos-14 is the oldest macOS lull supports (contract §10); the e2e suite and the live
+    # ntstat test there catch kernel ABI differences before users do.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
