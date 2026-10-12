@@ -99,8 +99,7 @@ test("visibility heartbeat requires visible plus active idle state, without wind
 
 for (const [file, apiMethod] of [["tab-close", "remove"], ["tab-discard", "discard"], ["tab-reload", "reload"], ["tab-focus", "updateTab"]] as const) {
   test(`${file} executes fixture request and acknowledges its string ID`, async (t) => {
-    // tab-close also targets 813; keep it on one of the fixture's ports (56306).
-    const fake = await setup(t, (f) => { f.tabs.get(813)!.url = "http://localhost:56306/"; }), port = fake.ports[0]!;
+    const fake = await setup(t), port = fake.ports[0]!;
     const command = fixture(file)[0] as Request;
     port.onMessage.emit(command); await flush();
     assert.deepEqual(result(fake, command.id as string), fixture(file)[1]);

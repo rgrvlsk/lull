@@ -1,2 +1,2 @@
-{"jsonrpc":"2.0","id":"d2","method":"tab.close","params":{"tabIds":[812,813],"ports":[5187,56306]}}
+{"jsonrpc":"2.0","id":"d2","method":"tab.close","params":{"tabIds":[812],"ports":[5187,56306]}}
 {"jsonrpc":"2.0","id":"d2","result":{"ok":true}}
