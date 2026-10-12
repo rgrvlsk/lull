@@ -4,7 +4,8 @@
    commit; run the full checks (README "Develop").
 2. Tag and push: `git tag v<V> && git push origin main v<V>`.
 3. Build the extension asset from the tag:
-   `cd extension && npm ci && npm run build && (cd dist/chromium && zip -qrX ../../../lull-extension-chromium-<V>.zip .)`
+   `(cd extension && npm ci && npm run build && cd dist/chromium && zip -qrX ../../../lull-extension-chromium-<V>.zip .)`
+   (run from the repository root; the zip lands there)
 4. `gh release create v<V> lull-extension-chromium-<V>.zip --title v<V> --notes …`
 5. sha256 of the source tarball
    (`curl -sL https://github.com/rgrvlsk/lull/archive/refs/tags/v<V>.tar.gz | shasum -a 256`)

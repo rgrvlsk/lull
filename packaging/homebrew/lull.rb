@@ -23,11 +23,6 @@ class Lull < Formula
     (share/"lull/extension/chromium").install resource("chromium-extension")
   end
 
-  # launchd does not create the directory of a service's log path.
-  def post_install
-    (Pathname.new(Dir.home)/"Library/Logs/lull").mkpath
-  end
-
   service do
     run [opt_bin/"lull", "daemon"]
     keep_alive true
@@ -42,6 +37,8 @@ class Lull < Formula
         brew services start lull
       Then connect your Chromium browsers (Helium, Chrome, Brave, Edge, Vivaldi):
         lull browsers install
+      After each `brew upgrade lull`, run `lull browsers install` again and restart
+      the browser to load the new extension.
     EOS
   end
 

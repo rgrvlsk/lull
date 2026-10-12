@@ -103,7 +103,9 @@ fn serve(dry_run: bool) -> io::Result<()> {
 
     // The daemon exits when its own executable disappears, so launchd restarts the new
     // version after an upgrade (§3).
-    let exe = std::env::current_exe()?;
+    // Resolved: launchd starts us through Homebrew's `opt` symlink, which survives an
+    // upgrade; the versioned Cellar path behind it is what disappears.
+    let exe = std::env::current_exe().and_then(fs::canonicalize)?;
     let mut writers: HashMap<ConnId, Sender<String>> = HashMap::new();
     let mut next_scan = Instant::now();
     loop {

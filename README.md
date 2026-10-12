@@ -25,7 +25,8 @@ lull browsers install         # native-messaging manifests + the unpacked extens
 `lull browsers install` copies the extension to
 `~/Library/Application Support/lull/extension/chromium`. In each browser, open the extensions
 page, enable **Developer mode**, choose **Load unpacked** and select that directory. After a
-`brew upgrade`, restart the browser to pick up a new extension version.
+`brew upgrade lull`, run `lull browsers install` again and restart the browser to load the new
+extension version.
 
 Check everything with `lull doctor`.
 
