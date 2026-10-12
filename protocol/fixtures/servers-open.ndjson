@@ -1,0 +1,6 @@
+{"jsonrpc":"2.0","id":14,"method":"servers.open","params":{"id":"22249-1791530155000","path":"/admin"}}
+{"jsonrpc":"2.0","id":14,"result":{"opened":true,"browser":"helium"}}
+{"jsonrpc":"2.0","id":15,"method":"servers.open","params":{"url":"http://localhost:4321/"}}
+{"jsonrpc":"2.0","id":15,"result":{"opened":false}}
+{"jsonrpc":"2.0","id":16,"method":"servers.open","params":{"url":"https://example.com/"}}
+{"jsonrpc":"2.0","id":16,"error":{"code":-32602,"message":"url must be http(s) with a loopback or *.localhost host"}}

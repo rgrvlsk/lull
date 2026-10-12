@@ -1,0 +1,2 @@
+{"jsonrpc":"2.0","id":13,"method":"servers.forget","params":{"id":"18100-1791400000000"}}
+{"jsonrpc":"2.0","id":13,"result":{}}

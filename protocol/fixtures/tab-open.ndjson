@@ -1,0 +1,2 @@
+{"jsonrpc":"2.0","id":"d1","method":"tab.open","params":{"url":"http://127.0.0.1:5187/admin","focus":false}}
+{"jsonrpc":"2.0","id":"d1","result":{"ok":true}}

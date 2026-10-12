@@ -1,0 +1,2 @@
+{"jsonrpc":"2.0","id":"d3","method":"tab.discard","params":{"tabIds":[812]}}
+{"jsonrpc":"2.0","id":"d3","result":{"ok":true}}

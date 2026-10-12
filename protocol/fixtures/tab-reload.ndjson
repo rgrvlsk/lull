@@ -1,0 +1,2 @@
+{"jsonrpc":"2.0","id":"d4","method":"tab.reload","params":{"tabIds":[640]}}
+{"jsonrpc":"2.0","id":"d4","result":{"ok":true}}

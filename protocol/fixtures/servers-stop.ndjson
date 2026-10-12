@@ -1,0 +1,3 @@
+{"jsonrpc":"2.0","id":5,"method":"servers.stop","params":{"id":"22249-1791530155000"}}
+{"jsonrpc":"2.0","id":5,"result":{}}
+{"jsonrpc":"2.0","method":"server.removed","params":{"seq":47,"id":"22249-1791530155000","reason":"manual"}}

@@ -1,0 +1,4 @@
+{"jsonrpc":"2.0","id":11,"method":"servers.restart","params":{"id":"18100-1791400000000"}}
+{"jsonrpc":"2.0","id":11,"result":{"pid":40021}}
+{"jsonrpc":"2.0","id":12,"method":"servers.restart","params":{"id":"no-such-record"}}
+{"jsonrpc":"2.0","id":12,"error":{"code":-32602,"message":"unknown stopped-server record"}}

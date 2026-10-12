@@ -1,0 +1,2 @@
+{"jsonrpc":"2.0","id":1,"method":"hello","params":{"client":"browser","version":"0.1.0","protocol":{"major":1,"minor":0},"browser":{"name":"helium","profile":"Default","version":"0.5.7.1","extensionVersion":"0.1.0"}}}
+{"jsonrpc":"2.0","id":1,"result":{"daemonVersion":"0.1.0","protocol":{"major":1,"minor":0},"connectionId":"c7","capabilities":["servers","browsers","history","restart"],"activityBackend":"scan"}}

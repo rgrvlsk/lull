@@ -1,0 +1,4 @@
+{"jsonrpc":"2.0","id":"d5","method":"tab.focus","params":{"tabId":812}}
+{"jsonrpc":"2.0","id":"d5","result":{"ok":true}}
+{"jsonrpc":"2.0","id":"d6","method":"tab.focus","params":{"tabId":999}}
+{"jsonrpc":"2.0","id":"d6","result":{"error":"tab url no longer matches server origin"}}

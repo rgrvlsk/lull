@@ -1,0 +1,2 @@
+{"jsonrpc":"2.0","id":21,"method":"browser.activity","params":{"tabId":812,"url":"http://127.0.0.1:5187/"}}
+{"jsonrpc":"2.0","id":21,"result":{}}
