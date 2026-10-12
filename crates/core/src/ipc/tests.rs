@@ -54,6 +54,18 @@ impl Signaler for Shared<RecordingSignaler> {
     }
 }
 
+impl StateStore for Shared<MemoryStateStore> {
+    fn load(&mut self) -> io::Result<Option<Value>> {
+        self.0.lock().unwrap().load()
+    }
+    fn save(&mut self, state: &Value) -> io::Result<()> {
+        self.0.lock().unwrap().save(state)
+    }
+    fn quarantine(&mut self) -> io::Result<String> {
+        self.0.lock().unwrap().quarantine()
+    }
+}
+
 const START: u64 = 1_791_530_155_000;
 
 fn proc(pid: u32, start: u64, argv: &[&str]) -> ProcessInfo {
@@ -117,6 +129,7 @@ struct Harness {
     clock: Shared<FakeClock>,
     source: Shared<FakeProcessSource>,
     signals: Shared<RecordingSignaler>,
+    store: Shared<MemoryStateStore>,
     opened: Arc<Mutex<Vec<(String, bool)>>>,
 }
 
@@ -124,6 +137,10 @@ fn harness() -> Harness {
     let clock = Shared::<FakeClock>::default();
     let source = Shared(Arc::new(Mutex::new(FakeProcessSource::new(crm_snapshot()))));
     let signals = Shared::<RecordingSignaler>::default();
+    let store = Shared(Arc::new(Mutex::new(MemoryStateStore {
+        state: Some(seeded_state()),
+        ..MemoryStateStore::default()
+    })));
     let opened = Arc::new(Mutex::new(Vec::new()));
     let sink = opened.clone();
     let platform = Platform {
@@ -133,10 +150,7 @@ fn harness() -> Harness {
             next_pid: 40020,
             ..FakeSpawner::default()
         }),
-        store: Box::new(MemoryStateStore {
-            state: Some(seeded_state()),
-            ..MemoryStateStore::default()
-        }),
+        store: Box::new(store.clone()),
         config: Box::new(MemoryConfigStore::default()),
         clock: Box::new(clock.clone()),
         open_url: Box::new(move |url, _app, background| {
@@ -162,6 +176,7 @@ fn harness() -> Harness {
         clock,
         source,
         signals,
+        store,
         opened,
     }
 }
@@ -331,4 +346,23 @@ fn only_loopback_urls_are_opened() {
     ] {
         assert!(loopback_url_port(bad).is_none(), "{bad}");
     }
+}
+
+#[test]
+fn pin_is_saved_before_the_next_scan() {
+    let mut h = harness();
+    h.d.connected(1, false);
+    h.d.handle_line(1, HELLO);
+    let saves_before = h.store.0.lock().unwrap().saves;
+    let outs = h.d.handle_line(1, r#"{"jsonrpc":"2.0","id":2,"method":"servers.pin","params":{"id":"22249-1791530155000","pinned":true}}"#);
+    let ack = reply(&outs, &json!(2));
+    assert!(ack.get("error").is_none(), "{ack}");
+    assert_eq!(ack["result"]["pinned"], json!(true));
+    // No scan after the request: the acknowledged mutation must already be saved.
+    let store = h.store.0.lock().unwrap();
+    assert_eq!(store.saves, saves_before + 1);
+    assert_eq!(
+        store.state.as_ref().unwrap()["servers"]["22249-1791530155000"]["pinned"],
+        json!(true)
+    );
 }

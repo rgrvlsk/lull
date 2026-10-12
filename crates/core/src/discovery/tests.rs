@@ -623,3 +623,78 @@ fn recorded_author_machine_classifies_like_the_prototype_audit() {
         );
     }
 }
+
+#[test]
+fn restored_listenerless_group_requires_a_surviving_witness() {
+    let first = fixture("claude-bash-tool.json");
+    let original = server(&first, 31000);
+    let known = KnownGroup {
+        id: original.id.clone(),
+        pgid: 31000,
+        witnesses: original.members.clone(),
+    };
+    // The oldest member has exited, so only the restored witnesses preserve the id.
+    let mut snap = leader_exited();
+    snap.listeners.retain(|l| l.pid != 31011);
+    let resumed = run(&snap, &[], std::slice::from_ref(&known));
+    let s = server(&resumed, 31000);
+    assert_eq!(s.id, original.id);
+    assert!(!s.members.is_empty());
+    assert!(s.ports.is_empty());
+    assert_eq!(s.primary_url, None);
+
+    for p in snap.processes.iter_mut().filter(|p| p.pgid == 31000) {
+        p.start_epoch_ms += 3_600_000;
+    }
+    assert!(run(&snap, &[], &[known]).servers.is_empty());
+}
+
+#[test]
+fn unreadable_sockets_or_non_launchd_parent_marks_server_incomplete() {
+    for (name, socket_error, ppid, expected) in [
+        (
+            "sockets",
+            true,
+            31010,
+            Some("pid 31011: sockets unreadable"),
+        ),
+        (
+            "parent",
+            false,
+            31010,
+            Some("pid 31011: parent executable unreadable"),
+        ),
+        ("launchd", false, 1, None),
+    ] {
+        let mut snap = load("claude-bash-tool.json");
+        let member = snap.processes.iter_mut().find(|p| p.pid == 31011).unwrap();
+        if socket_error {
+            member.errors.push(format!("{SOCKETS_UNREADABLE}: EPERM"));
+        } else {
+            member.parent_exe = None;
+            member.ppid = ppid;
+        }
+        let d = run(&snap, &[], &[]);
+        let s = server(&d, 31000);
+        assert_eq!(s.complete(), expected.is_none(), "{name}");
+        let reasons: Vec<_> = expected.into_iter().collect();
+        assert_eq!(s.incomplete, reasons, "{name}");
+    }
+}
+
+#[test]
+fn inspector_only_listeners_have_no_primary_url() {
+    let mut snap = load("claude-bash-tool.json");
+    snap.listeners.retain(|l| l.pid != 31011);
+    for port in 9229..=9239 {
+        snap.listeners.push(crate::model::Listener {
+            pid: 31011,
+            addr: "127.0.0.1".into(),
+            port,
+        });
+    }
+    let d = run(&snap, &[], &[]);
+    let s = server(&d, 31000);
+    assert_eq!(s.ports, (9229..=9239).collect::<Vec<_>>());
+    assert_eq!(s.primary_url, None);
+}
