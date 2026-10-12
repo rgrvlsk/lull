@@ -434,6 +434,13 @@ GLOSSARY.md      domain vocabulary
   LaunchAgent label `io.github.rgrvlsk.lull.daemon`, native-messaging host
   `io.github.rgrvlsk.lull`, AMO add-on id `lull@rgrvlsk.github.io`.
 - Licence: `MIT OR Apache-2.0` (`LICENSE-MIT`, `LICENSE-APACHE`).
+- Signing: app, embedded `lull` binary and the `lull-nm-host` link target are signed with
+  Developer ID + hardened runtime and notarised in CI (certificate and notary key are
+  GitHub Actions secrets).
+- Cask lives in the tap `rgrvlsk/homebrew-tap`: `brew install --cask rgrvlsk/tap/lull`.
+- Privacy: lull makes no network requests other than the loopback `HEAD` probe — no
+  telemetry, no update checks of its own (Homebrew and the AMO `update_url` handle
+  updates).
 
 ## 15. Open decisions
 
