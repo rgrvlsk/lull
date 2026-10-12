@@ -33,7 +33,7 @@ Check everything with `lull doctor`.
 
 ```sh
 lull ls                 # dev servers: project, URL, origin (agent/you), when they stop
-lull ls --all           # plus other listeners lull leaves alone
+lull ls --all           # plus unmanaged listeners, which lull never touches
 lull open <url|id>      # open in the Dev group (in the background when an agent runs it)
 lull stop <id>          # ids accept a unique prefix, e.g. the pgid
 lull pin <id>           # never stop it automatically; `lull unpin <id>` undoes it

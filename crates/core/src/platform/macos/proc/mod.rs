@@ -283,14 +283,24 @@ pub fn process_env(pid: u32) -> Option<BTreeMap<String, String>> {
 /// A fixture-safe copy of `snapshot` (plan, "Fixtures"): env keeps only keys accepted by
 /// `keep_env` plus `PORT`/`HOST`/`NODE_ENV`, and every occurrence of `home` in paths, argv
 /// and env values becomes `/Users/x`.
-pub fn scrub(snapshot: &Snapshot, home: &str, keep_env: &dyn Fn(&str) -> bool) -> Snapshot {
+pub fn scrub(
+    snapshot: &Snapshot,
+    home: &str,
+    host: &str,
+    keep_env: &dyn Fn(&str) -> bool,
+) -> Snapshot {
     let home = home.trim_end_matches('/');
+    // The machine name shows up in arguments too (mysqld's `--pid-file=<host>.pid`).
+    let short = host.trim_end_matches(".local");
     let fix = |s: &str| {
-        if home.is_empty() {
-            s.to_owned()
-        } else {
-            s.replace(home, "/Users/x")
+        let mut s = s.to_owned();
+        if !home.is_empty() {
+            s = s.replace(home, "/Users/x");
         }
+        if short.len() > 2 {
+            s = s.replace(short, "host");
+        }
+        s
     };
     let fix_opt = |s: &Option<String>| s.as_deref().map(fix);
     let mut out = snapshot.clone();
@@ -382,7 +392,7 @@ mod tests {
             }],
             ..Snapshot::default()
         };
-        let out = scrub(&snap, "/Users/r/", &|k| k == "CLAUDECODE" || k == "CFG");
+        let out = scrub(&snap, "/Users/r/", "", &|k| k == "CLAUDECODE" || k == "CFG");
         let p = &out.processes[0];
         assert_eq!(p.cwd.as_deref(), Some("/Users/x/proj"));
         assert_eq!(p.exe.as_deref(), Some("/usr/bin/node"));

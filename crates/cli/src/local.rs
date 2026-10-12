@@ -59,14 +59,9 @@ pub fn debug(args: Vec<String>) -> ExitCode {
     }
     match scan() {
         Ok((snapshot, _)) => {
-            let clean = scrub(&snapshot, &home(), &discovery::is_marker_key);
-            let mut json = serde_json::to_string_pretty(&clean).unwrap();
-            // Fixtures get shared: the machine name (in e.g. mysqld's argv) goes too.
-            if let Some(host) = hostname().filter(|h| h.len() > 2) {
-                let short = host.trim_end_matches(".local").to_owned();
-                json = json.replace(&host, "host.local").replace(&short, "host");
-            }
-            println!("{json}");
+            let host = hostname().unwrap_or_default();
+            let clean = scrub(&snapshot, &home(), &host, &discovery::is_marker_key);
+            println!("{}", serde_json::to_string_pretty(&clean).unwrap());
             ExitCode::SUCCESS
         }
         Err(e) => {
