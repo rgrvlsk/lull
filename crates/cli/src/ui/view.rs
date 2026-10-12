@@ -234,8 +234,8 @@ fn servers(f: &mut Frame, main: Rect, side: Option<Rect>, app: &mut App) {
             if show_load {
                 let (cpu, _) = series(app, s);
                 cells.push(Cell::from(Line::from(vec![
-                    format!("{:>5.1}% ", s.cpu_percent).into(),
-                    spark(&cpu, 7, cpu_range(&cpu)).cyan(),
+                    format!("{:>3.0}% ", s.cpu_percent).into(),
+                    spark(&cpu, 9, cpu_range(&cpu)).cyan(),
                 ])));
                 cells.push(Cell::from(
                     Line::from(short_bytes(s.rss_bytes)).right_aligned(),
@@ -386,7 +386,7 @@ fn server_detail(s: &Server, load: (Vec<f64>, Vec<f64>), now: u64, width: usize)
     lines.extend([
         Line::from(vec![
             format!("{:<10}", "cpu").dim(),
-            format!("{:<8}", format!("{:.1}%", s.cpu_percent)).into(),
+            format!("{:<8}", format!("{:.0}%", s.cpu_percent)).into(),
             spark(&cpu, w, cpu_range(&cpu)).cyan(),
         ]),
         Line::from(vec![
