@@ -20,7 +20,7 @@ class Lull < Formula
     system "cargo", "install", *std_cargo_args(path: "crates/cli")
     # Native messaging forbids arguments in the manifest path (contract §3).
     bin.install_symlink "lull" => "lull-nm-host"
-    (share/"lull/extension/chromium").install resource("chromium-extension")
+    (pkgshare/"extension/chromium").install resource("chromium-extension")
   end
 
   service do
