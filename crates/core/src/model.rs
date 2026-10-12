@@ -27,6 +27,8 @@ pub struct ProcessInfo {
     pub uid: u32,
     pub start_epoch_ms: u64,
     pub exe: Option<String>,
+    /// Executable of the parent process (§4.4 "a direct child of" the T3 Code app).
+    pub parent_exe: Option<String>,
     pub argv: Option<Vec<String>>,
     /// Initial environment; `None` when unreadable.
     pub env: Option<BTreeMap<String, String>>,
