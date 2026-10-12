@@ -8,15 +8,16 @@ use std::io;
 use lull_protocol::rpc::{
     AnyRequest, ClientKind, ClientRequest, HelloResult, INVALID_PARAMS, METHOD_NOT_FOUND, Message,
     NOT_RESTARTABLE, OpenParams, OpenResult, PROTOCOL_MISMATCH, ProtocolMismatch, Request,
-    RestartResult, SubscribeResult,
+    RequestId, RestartResult, SubscribeResult,
 };
-use lull_protocol::{Config, PROTOCOL_VERSION, Server};
+use lull_protocol::{Config, PROTOCOL_VERSION, Server, StopReason, TabsOnStop};
 use serde_json::{Value, json};
 
 use crate::activity::{Activity, ScanInput};
+use crate::browser::Registry;
 use crate::discovery::{self, Context};
 use crate::lifecycle::{Effect, Lifecycle, LifecycleError, Sys, Tick};
-use crate::model::{ActivityEvent, CoveredBrowsers, Discovery, ObservedServer, rfc3339};
+use crate::model::{ActivityEvent, Discovery, ObservedServer, rfc3339};
 use crate::traits::{Clock, ConfigStore, Instant, ProcessSource, Signaler, Spawner, StateStore};
 use crate::{policy, traits::ActivityBackend};
 
@@ -64,6 +65,8 @@ pub struct Settings {
 struct Conn {
     client: Option<ClientKind>,
     subscribed: bool,
+    /// `LOCAL_PEERPID`: for a browser connection, the nm-host whose parent is the browser.
+    peer_pid: Option<u32>,
     /// The peer process carries an agent marker: `servers.open` stays in the background (§11).
     agent_peer: bool,
 }
@@ -77,7 +80,14 @@ pub struct Daemon {
     discovery: Discovery,
     lifecycle: Lifecycle,
     activity: Activity,
-    covered: CoveredBrowsers,
+    browsers: Registry,
+    /// `servers.open` requests waiting for a browser's `tab.open` ack, by command id.
+    pending: BTreeMap<String, PendingOpen>,
+    next_command: u64,
+    /// Lines produced while handling something else (browser commands, deferred replies).
+    outbox: Vec<Out>,
+    /// Set by a request whose reply is sent later (`servers.open` routed to a browser).
+    defer_reply: bool,
     conns: BTreeMap<ConnId, Conn>,
     /// Last wire form sent to subscribers, for `server.added` / `server.updated`.
     sent: BTreeMap<String, Server>,
@@ -108,6 +118,18 @@ const KNOWN_METHODS: &[&str] = &[
 
 struct RpcErr(i64, String, Option<Value>);
 
+struct PendingOpen {
+    client: ConnId,
+    browser_conn: ConnId,
+    request: RequestId,
+    browser: String,
+    since: Instant,
+}
+
+/// How long a browser has to acknowledge `tab.open` before `servers.open` answers
+/// `opened: false`.
+const OPEN_ACK_MS: u64 = 3_000;
+
 fn invalid(msg: impl Into<String>) -> RpcErr {
     RpcErr(INVALID_PARAMS, msg.into(), None)
 }
@@ -130,7 +152,11 @@ impl Daemon {
             config_error: None,
             discovery: Discovery::default(),
             lifecycle,
-            covered: CoveredBrowsers::default(),
+            browsers: Registry::default(),
+            pending: BTreeMap::new(),
+            next_command: 0,
+            outbox: Vec::new(),
+            defer_reply: false,
             conns: BTreeMap::new(),
             sent: BTreeMap::new(),
             seq: 0,
@@ -148,19 +174,34 @@ impl Daemon {
 
     // ───────────────────────── connections ─────────────────────────
 
-    pub fn connected(&mut self, conn: ConnId, agent_peer: bool) {
+    pub fn connected(&mut self, conn: ConnId, peer_pid: Option<u32>, agent_peer: bool) {
         self.conns.insert(
             conn,
             Conn {
                 client: None,
                 subscribed: false,
+                peer_pid,
                 agent_peer,
             },
         );
     }
 
-    pub fn disconnected(&mut self, conn: ConnId) {
+    /// A closed browser connection drops its tabs, visibility and coverage at once (§8).
+    pub fn disconnected(&mut self, conn: ConnId) -> Vec<Out> {
         self.conns.remove(&conn);
+        self.browsers.disconnect(conn);
+        let lost: Vec<String> = self
+            .pending
+            .iter()
+            .filter(|(_, p)| p.browser_conn == conn || p.client == conn)
+            .map(|(id, _)| id.clone())
+            .collect();
+        for id in lost {
+            self.answer_open(&id, false);
+        }
+        let mut out = std::mem::take(&mut self.outbox);
+        out.extend(self.changes());
+        out
     }
 
     /// Handle one NDJSON line from `conn`.
@@ -178,8 +219,17 @@ impl Daemon {
                 return out;
             }
         };
+        if let Message::Response(resp) = &msg {
+            // A browser's ack of a `tab.*` command (§8).
+            if let RequestId::String(id) = &resp.id {
+                let ok = resp.result.as_ref().and_then(|r| r.get("ok")) == Some(&json!(true));
+                self.answer_open(id, ok);
+            }
+        }
         if let Message::Request(req) = msg {
+            self.defer_reply = false;
             let reply = match self.request(conn, &req) {
+                Ok(_) if self.defer_reply => Value::Null,
                 Ok(result) => json!({"jsonrpc": "2.0", "id": req.id, "result": result}),
                 Err(RpcErr(code, message, data)) => {
                     let mut error = json!({"code": code, "message": message});
@@ -189,19 +239,49 @@ impl Daemon {
                     json!({"jsonrpc": "2.0", "id": req.id, "error": error})
                 }
             };
-            out.push(Out {
-                conn,
-                line: reply.to_string(),
-            });
+            if !reply.is_null() {
+                out.push(Out {
+                    conn,
+                    line: reply.to_string(),
+                });
+            }
             // Acknowledged mutations are on disk before the next scan (§4.7); `save`
             // writes only when something changed.
             if let Err(e) = self.lifecycle.save(self.p.store.as_mut()) {
                 (self.p.log)(&format!("cannot save state: {e}"));
             }
         }
-        // Responses (browser command acks) and notifications from clients: nothing in M1.
+        out.append(&mut self.outbox);
         out.extend(self.changes());
         out
+    }
+
+    /// Send a daemon → browser command; returns its id (§8).
+    fn command(&mut self, conn: ConnId, method: &str, params: Value) -> String {
+        self.next_command += 1;
+        let id = format!("d{}", self.next_command);
+        let line = json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params});
+        self.outbox.push(Out {
+            conn,
+            line: line.to_string(),
+        });
+        id
+    }
+
+    /// Reply to a `servers.open` that waited for a browser.
+    fn answer_open(&mut self, command_id: &str, opened: bool) {
+        let Some(p) = self.pending.remove(command_id) else {
+            return;
+        };
+        let result = OpenResult {
+            opened,
+            browser: opened.then_some(p.browser),
+        };
+        let line = json!({"jsonrpc": "2.0", "id": p.request, "result": result});
+        self.outbox.push(Out {
+            conn: p.client,
+            line: line.to_string(),
+        });
     }
 
     /// Whether a request asked for an immediate scan (manual stop). Cleared on read.
@@ -240,12 +320,19 @@ impl Daemon {
             }
             if let Some(c) = self.conns.get_mut(&conn) {
                 c.client = Some(h.client);
+                if h.client == ClientKind::Browser {
+                    let name = h.browser.as_ref().map_or("browser", |b| b.name.as_str());
+                    let browser_pid = c.peer_pid.and_then(|pid| self.p.source.parent(pid));
+                    self.browsers.connect(conn, name.to_owned(), browser_pid);
+                }
             }
             return Ok(json!(HelloResult {
                 daemon_version: env!("CARGO_PKG_VERSION").into(),
                 protocol: PROTOCOL_VERSION,
                 connection_id: format!("c{conn}"),
-                capabilities: vec!["servers".into(), "history".into(), "restart".into()],
+                capabilities: ["servers", "browsers", "history", "restart"]
+                    .map(String::from)
+                    .to_vec(),
                 activity_backend: self.activity.kind(),
             }));
         }
@@ -290,7 +377,13 @@ impl Daemon {
                 self.manual(&p.id, now, wall);
                 self.server_json(&p.id)
             }
-            ClientRequest::ServersHistory(_) => Ok(json!(self.lifecycle.history())),
+            ClientRequest::ServersHistory(_) => {
+                let mut history = self.lifecycle.history();
+                for h in &mut history {
+                    h.tabs = self.browsers.tabs_of(&h.id);
+                }
+                Ok(json!(history))
+            }
             ClientRequest::ServersRestart(p) => {
                 let pid = self
                     .lifecycle
@@ -308,7 +401,7 @@ impl Daemon {
                 self.lifecycle.forget(&p.id);
                 Ok(json!({}))
             }
-            ClientRequest::ServersOpen(p) => self.open(conn, p, now, wall),
+            ClientRequest::ServersOpen(p) => self.open(conn, &req.id, p, now, wall),
             ClientRequest::ConfigGet(_) => Ok(json!(self.config)),
             ClientRequest::ConfigSet(p) => {
                 let config = policy::apply_patch(&self.config, &p.patch).map_err(invalid)?;
@@ -333,8 +426,20 @@ impl Daemon {
                     servers,
                 }))
             }
-            // ponytail: browser methods are accepted and ignored until WP2.4.
-            ClientRequest::BrowserTabsSync(_) | ClientRequest::BrowserActivity(_) => Ok(json!({})),
+            ClientRequest::BrowserTabsSync(p) => {
+                self.browsers.sync(conn, p.tabs, &self.discovery.servers);
+                Ok(json!({}))
+            }
+            ClientRequest::BrowserActivity(p) => {
+                let servers = &self.discovery.servers;
+                if let Some(ev) = self
+                    .browsers
+                    .activity(conn, p.tab_id, &p.url, servers, &now)
+                {
+                    self.lifecycle.activity(ev, wall);
+                }
+                Ok(json!({}))
+            }
         }
     }
 
@@ -350,6 +455,7 @@ impl Daemon {
     fn open(
         &mut self,
         conn: ConnId,
+        request: &RequestId,
         p: OpenParams,
         now: Instant,
         wall: u64,
@@ -384,10 +490,42 @@ impl Daemon {
             }
         };
         if let Some(id) = &id {
-            self.manual(id, now, wall);
+            self.manual(id, now.clone(), wall);
         }
         let agent = self.conns.get(&conn).is_some_and(|c| c.agent_peer);
         let background = !focus.unwrap_or(!agent);
+        if self.browsers.has_browsers() {
+            // A bound tab already showing the URL is focused (or left alone for an agent).
+            if let Some((browser, tab)) = self.browsers.tab_showing(&url) {
+                if !background {
+                    self.command(browser, "tab.focus", json!({"tabId": tab}));
+                }
+                let name = self.browsers.name(browser).map(str::to_owned);
+                return Ok(json!(OpenResult {
+                    opened: true,
+                    browser: name,
+                }));
+            }
+            let browser = self.browsers.open_target().expect("has browsers");
+            let name = self.browsers.name(browser).unwrap_or("browser").to_owned();
+            let id = self.command(
+                browser,
+                "tab.open",
+                json!({"url": url, "focus": !background}),
+            );
+            self.pending.insert(
+                id,
+                PendingOpen {
+                    client: conn,
+                    browser_conn: browser,
+                    request: request.clone(),
+                    browser: name,
+                    since: now,
+                },
+            );
+            self.defer_reply = true;
+            return Ok(Value::Null);
+        }
         (self.p.open_url)(&url, &self.config.open_with, background)
             .map_err(|e| invalid(format!("open failed: {e}")))?;
         Ok(json!(OpenResult {
@@ -434,10 +572,11 @@ impl Daemon {
         let discovery = discovery::discover(&snapshot, &ctx, &self.discovery.servers, &resume);
         let minute = crate::model::minute_ms();
         let grace_ms = u64::from(self.config.wake_grace_minutes) * minute;
+        let covered = self.browsers.covered();
         let events = self.activity.scan(ScanInput {
             snapshot: &snapshot,
             discovery: &discovery,
-            covered: &self.covered,
+            covered: &covered,
             daemon_pid: self.s.daemon_pid,
             now: now.clone(),
             wall_ms: wall,
@@ -474,6 +613,9 @@ impl Daemon {
         for effect in effects {
             match effect {
                 Effect::Removed { id, reason } => {
+                    if reason != StopReason::Exited {
+                        self.tabs_on_stop(&id);
+                    }
                     self.sent.remove(&id);
                     self.seq += 1;
                     let n = json!({"jsonrpc": "2.0", "method": "server.removed",
@@ -481,19 +623,50 @@ impl Daemon {
                     out.extend(self.broadcast(&n));
                 }
                 Effect::Log(line) => (self.p.log)(&line),
-                // ponytail: tab reload after a restart arrives with the browser registry
-                // (WP2.4); M1 has nothing else to do for these.
+                // The record's tabs now show the new server: reload them (§7 Restart).
+                Effect::RestartSucceeded {
+                    record_id,
+                    server_id,
+                } => {
+                    self.browsers.rebind(&record_id, &server_id);
+                    for (browser, tab_ids) in self.browsers.bound_tabs(&server_id) {
+                        self.command(browser, "tab.reload", json!({"tabIds": tab_ids}));
+                    }
+                }
                 Effect::StopAborted { .. }
                 | Effect::StopStuck { .. }
-                | Effect::RestartSucceeded { .. }
                 | Effect::RestartFailed { .. } => {}
             }
+        }
+        // A browser that never acknowledged `tab.open` gets `opened: false`.
+        let late: Vec<String> = self
+            .pending
+            .iter()
+            .filter(|(_, p)| now.ms_since(&p.since).is_none_or(|ms| ms >= OPEN_ACK_MS))
+            .map(|(id, _)| id.clone())
+            .collect();
+        for id in late {
+            self.answer_open(&id, false);
         }
         if let Err(e) = self.lifecycle.save(self.p.store.as_mut()) {
             (self.p.log)(&format!("cannot save state: {e}"));
         }
+        out.append(&mut self.outbox);
         out.extend(self.changes());
         out
+    }
+
+    /// `tabs_on_stop` for a server lull stopped (§7.4): discard (the active tab is left
+    /// as it is by the browser), close, or keep, in every connected browser.
+    fn tabs_on_stop(&mut self, id: &str) {
+        let method = match self.config.tabs_on_stop {
+            TabsOnStop::Discard => "tab.discard",
+            TabsOnStop::Close => "tab.close",
+            TabsOnStop::Keep => return,
+        };
+        for (browser, tab_ids) in self.browsers.bound_tabs(id) {
+            self.command(browser, method, json!({"tabIds": tab_ids}));
+        }
     }
 
     /// Milliseconds until the next scan is due.
@@ -591,7 +764,7 @@ impl Daemon {
             pinned: rec.pinned,
             state: rec.state,
             stops_at,
-            tabs: Vec::new(),
+            tabs: self.browsers.tabs_of(&o.id),
         })
     }
 
@@ -648,7 +821,9 @@ impl Daemon {
             "warnings": self.warnings,
             "stops": self.lifecycle.doctor(),
             "ineligible": ineligible,
-            "browsers": [],
+            "browsers": self.browsers.summary().iter().map(|(id, name, pid, tabs)| {
+                json!({"connectionId": id, "name": name, "browserPid": pid, "tabs": tabs})
+            }).collect::<Vec<_>>(),
         });
         if status == self.status {
             return None;

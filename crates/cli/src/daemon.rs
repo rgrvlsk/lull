@@ -28,7 +28,8 @@ use lull_core::traits::ConfigStore;
 use crate::paths::{Paths, home};
 
 enum Msg {
-    Connected(ConnId, Sender<String>, bool),
+    /// Connection id, writer, `LOCAL_PEERPID`, whether the peer runs under an agent.
+    Connected(ConnId, Sender<String>, Option<u32>, bool),
     Line(ConnId, String),
     Closed(ConnId),
 }
@@ -108,15 +109,14 @@ fn serve(dry_run: bool) -> io::Result<()> {
     loop {
         let wait = next_scan.saturating_duration_since(Instant::now());
         let outs = match rx.recv_timeout(wait) {
-            Ok(Msg::Connected(id, writer, agent)) => {
+            Ok(Msg::Connected(id, writer, peer, agent)) => {
                 writers.insert(id, writer);
-                daemon.connected(id, agent);
+                daemon.connected(id, peer, agent);
                 continue;
             }
             Ok(Msg::Closed(id)) => {
                 writers.remove(&id);
-                daemon.disconnected(id);
-                continue;
+                daemon.disconnected(id)
             }
             Ok(Msg::Line(id, line)) => {
                 let outs = daemon.handle_line(id, &line);
@@ -162,7 +162,8 @@ fn bind(path: &Path) -> io::Result<UnixListener> {
 
 fn accept(listener: UnixListener, tx: Sender<Msg>) {
     for (id, stream) in (1..).zip(listener.incoming().flatten()) {
-        let agent = peer_pid(&stream).is_some_and(crate::local::is_agent_process);
+        let peer = peer_pid(&stream);
+        let agent = peer.is_some_and(crate::local::is_agent_process);
         let (wtx, wrx) = mpsc::channel::<String>();
         let Ok(mut writer) = stream.try_clone() else {
             continue;
@@ -174,7 +175,7 @@ fn accept(listener: UnixListener, tx: Sender<Msg>) {
                 }
             }
         });
-        if tx.send(Msg::Connected(id, wtx, agent)).is_err() {
+        if tx.send(Msg::Connected(id, wtx, peer, agent)).is_err() {
             return;
         }
         let tx = tx.clone();

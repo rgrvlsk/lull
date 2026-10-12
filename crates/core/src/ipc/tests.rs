@@ -211,7 +211,7 @@ fn every_fixture_request_replays() {
             .map(|l| serde_json::from_str(l).unwrap())
             .collect();
         let mut h = harness();
-        h.d.connected(1, false);
+        h.d.connected(1, None, false);
         if !name.starts_with("hello") {
             h.d.handle_line(1, HELLO);
         }
@@ -252,7 +252,7 @@ fn every_fixture_request_replays() {
 #[test]
 fn requests_before_hello_are_refused() {
     let mut h = harness();
-    h.d.connected(1, false);
+    h.d.connected(1, None, false);
     let outs = h.d.handle_line(
         1,
         r#"{"jsonrpc":"2.0","id":1,"method":"servers.list","params":{}}"#,
@@ -263,7 +263,7 @@ fn requests_before_hello_are_refused() {
 #[test]
 fn subscribers_get_sequenced_updates_and_removal() {
     let mut h = harness();
-    h.d.connected(1, false);
+    h.d.connected(1, None, false);
     h.d.handle_line(1, HELLO);
     let sub = h.d.handle_line(
         1,
@@ -299,7 +299,7 @@ fn subscribers_get_sequenced_updates_and_removal() {
 #[test]
 fn open_defaults_to_background_for_agent_callers() {
     let mut h = harness();
-    h.d.connected(1, true);
+    h.d.connected(1, None, true);
     h.d.handle_line(1, HELLO);
     let open = |h: &mut Harness, params: &str| {
         let line =
@@ -351,7 +351,7 @@ fn only_loopback_urls_are_opened() {
 #[test]
 fn pin_is_saved_before_the_next_scan() {
     let mut h = harness();
-    h.d.connected(1, false);
+    h.d.connected(1, None, false);
     h.d.handle_line(1, HELLO);
     let saves_before = h.store.0.lock().unwrap().saves;
     let outs = h.d.handle_line(1, r#"{"jsonrpc":"2.0","id":2,"method":"servers.pin","params":{"id":"22249-1791530155000","pinned":true}}"#);
@@ -365,4 +365,116 @@ fn pin_is_saved_before_the_next_scan() {
         store.state.as_ref().unwrap()["servers"]["22249-1791530155000"]["pinned"],
         json!(true)
     );
+}
+
+const BROWSER_HELLO: &str = r#"{"jsonrpc":"2.0","id":1,"method":"hello","params":{"client":"browser","version":"0.1.0","protocol":{"major":1,"minor":1},"browser":{"name":"helium","version":"1","extensionVersion":"0.1.0"}}}"#;
+
+fn lines(outs: &[Out], conn: ConnId) -> Vec<Value> {
+    outs.iter()
+        .filter(|o| o.conn == conn)
+        .map(|o| serde_json::from_str(&o.line).unwrap())
+        .collect()
+}
+
+/// A CLI on connection 1 and a Helium extension (nm-host pid 700, browser pid 70) on 2.
+fn with_browser() -> Harness {
+    let mut h = harness();
+    h.source.0.lock().unwrap().parents.insert(700, 70);
+    h.d.connected(1, None, false);
+    h.d.handle_line(1, HELLO);
+    h.d.connected(2, Some(700), false);
+    h.d.handle_line(2, BROWSER_HELLO);
+    let sync = r#"{"jsonrpc":"2.0","id":2,"method":"browser.tabs.sync","params":{"tabs":[{"tabId":812,"windowId":3,"url":"http://127.0.0.1:5187/","active":true,"windowFocused":true}]}}"#;
+    h.d.handle_line(2, sync);
+    h
+}
+
+#[test]
+fn browser_tabs_bind_cover_and_count_as_activity() {
+    let mut h = with_browser();
+    let server = h.d.servers().remove(0);
+    assert_eq!(server.tabs.len(), 1);
+    assert_eq!(server.tabs[0].browser, "helium");
+    assert_eq!(server.tabs[0].connection_id, "c2");
+    assert!(h.d.browsers.covered().covers(&[71, 70]));
+
+    h.clock.0.lock().unwrap().advance_ms(60_000);
+    h.d.handle_line(2, r#"{"jsonrpc":"2.0","id":3,"method":"browser.activity","params":{"tabId":812,"url":"http://127.0.0.1:5187/"}}"#);
+    let server = h.d.servers().remove(0);
+    assert_eq!(server.last_activity_source, lull_protocol::Activity::Tab);
+
+    // Disconnect drops tabs and coverage at once.
+    h.d.disconnected(2);
+    assert!(h.d.servers()[0].tabs.is_empty());
+    assert!(!h.d.browsers.covered().covers(&[71, 70]));
+}
+
+#[test]
+fn a_stopped_servers_tabs_are_discarded_in_the_browser() {
+    let mut h = with_browser();
+    h.d.handle_line(
+        1,
+        r#"{"jsonrpc":"2.0","id":4,"method":"servers.stop","params":{"id":"22249-1791530155000"}}"#,
+    );
+    h.d.scan();
+    h.source.0.lock().unwrap().snapshot = Snapshot::default();
+    h.clock.0.lock().unwrap().advance_ms(5_000);
+    let outs = h.d.scan();
+    let cmd = lines(&outs, 2)
+        .into_iter()
+        .find(|l| l.get("method").is_some())
+        .unwrap();
+    assert_eq!(cmd["method"], "tab.discard");
+    assert_eq!(cmd["params"]["tabIds"], json!([812]));
+    // The tab stays bound to the stopped-server record.
+    let history = reply(
+        &h.d.handle_line(
+            1,
+            r#"{"jsonrpc":"2.0","id":5,"method":"servers.history","params":{}}"#,
+        ),
+        &json!(5),
+    );
+    let record = history["result"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["id"] == "22249-1791530155000")
+        .unwrap()
+        .clone();
+    assert_eq!(record["tabs"][0]["tabId"], json!(812));
+}
+
+#[test]
+fn open_routes_to_the_browser_and_answers_after_its_ack() {
+    let mut h = with_browser();
+    let outs = h.d.handle_line(1, r#"{"jsonrpc":"2.0","id":6,"method":"servers.open","params":{"url":"http://localhost:5187/new"}}"#);
+    assert!(lines(&outs, 1).is_empty(), "the reply waits for the ack");
+    let cmd = lines(&outs, 2).remove(0);
+    assert_eq!(cmd["method"], "tab.open");
+    assert_eq!(
+        cmd["params"],
+        json!({"url": "http://localhost:5187/new", "focus": true})
+    );
+    let ack = json!({"jsonrpc": "2.0", "id": cmd["id"], "result": {"ok": true}});
+    let outs = h.d.handle_line(2, &ack.to_string());
+    let answer = reply(&outs, &json!(6));
+    assert_eq!(
+        answer["result"],
+        json!({"opened": true, "browser": "helium"})
+    );
+    assert!(
+        h.opened.lock().unwrap().is_empty(),
+        "open(1) is not used with a browser"
+    );
+
+    // An unacknowledged open answers `opened: false` after the timeout.
+    h.d.handle_line(1, r#"{"jsonrpc":"2.0","id":7,"method":"servers.open","params":{"url":"http://localhost:5187/x"}}"#);
+    h.clock.0.lock().unwrap().advance_ms(OPEN_ACK_MS);
+    let answer = reply(&h.d.scan(), &json!(7));
+    assert_eq!(answer["result"], json!({"opened": false}));
+
+    // A bound tab already showing the URL is focused instead of opening another.
+    let outs = h.d.handle_line(1, r#"{"jsonrpc":"2.0","id":8,"method":"servers.open","params":{"url":"http://127.0.0.1:5187/"}}"#);
+    assert_eq!(reply(&outs, &json!(8))["result"]["opened"], json!(true));
+    assert_eq!(lines(&outs, 2)[0]["method"], "tab.focus");
 }
