@@ -19,6 +19,12 @@ jobs:
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
+      # The e2e suite's test servers are `python3 -m http.server`; the runner's default
+      # python3 lives inside Xcode under /Applications, which lull rightly treats as an
+      # installed app (ADR-0002), so use a standalone Python.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace

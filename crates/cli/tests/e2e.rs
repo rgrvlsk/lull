@@ -192,9 +192,20 @@ impl Fixture {
     }
 
     fn check_deadline(&self, deadline: Instant, description: &str) {
-        assert!(
-            Instant::now() < deadline,
-            "timed out: {description}; daemon stderr: {}; log: {}",
+        if Instant::now() < deadline {
+            return;
+        }
+        // What the daemon made of the machine: a test server that shows up as an
+        // unmanaged listener ran from an installed-app location (ADR-0002).
+        let all = self
+            .cli_command()
+            .args(["ls", "--all"])
+            .stdout(Stdio::piped())
+            .output()
+            .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+            .unwrap_or_default();
+        panic!(
+            "timed out: {description}; daemon stderr: {}; log: {}; lull ls --all:\n{all}",
             fs::read_to_string(self.dir.join("daemon.stderr")).unwrap_or_default(),
             fs::read_to_string(self.dir.join("logs/lull.log")).unwrap_or_default()
         );

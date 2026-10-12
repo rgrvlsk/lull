@@ -8,7 +8,7 @@
   "scripts": {
     "build": "node esbuild.config.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --test test/"
+    "test": "node --test 'test/*.test.ts'"
   },
   "devDependencies": {
     "@types/chrome": "^0.1.0",
