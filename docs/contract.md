@@ -200,7 +200,12 @@ idle_minutes = 90
 # auto_stop = "none"
 ```
 
-Opt-out per process: env `LULL_KEEP=1` → `pinned = true`.
+Opt-out per process: env `LULL_KEEP=1` → the server starts pinned (shown as *pinned
+(env)*). It is only the initial value: an explicit Unpin by the user wins and is
+persisted. `DEVSERVER_KEEP` from the prototype is **not** honoured.
+
+`lull daemon --dry-run` makes every decision, logs and shows it, but sends no signals
+(for testing and fixtures; off by default).
 
 ## 7. Stopping
 
@@ -389,6 +394,9 @@ Delivery rules:
 ## 11. Agent integration
 
 - Detection needs nothing from agents.
+- `lull open <url>`: when the CLI's own environment carries an agent marker, the tab
+  opens in the background (in the Dev group, no focus change); run by a human it is
+  focused. `--focus` / `--no-focus` override. Either way it counts as `manual` activity.
 - Optional instruction line: "Open dev-server previews with `lull open <url>`;
   idle servers are stopped after 30 min — restart them if needed."
 - v1 shows the agent and a short session id with a copy button. Mapping a session to a
@@ -408,8 +416,11 @@ GLOSSARY.md      domain vocabulary
 
 ## 13. Milestones
 
-1. **M1** daemon + CLI (`ls`, `stop`, `pin`, `open`, `daemon`) with `traffic`
-   activity; replaces the bash reaper.
+1. **M1** daemon + CLI (`ls`, `stop`, `pin`, `open`, `restart`, `doctor`, `daemon`)
+   with `traffic` activity; replaces the bash reaper by direct cutover:
+   `scripts/retire-prototype.sh` boots out `local.devserver-reaper` and removes its
+   plist and state, then the dev LaunchAgent for lull is loaded. No `DEVSERVER_KEEP`
+   alias.
 2. **M2** nm-host + Chromium extension (Helium first), `tab` activity, grouping.
 3. **M3** Firefox/Zen build.
 4. **M4** menu-bar app.
