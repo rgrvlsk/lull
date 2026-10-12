@@ -17,7 +17,7 @@ use crate::model::{
     Discovery, KnownGroup, ObservedServer, ProcessInfo, Snapshot, UnmanagedListener,
 };
 
-pub use patterns::{BROWSER_BUNDLES, is_marker_key};
+pub use patterns::{BROWSER_BUNDLES, is_marker_key, marker};
 
 /// What discovery needs besides the snapshot.
 pub struct Context<'a> {

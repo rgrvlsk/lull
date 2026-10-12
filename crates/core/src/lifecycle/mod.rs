@@ -109,6 +109,9 @@ struct HistoryEntry {
     stopped_at_ms: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     restart_started: Option<Instant>,
+    /// Pid of the spawned session leader; the restarted server's pgid equals it (`setsid`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    restart_pid: Option<u32>,
 }
 
 impl HistoryEntry {
@@ -213,7 +216,7 @@ impl Entry {
 }
 
 fn minutes(m: u32) -> u64 {
-    u64::from(m) * 60_000
+    u64::from(m) * crate::model::minute_ms()
 }
 
 /// `at` is not after `now` (same boot session only).
@@ -268,12 +271,16 @@ enum Refusal {
     NoWitness,
 }
 
-/// The re-check of §7 immediately before every signal.
+/// The re-check of §7 immediately before every signal. `before_term`: before `SIGTERM`
+/// every member's exe and argv must be readable, since the protected test cannot pass on
+/// unknown fields (§4.8); before `SIGKILL` members are exiting and the witness check
+/// already proves it is the same group.
 fn check_group(
     sys: &mut Sys,
     discovery: &Discovery,
     pgid: u32,
     witnesses: &[Witness],
+    before_term: bool,
 ) -> Result<(), Refusal> {
     if pgid <= 1 || pgid == sys.daemon_pgid || discovery.protected.contains(&pgid) {
         return Err(Refusal::Unsafe(format!("pgid {pgid} is never signalled")));
@@ -290,6 +297,14 @@ fn check_group(
             "member {} has uid {}",
             p.pid, p.uid
         )));
+    }
+    if before_term {
+        if let Some(p) = members.iter().find(|p| p.exe.is_none() || p.argv.is_none()) {
+            return Err(Refusal::Unreadable(format!(
+                "pid {} exe/argv unreadable",
+                p.pid
+            )));
+        }
     }
     if (sys.protected)(&members) {
         return Err(Refusal::Unsafe("the group is protected".into()));
@@ -456,6 +471,7 @@ impl Lifecycle {
                     },
                     stopped_at_ms: *wall_ms,
                     restart_started: None,
+                    restart_pid: None,
                 },
             );
         }
@@ -526,6 +542,7 @@ impl Lifecycle {
         let found = self.history.iter().position(|h| {
             h.server.status == RestartStatus::Restarting
                 && h.server.cwd == s.cwd
+                && h.restart_pid.is_none_or(|pid| pid == s.pgid)
                 && h.restart_window_open(now)
         });
         if let Some(pos) = found {
@@ -600,7 +617,7 @@ impl Lifecycle {
                 return;
             }
         }
-        match check_group(sys, t.discovery, pgid, &members) {
+        match check_group(sys, t.discovery, pgid, &members, true) {
             Ok(()) => {}
             Err(Refusal::NoWitness) => {
                 let why =
@@ -672,7 +689,7 @@ impl Lifecycle {
         let stop = e.record.stop.clone().expect("caller checked");
         match &stop.sigkill_at {
             None if elapsed(&t.now, &stop.sigterm_at, SIGKILL_AFTER_MS) => {
-                match check_group(sys, t.discovery, pgid, &stop.witnesses) {
+                match check_group(sys, t.discovery, pgid, &stop.witnesses, false) {
                     Ok(()) => match sys.signaler.signal_group(pgid, Signal::Kill) {
                         Ok(()) => {
                             if let Some(s) = e.record.stop.as_mut() {
@@ -691,7 +708,14 @@ impl Lifecycle {
                         Self::abort(e, notes, t, why, fx);
                     }
                     Err(Refusal::Unreadable(why) | Refusal::Unsafe(why)) => {
-                        e.log_once(format!("{id}: SIGKILL withheld: {why}"), fx)
+                        let line = format!("{id}: SIGKILL withheld: {why}");
+                        if !notes.contains(&line) {
+                            notes.push(line.clone());
+                            if notes.len() > DOCTOR_NOTES {
+                                notes.remove(0);
+                            }
+                        }
+                        e.log_once(line, fx)
                     }
                 }
             }
@@ -831,6 +855,7 @@ impl Lifecycle {
             Ok(pid) => {
                 h.server.status = RestartStatus::Restarting;
                 h.restart_started = Some(now.clone());
+                h.restart_pid = Some(pid);
                 Ok(pid)
             }
             Err(err) => {

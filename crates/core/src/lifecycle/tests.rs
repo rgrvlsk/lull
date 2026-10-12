@@ -22,6 +22,8 @@ fn process(pid: u32, pgid: u32, start: u64) -> ProcessInfo {
         ppid: 1,
         uid: UID,
         start_epoch_ms: start,
+        exe: Some("/opt/homebrew/bin/node".into()),
+        argv: Some(vec!["node".into(), "server.js".into()]),
         ..ProcessInfo::default()
     }
 }
@@ -361,7 +363,7 @@ fn all_witnesses_gone_after_sigterm_aborts_without_history() {
 #[test]
 fn unsafe_groups_are_never_signalled() {
     type Setup = fn(&mut H);
-    let cases: [(&str, Setup); 6] = [
+    let cases: [(&str, Setup); 7] = [
         ("protected exe", |h| {
             h.src.snapshot.processes[0].exe = Some("/protected/claude".into())
         }),
@@ -379,6 +381,12 @@ fn unsafe_groups_are_never_signalled() {
             h.src.fail_next = Some(io::ErrorKind::PermissionDenied)
         }),
         ("empty group", |h| h.src.snapshot.processes.clear()),
+        ("unreadable exe before SIGTERM", |h| {
+            h.src.snapshot.processes.push(ProcessInfo {
+                exe: None,
+                ..process(106, 100, 1000)
+            })
+        }),
     ];
     for (name, setup) in cases {
         for manual in [false, true] {
@@ -624,10 +632,13 @@ fn with_history(argv: Vec<String>) -> H {
 #[test]
 fn restart_succeeds_when_a_new_server_listens_in_cwd() {
     let mut h = with_history(vec!["npm".into(), "run".into(), "dev".into()]);
-    let mut spawner = FakeSpawner::default();
+    let mut spawner = FakeSpawner {
+        next_pid: 199,
+        ..FakeSpawner::default()
+    };
     let now = h.clock.now();
     let pid = h.lc.restart(ID, &mut spawner, "/logs", &now).unwrap();
-    assert_eq!(pid, 1);
+    assert_eq!(pid, 200);
     let req = &spawner.requests[0];
     assert_eq!(req.argv.join(" "), "npm run dev");
     assert_eq!(req.cwd, "/Users/x/p100");
@@ -637,6 +648,16 @@ fn restart_succeeds_when_a_new_server_listens_in_cwd() {
     assert_eq!(
         h.lc.restart(ID, &mut spawner, "/logs", &now),
         Err(LifecycleError::AlreadyRestarting)
+    );
+
+    // Another server in the same cwd is not the restarted one.
+    let mut other = server(150, OriginKind::User);
+    other.cwd = "/Users/x/p100".into();
+    h.add(other);
+    let fx = h.at(5_000);
+    assert!(
+        !fx.iter()
+            .any(|e| matches!(e, Effect::RestartSucceeded { .. }))
     );
 
     let mut s = server(200, OriginKind::User);

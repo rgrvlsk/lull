@@ -278,6 +278,20 @@ pub enum StopOutcome {
 
 // ───────────────────────── helpers ─────────────────────────
 
+/// Length of one policy minute (`idle_minutes`, `warn_before_minutes`,
+/// `wake_grace_minutes`) in ms.
+// ponytail: test-only knob — `LULL_MINUTE_MS` lets the e2e suite run "minutes" in
+// seconds against a real daemon; read once, 60 000 otherwise.
+pub fn minute_ms() -> u64 {
+    static MINUTE: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+    *MINUTE.get_or_init(|| {
+        std::env::var("LULL_MINUTE_MS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(60_000)
+    })
+}
+
 /// RFC 3339 UTC string (`2026-10-11T20:12:00Z`) for wall-clock milliseconds.
 pub fn rfc3339(epoch_ms: u64) -> String {
     let secs = epoch_ms / 1000;

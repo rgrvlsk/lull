@@ -148,7 +148,7 @@ pub fn is_marker_key(key: &str) -> bool {
 
 /// The agent named by the first marker in `env`; config entries are checked first so a
 /// user entry can name an agent more precisely than the built-in table.
-pub(crate) fn marker(env: &BTreeMap<String, String>, extra: &[AgentMarker]) -> Option<Agent> {
+pub fn marker(env: &BTreeMap<String, String>, extra: &[AgentMarker]) -> Option<Agent> {
     let extra = extra
         .iter()
         .map(|m| (m.env.as_str(), m.value.as_deref(), m.agent.as_str()));
