@@ -333,13 +333,27 @@ pub fn doctor_lines() -> Vec<(String, bool, String)> {
             let path = browser.manifest();
             let result = check_manifest(browser, &path);
             let ok = result.is_ok();
-            let text = match result {
+            let mut text = match result {
                 Ok(()) => format!("manifest ready ({})", path.display()),
                 Err(e) => format!("{e} ({})", path.display()),
             };
+            // Contract §5: profiles share one covered process.
+            if let Some(n) = profile_count(browser).filter(|&n| n > 1) {
+                text.push_str(&format!("; {n} profiles: load the extension in each"));
+            }
             (browser.name.into(), ok, text)
         })
         .collect()
+}
+
+/// Number of profiles a Chromium browser lists in its `Local State`.
+fn profile_count(browser: &Browser) -> Option<usize> {
+    if browser.mozilla {
+        return None;
+    }
+    let bytes = fs::read(browser.support_dir().join("Local State")).ok()?;
+    let state: Value = serde_json::from_slice(&bytes).ok()?;
+    Some(state["profile"]["info_cache"].as_object()?.len())
 }
 
 fn check_manifest(browser: &Browser, path: &Path) -> Result<(), String> {

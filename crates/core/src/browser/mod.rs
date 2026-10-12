@@ -198,11 +198,8 @@ impl Registry {
             .map(|(id, _)| *id)
     }
 
-    /// Browsers with a live extension connection (§5).
-    // ponytail: coverage is per browser process, and Chromium runs every profile in one
-    // process, so a connected profile also covers its uninstrumented sibling profiles
-    // (their open pages then count only through new connections). Upgrade path: none at
-    // the pid level; it needs the extension in every profile.
+    /// Browsers with a live extension connection (§5). Coverage is per browser process,
+    /// so it spans every profile of a Chromium browser.
     pub fn covered(&self) -> CoveredBrowsers {
         CoveredBrowsers(self.conns.values().filter_map(|c| c.browser_pid).collect())
     }

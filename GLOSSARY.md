@@ -87,7 +87,8 @@ _Avoid_: inactive, unused, asleep
 
 **Covered browser**:
 A browser whose lull extension is connected, so its tabs are judged by visibility rather
-than by the connections it holds open.
+than by the connections it holds open. All profiles of a Chromium browser are covered
+together, so the extension belongs in each of them.
 _Avoid_: connected browser, instrumented browser
 
 **Grace period**:

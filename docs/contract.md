@@ -189,9 +189,13 @@ CPU is reported for display only and is **not** an activity source.
 descendants (Chromium opens connections from a network-service helper, not the main
 process). The daemon learns it per connection: `LOCAL_PEERPID` on the socket gives the
 nm-host's pid, whose parent is the browser. A connected browser covers only itself:
-another browser or profile without the extension stays uncovered, and its established
-connections keep servers alive through `traffic` (b). With no browser connected (all of
-M1), every established outside connection counts.
+another browser without the extension stays uncovered, and its established connections
+keep servers alive through `traffic` (b). Coverage is per browser process, and a Chromium
+browser runs all its profiles in one process, so connecting the extension in one profile
+covers every profile of that browser: a page open only in a profile without the extension
+counts through new connections (`traffic` (a)) alone. The extension belongs in every
+profile, and `lull doctor` says so for a browser with several profiles. With no browser
+connected (all of M1), every established outside connection counts.
 
 Clock: idle time counts **awake time only**. Activity instants are kept as
 `CLOCK_UPTIME_RAW` (stops while the Mac sleeps) plus `kern.bootsessionuuid`; persisted

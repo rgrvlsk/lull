@@ -362,3 +362,19 @@ fn install_refuses_to_replace_a_foreign_manifest_or_follow_a_symlink() {
     assert!(!f.run(&["browsers", "install"]).status.success());
     assert_eq!(fs::read_to_string(&target).unwrap(), "keep");
 }
+
+#[test]
+fn doctor_notes_browsers_with_several_profiles() {
+    let f = Fixture::new();
+    let dir = f.browser("Chromium");
+    f.success(&["browsers", "install"]);
+    fs::write(
+        dir.join("Local State"),
+        r#"{"profile":{"info_cache":{"Default":{},"Profile 1":{}}}}"#,
+    )
+    .unwrap();
+    assert!(
+        f.doctor_line("chromium")
+            .contains("2 profiles: load the extension in each")
+    );
+}
