@@ -147,7 +147,7 @@ fn resolve(ids: Vec<String>, arg: &str) -> Result<String, String> {
 
 /// `key=value` pairs → `ConfigPatch` JSON. Values are TOML (`idle_minutes=90`,
 /// `auto_stop=all`); a value that is not valid TOML is taken as a string.
-fn config_patch(pairs: &[String]) -> Result<Value, String> {
+pub(crate) fn config_patch(pairs: &[String]) -> Result<Value, String> {
     let mut patch = serde_json::Map::new();
     for pair in pairs {
         let (k, v) = pair
@@ -226,7 +226,7 @@ fn table(rows: Vec<Vec<String>>) -> String {
     out
 }
 
-fn origin(o: &lull_protocol::Origin) -> String {
+pub(crate) fn origin(o: &lull_protocol::Origin) -> String {
     match &o.agent {
         Some(agent) => format!(
             "agent/{}",
@@ -236,7 +236,7 @@ fn origin(o: &lull_protocol::Origin) -> String {
     }
 }
 
-fn enum_str<T: serde::Serialize>(v: &T) -> String {
+pub(crate) fn enum_str<T: serde::Serialize>(v: &T) -> String {
     serde_json::to_value(v)
         .unwrap()
         .as_str()
