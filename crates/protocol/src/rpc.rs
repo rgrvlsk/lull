@@ -221,6 +221,8 @@ pub struct SetAutoStopParams {
 }
 
 /// `servers.open`: either a known server (optionally with a path) or a bare URL.
+/// `focus` overrides the default (focus unless the caller runs under an agent, §11);
+/// added in protocol 1.1.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged, deny_unknown_fields)]
 pub enum OpenParams {
@@ -228,9 +230,15 @@ pub enum OpenParams {
         id: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         path: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        focus: Option<bool>,
     },
     /// Must be `http(s)` with a loopback or `*.localhost` host.
-    Url { url: String },
+    Url {
+        url: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        focus: Option<bool>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -343,7 +343,7 @@ recent stop.
 | `servers.history` | `{}` | `StoppedServer[]` |
 | `servers.restart` | `{id}` (stopped-server record) | `{pid}` — a record without a launch command is refused with error `-32011 not_restartable` (§7) |
 | `servers.forget` | `{id}` | `{}` — drop a stopped-server record |
-| `servers.open` | `{id, path?}` or `{url}` | `{opened: bool, browser?}` — routed to a connected browser, else `open(1)` with the configured browser. `url` must be `http(s)` with a loopback or `*.localhost` host; anything else is rejected (never passed to `open(1)`) |
+| `servers.open` | `{id, path?, focus?}` or `{url, focus?}` | `{opened: bool, browser?}` — routed to a connected browser, else `open(1)` with the configured browser. `url` must be `http(s)` with a loopback or `*.localhost` host; anything else is rejected (never passed to `open(1)`). `focus` (protocol 1.1) overrides the default: focused, unless the caller's process carries an agent marker (§11; the daemon reads the caller's environment via `LOCAL_PEERPID`) |
 | `config.get` / `config.set` | `{}` / `{patch}` | `Config` |
 | `subscribe` | `{topics: ["servers","browsers"]}` | stream of notifications below |
 
@@ -456,7 +456,8 @@ Until the app exists, v1 has no stopping-soon notification; stops are listed by
 - Detection needs nothing from agents.
 - `lull open <url>`: when the CLI's own environment carries an agent marker, the tab
   opens in the background (in the Dev group, no focus change); run by a human it is
-  focused. `--focus` / `--no-focus` override. Either way it counts as `manual` activity.
+  focused. `--focus` / `--no-focus` override, sent as `servers.open {focus}`. Either way
+  it counts as `manual` activity.
 - Optional instruction line: "Open dev-server previews with `lull open <url>`;
   idle servers are stopped after 30 min — restart them if needed."
 - v1 shows the agent and a short session id with a copy button. Mapping a session to a
