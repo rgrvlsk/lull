@@ -66,7 +66,9 @@ fn panel(title: Line<'_>) -> Block<'_> {
 }
 
 fn header(f: &mut Frame, area: Rect, app: &App) {
-    let mut left = vec![" lull ".bold().cyan(), " ".into()];
+    // Colour without bold: many terminals draw bold in the bright variant, which
+    // all but vanishes on a light background.
+    let mut left = vec![" lull ".cyan(), " ".into()];
     let counts = [Some(app.servers.len()), Some(app.history.len()), None];
     for (i, name) in ["Servers", "History", "Config"].into_iter().enumerate() {
         let tab = format!(" {name} ");
@@ -245,7 +247,7 @@ fn stops(s: &Server, now: u64) -> Span<'static> {
                 "now".into()
             };
             if state == ServerState::StoppingSoon {
-                text.yellow().bold()
+                text.yellow()
             } else {
                 text.into()
             }
