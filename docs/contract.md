@@ -1,9 +1,9 @@
 # lull — v1 contract
 
-Status: **draft for review**. This file is the single source of truth that the daemon,
-the browser extension and the menu-bar app are built against. Anything marked
-**OPEN** must be decided (and recorded as an ADR in `docs/adr/`) before the part
-that depends on it is built.
+Status: **accepted for v1** (2026-10-12, after review and grilling). This file is the
+single source of truth that the daemon, the browser extension and the menu-bar app are
+built against. Decisions and their reasons live in `docs/adr/`; vocabulary in
+`GLOSSARY.md`. Any change of behaviour updates this file in the same commit.
 
 ## 1. Problem
 
@@ -43,7 +43,7 @@ recently-stopped list is in scope (§7) — remote/containers (Docker, VMs).
 ```
  Swift menu-bar app ──┐                       ┌── lull CLI (same binary)
                       ▼                       ▼
-            ┌──────── lulld daemon (Rust) ────────┐
+            ┌──────── lull daemon (Rust) ─────────┐
             │ discovery · activity · policy · stop    │
             │ unix socket: JSON-RPC 2.0, NDJSON       │
             └───────────────▲─────────────────────────┘
@@ -141,7 +141,8 @@ Scan every `scanIntervalSec` (default 5):
 `primaryUrl`: the listener whose port is not an inspector/internal port (heuristic:
 port mentioned in argv, else lowest port that answers HTTP `HEAD /` within 300 ms;
 inspector ports 9229–9239 are skipped). The probe runs once per server id and is cached,
-re-run only when the server's listener set changes or the previous probe failed. Connections opened by the daemon itself never count as activity (§5).
+re-run only when the server's listener set changes or the previous probe failed.
+Connections opened by the daemon itself never count as activity (§5).
 
 ## 5. Activity model
 
@@ -189,7 +190,8 @@ idle_minutes = 30
 auto_stop = "agent"          # "agent" | "all" | "none"
 warn_before_minutes = 2      # stopping-soon state + notification
 wake_grace_minutes = 5       # no stops right after wake or daemon start (§5)
-tabs_on_stop = "discard"   # "discard" | "close" | "keep"
+tabs_on_stop = "discard"     # "discard" | "close" | "keep"
+open_with = ""               # app for open(1) when no browser is connected; "" = system default
 history_size = 20
 history_hours = 24
 faithful_restart = false     # store env in $TMPDIR for faithful restarts (§7)
@@ -227,7 +229,8 @@ pin, `autoStop` change or policy change that makes the server ineligible returns
 5. Append a line to `~/Library/Logs/lull.log`.
 6. Record a **stopped-server record** in `state.json` history (last `history_size` = 20
    entries, none older than `history_hours` = 24): `{id, project, framework, command,
-   argv, cwd, ports, origin, stoppedAt, reason, restartEnv, tabs}`. `argv` is the oldest
+   argv, cwd, ports, origin, stoppedAt, reason, restartEnv, tabs, status}` with
+   `status ∈ {stopped, restarting, restartFailed}`. `argv` is the oldest
    member's argv captured when the server was first seen (e.g. `npm run dev`).
    `restartEnv` keeps only `PORT`, `HOST`, `NODE_ENV` when present. Servers that exit on
    their own (`reason: "exited"`) are recorded too.
@@ -251,8 +254,8 @@ pin, `autoStop` change or policy change that makes the server ineligible returns
   history only when a new server with a listener is discovered in `cwd` within 60 s; its
   `tabs` (still bound to the record, §9) are then reloaded. On timeout or early exit
   the record stays, marked `restartFailed`, with a link to the restart log. The
-  confirmation shows the exact command that will run. If the port is taken, the server's own behaviour applies (fail
-  or pick another port); the log shows it.
+  confirmation shows the exact command that will run. If the port is taken, the
+  server's own behaviour applies (fail or pick another port); the log shows it.
 
 Never signal a pgid that is protected (§4.4) or not owned by the current uid,
 re-checked immediately before each signal. Additionally refuse pgid ≤ 1 and the
@@ -295,7 +298,7 @@ recent stop.
 | Method | Params |
 |---|---|
 | `browser.tabs.sync` | `{tabs: [{tabId, windowId, url, groupId?, active, windowFocused}]}` — full snapshot on connect and on any change to a localhost tab |
-| `browser.activity` | `{tabId, url, at}` — heartbeat while §5 `tab` condition holds |
+| `browser.activity` | `{tabId, url}` — heartbeat while §5 `tab` condition holds; timestamped by the daemon on receipt |
 
 ### Daemon → client notifications
 
