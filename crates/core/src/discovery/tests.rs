@@ -595,3 +595,31 @@ fn git_root_walks_up_to_dot_git() {
     let root = find_git_root(here).expect("the repository has a .git");
     assert!(here.starts_with(&root));
 }
+
+/// Recorded on the author's machine with `lull debug snapshot` (2026-10-12, after WP1.5).
+#[test]
+fn recorded_author_machine_classifies_like_the_prototype_audit() {
+    let d = fixture("author-machine-recorded.json");
+    assert_eq!(d.servers.len(), 1, "{:#?}", d.servers);
+    let astro = &d.servers[0];
+    assert_eq!(astro.framework, Framework::Astro);
+    assert_eq!(astro.project, "example-landing");
+    assert_eq!(astro.origin.kind, OriginKind::Agent);
+    assert!(astro.complete(), "{:?}", astro.incomplete);
+    let unmanaged: Vec<&str> = d.unmanaged.iter().map(|u| u.command.as_str()).collect();
+    for name in [
+        "rapportd",
+        "ControlCenter",
+        "nginx",
+        "redis-server",
+        "postgres",
+        "mysqld_safe",
+        "Canary Mail",
+        "zed",
+    ] {
+        assert!(
+            unmanaged.iter().any(|c| c.contains(name)),
+            "{name} not unmanaged: {unmanaged:#?}"
+        );
+    }
+}
