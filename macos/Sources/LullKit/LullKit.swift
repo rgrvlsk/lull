@@ -4,7 +4,7 @@
 /// client and the `@Observable` store arrive with WP4.1.
 public enum LullKit {
     /// Protocol version this client speaks; must match `lull_protocol::PROTOCOL_VERSION`.
-    public static let protocolVersion = ProtocolVersion(major: 1, minor: 0)
+    public static let protocolVersion = ProtocolVersion(major: 1, minor: 1)
 }
 
 /// `hello.protocol` (contract §8).
