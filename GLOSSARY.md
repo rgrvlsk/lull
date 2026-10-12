@@ -27,6 +27,11 @@ _Avoid_: whitelist, excluded server
 
 ## Lifecycle
 
+**Witness**:
+A process of a server recorded by its pid and start time, used to prove the process
+group is still the same one before lull acts on it.
+_Avoid_: anchor, fingerprint
+
 **Stop**:
 To end a server's processes for good; its in-memory state is lost.
 _Avoid_: sleep, pause, suspend, kill, reap

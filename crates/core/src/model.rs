@@ -71,7 +71,9 @@ pub struct Connection {
     pub client_ancestry: Vec<u32>,
 }
 
-/// One scan (§4.1–4.2): every same-uid listening group plus any requested pgids. Its
+/// One scan (§4.1–4.2): every same-uid listening group plus any requested pgids. Sockets
+/// come from one system-wide read; if it fails the whole snapshot fails, so there is no
+/// per-member socket failure (§4.8). Its
 /// JSON form is also the `lull debug snapshot` fixture format (plan, "Fixtures").
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -117,7 +119,7 @@ pub struct ObservedServer {
     /// Only `PORT`, `HOST`, `NODE_ENV` (§7.6).
     pub restart_env: BTreeMap<String, String>,
     /// Some member has `LULL_KEEP=1` (§6): the server starts pinned.
-    pub keep_env: bool,
+    pub env_pin: bool,
     pub started_at_ms: u64,
     pub cpu_percent: f64,
     pub rss_bytes: u64,
@@ -161,8 +163,9 @@ pub struct KnownGroup {
 
 // ───────────────────────── activity ─────────────────────────
 
-/// Whether a traffic observation is a new connection (§5 `traffic` (a)) or one held open
-/// across a scan (§5 `traffic` (b)).
+/// Whether a traffic observation is a new connection (§5 `traffic` (a), emitted by an
+/// [`crate::ActivityBackend`]) or one held open at a scan (§5 `traffic` (b), derived by
+/// activity from `Snapshot::connections`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ConnectionKind {
     New,
@@ -232,6 +235,8 @@ pub struct ServerRecord {
     /// Wall clock of the same moment, display only.
     pub last_activity_wall_ms: u64,
     pub last_activity_source: Activity,
+    /// Starts as `ObservedServer::env_pin`, then only explicit pin/unpin changes it (§6).
+    // ponytail: no "pinned (env)" provenance; the wire `Server` has no field for it yet.
     pub pinned: bool,
     /// Per-server override; `None` follows the policy (§6).
     pub auto_stop: Option<bool>,
@@ -254,8 +259,8 @@ pub struct PendingStop {
     pub reason: StopReason,
     /// Members recorded at decision time; the witness check before `SIGKILL` uses them.
     pub witnesses: Vec<Witness>,
-    pub term_at: Instant,
-    pub kill_at: Option<Instant>,
+    pub sigterm_at: Instant,
+    pub sigkill_at: Option<Instant>,
 }
 
 /// How a stop ended (§7.3–7.4).

@@ -21,7 +21,7 @@ fn main() -> ExitCode {
     match cmd.as_str() {
         "browsers" => browsers::run(rest),
         "nm-host" => nm_host::run(rest),
-        "--version" | "-V" | "version" => {
+        "--version" => {
             let v = lull_protocol::PROTOCOL_VERSION;
             println!(
                 "lull {} (protocol {}.{})",

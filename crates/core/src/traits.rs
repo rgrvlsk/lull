@@ -12,7 +12,9 @@ use crate::model::{BackendHealth, ProcessInfo, Snapshot, TrafficEvent};
 
 /// A monotonic instant that stops while the Mac sleeps (contract §5, "Clock"):
 /// `CLOCK_UPTIME_RAW` plus the boot session it belongs to.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+/// Deliberately not `Ord`: compare through [`Instant::ms_since`], which refuses instants
+/// from another boot session.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Instant {
     /// Milliseconds of awake time since boot.
@@ -22,6 +24,13 @@ pub struct Instant {
 }
 
 impl Instant {
+    /// Awake milliseconds from `earlier` to `self` (0 if `earlier` is later); `None` when
+    /// the two belong to different boot sessions.
+    pub fn ms_since(&self, earlier: &Instant) -> Option<u64> {
+        (self.boot_session == earlier.boot_session)
+            .then(|| self.uptime_ms.saturating_sub(earlier.uptime_ms))
+    }
+
     /// This instant moved forward by `ms` of awake time.
     pub fn plus_ms(&self, ms: u64) -> Instant {
         Instant {
@@ -45,7 +54,9 @@ pub trait ProcessSource {
     /// that may have lost their listener, §4.8).
     fn snapshot(&mut self, also_pgids: &[u32]) -> io::Result<Snapshot>;
     /// Current members of one group, read fresh: the re-check immediately before a
-    /// signal (§7). An empty vec means the group has no members left.
+    /// signal (§7). `Ok(vec![])` means the group has no members left; `Err` means the
+    /// member list could not be read (never treated as empty). Per-member field failures
+    /// are in `ProcessInfo::errors`.
     fn group(&mut self, pgid: u32) -> io::Result<Vec<ProcessInfo>>;
     /// Parent pid of a live process (covered browsers, §5).
     fn parent(&mut self, pid: u32) -> Option<u32>;
