@@ -221,7 +221,11 @@ impl Daemon {
         };
         if let Message::Response(resp) = &msg {
             // A browser's ack of a `tab.*` command (§8).
-            if let RequestId::String(id) = &resp.id {
+            // Only the connection the command went to can answer it.
+            let from_target = |p: &PendingOpen| p.browser_conn == conn;
+            if let RequestId::String(id) = &resp.id
+                && self.pending.get(id).is_some_and(from_target)
+            {
                 let ok = resp.result.as_ref().and_then(|r| r.get("ok")) == Some(&json!(true));
                 self.answer_open(id, ok);
             }
@@ -257,6 +261,9 @@ impl Daemon {
     }
 
     /// Send a daemon → browser command; returns its id (§8).
+    // ponytail: commands carry tab ids only, so the extension re-checks a tab against the
+    // origin it last synced; a navigation in the milliseconds before a command arrives is
+    // not caught. Upgrade path: an `origin` field on tab.* commands (protocol 1.2).
     fn command(&mut self, conn: ConnId, method: &str, params: Value) -> String {
         self.next_command += 1;
         let id = format!("d{}", self.next_command);
@@ -494,25 +501,28 @@ impl Daemon {
         }
         let agent = self.conns.get(&conn).is_some_and(|c| c.agent_peer);
         let background = !focus.unwrap_or(!agent);
-        if self.browsers.has_browsers() {
-            // A bound tab already showing the URL is focused (or left alone for an agent).
-            if let Some((browser, tab)) = self.browsers.tab_showing(&url) {
-                if !background {
-                    self.command(browser, "tab.focus", json!({"tabId": tab}));
+        if let Some(target) = self.browsers.open_target() {
+            // A bound tab already showing the URL is focused, or left alone for an agent;
+            // otherwise a new tab opens in the most recently focused browser. Either way
+            // the reply waits for that browser's ack (§8).
+            let (browser, id) = match self.browsers.tab_showing(&url) {
+                Some((browser, tab)) if !background => (
+                    browser,
+                    self.command(browser, "tab.focus", json!({"tabId": tab})),
+                ),
+                Some((browser, _)) => {
+                    let name = self.browsers.name(browser).map(str::to_owned);
+                    return Ok(json!(OpenResult {
+                        opened: true,
+                        browser: name,
+                    }));
                 }
-                let name = self.browsers.name(browser).map(str::to_owned);
-                return Ok(json!(OpenResult {
-                    opened: true,
-                    browser: name,
-                }));
-            }
-            let browser = self.browsers.open_target().expect("has browsers");
+                None => {
+                    let params = json!({"url": url, "focus": !background});
+                    (target, self.command(target, "tab.open", params))
+                }
+            };
             let name = self.browsers.name(browser).unwrap_or("browser").to_owned();
-            let id = self.command(
-                browser,
-                "tab.open",
-                json!({"url": url, "focus": !background}),
-            );
             self.pending.insert(
                 id,
                 PendingOpen {

@@ -473,8 +473,31 @@ fn open_routes_to_the_browser_and_answers_after_its_ack() {
     let answer = reply(&h.d.scan(), &json!(7));
     assert_eq!(answer["result"], json!({"opened": false}));
 
-    // A bound tab already showing the URL is focused instead of opening another.
+    // A bound tab already showing the URL is focused instead of opening another; the
+    // reply still waits for the ack, and only the target connection's ack counts.
     let outs = h.d.handle_line(1, r#"{"jsonrpc":"2.0","id":8,"method":"servers.open","params":{"url":"http://127.0.0.1:5187/"}}"#);
-    assert_eq!(reply(&outs, &json!(8))["result"]["opened"], json!(true));
-    assert_eq!(lines(&outs, 2)[0]["method"], "tab.focus");
+    let cmd = lines(&outs, 2).remove(0);
+    assert_eq!(cmd["method"], "tab.focus");
+    let ack = json!({"jsonrpc": "2.0", "id": cmd["id"], "result": {"ok": true}}).to_string();
+    h.d.connected(3, None, false);
+    assert!(
+        lines(&h.d.handle_line(3, &ack), 1).is_empty(),
+        "foreign ack ignored"
+    );
+    let answer = reply(&h.d.handle_line(2, &ack), &json!(8));
+    assert_eq!(
+        answer["result"],
+        json!({"opened": true, "browser": "helium"})
+    );
+}
+
+#[test]
+fn connecting_a_browser_does_not_make_it_the_focused_one() {
+    let mut h = with_browser();
+    // A second browser connects later but never reports a focused window.
+    h.d.connected(4, Some(800), false);
+    h.d.handle_line(4, &BROWSER_HELLO.replace("helium", "chrome"));
+    let outs = h.d.handle_line(1, r#"{"jsonrpc":"2.0","id":9,"method":"servers.open","params":{"url":"http://localhost:5187/z"}}"#);
+    assert_eq!(lines(&outs, 2)[0]["method"], "tab.open");
+    assert!(lines(&outs, 4).is_empty());
 }

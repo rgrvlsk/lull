@@ -335,3 +335,24 @@ fn dev_link_creation_and_overlapping_source_preserve_existing_files() {
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("repair its lull-nm-host link"));
 }
+
+#[test]
+fn install_refuses_to_replace_a_foreign_manifest_or_follow_a_symlink() {
+    let f = Fixture::new();
+    f.browser("Chromium");
+    let path = f.manifest("Chromium");
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(&path, r#"{"name":"someone.else"}"#).unwrap();
+    assert!(!f.run(&["browsers", "install"]).status.success());
+    assert_eq!(
+        fs::read_to_string(&path).unwrap(),
+        r#"{"name":"someone.else"}"#
+    );
+
+    let target = f.root.join("elsewhere.json");
+    fs::write(&target, "keep").unwrap();
+    fs::remove_file(&path).unwrap();
+    std::os::unix::fs::symlink(&target, &path).unwrap();
+    assert!(!f.run(&["browsers", "install"]).status.success());
+    assert_eq!(fs::read_to_string(&target).unwrap(), "keep");
+}

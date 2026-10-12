@@ -200,10 +200,27 @@ fn install(name: Option<&str>) -> Result<(), String> {
         let path = browser.manifest();
         fs::create_dir_all(path.parent().unwrap())
             .map_err(|e| format!("create manifest directory: {e}"))?;
+        // Never clobber someone else's file, and never write through a symlink: the
+        // temp file + rename replaces the directory entry itself.
+        if let Ok(meta) = fs::symlink_metadata(&path) {
+            let ours = !meta.file_type().is_symlink()
+                && fs::read(&path)
+                    .ok()
+                    .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
+                    .is_some_and(|m| m["name"] == NM_HOST_NAME);
+            if !ours {
+                return Err(format!(
+                    "refusing to replace {}: it is not lull's",
+                    path.display()
+                ));
+            }
+        }
+        let tmp = path.with_extension("json.tmp");
         fs::write(
-            &path,
+            &tmp,
             serde_json::to_vec_pretty(&manifest).map_err(|e| e.to_string())?,
         )
+        .and_then(|()| fs::rename(&tmp, &path))
         .map_err(|e| format!("write {}: {e}", path.display()))?;
         println!("{}: installed {}", browser.name, path.display());
     }

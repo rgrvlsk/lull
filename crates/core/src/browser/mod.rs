@@ -7,6 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use lull_protocol::rpc::BrowserTab;
 use lull_protocol::server::{Activity, TabRef};
 
+use crate::ipc::loopback_url_port as loopback_port;
 use crate::model::{ActivityEvent, CoveredBrowsers, ObservedServer, ServerId};
 use crate::traits::Instant;
 
@@ -37,34 +38,21 @@ pub struct Registry {
     clock: u64,
 }
 
-/// Port of a loopback `http(s)` URL (§9 host permissions).
-pub fn loopback_port(url: &str) -> Option<u16> {
-    crate::ipc::loopback_url_port(url)
-}
-
 fn server_on(port: u16, servers: &[ObservedServer]) -> Option<&ObservedServer> {
     servers.iter().find(|s| s.ports.contains(&port))
 }
 
 impl Registry {
-    /// A browser said `hello`.
+    /// A browser said `hello`. Connecting is not focusing: it ranks below every browser
+    /// that reported a focused window.
     pub fn connect(&mut self, conn: ConnId, name: String, browser_pid: Option<u32>) {
-        self.clock += 1;
         let conn_state = Conn {
             name,
             browser_pid,
             tabs: Vec::new(),
-            focused: self.clock,
+            focused: 0,
         };
         self.conns.insert(conn, conn_state);
-    }
-
-    pub fn is_browser(&self, conn: ConnId) -> bool {
-        self.conns.contains_key(&conn)
-    }
-
-    pub fn has_browsers(&self) -> bool {
-        !self.conns.is_empty()
     }
 
     pub fn name(&self, conn: ConnId) -> Option<&str> {
@@ -80,6 +68,8 @@ impl Registry {
     /// `browser.tabs.sync`: a full snapshot of the connection's loopback tabs. A tab keeps
     /// its binding while it shows the URL it was bound with; a new URL is matched afresh
     /// against the live servers by port (§9 "Binding").
+    // ponytail: a hidden tab reloaded on the same URL is rebound only by its next visible
+    // heartbeat; the protocol has no load signal. Upgrade path: a load counter in tabs.sync.
     pub fn sync(&mut self, conn: ConnId, tabs: Vec<BrowserTab>, servers: &[ObservedServer]) {
         let Some(c) = self.conns.get_mut(&conn) else {
             return;
@@ -199,15 +189,20 @@ impl Registry {
         })
     }
 
-    /// The most recently focused browser connection (§8 `servers.open`).
+    /// The most recently focused browser connection (§8 `servers.open`); among browsers
+    /// that never reported focus, the newest connection.
     pub fn open_target(&self) -> Option<ConnId> {
         self.conns
             .iter()
-            .max_by_key(|(_, c)| c.focused)
+            .max_by_key(|(id, c)| (c.focused, **id))
             .map(|(id, _)| *id)
     }
 
     /// Browsers with a live extension connection (§5).
+    // ponytail: coverage is per browser process, and Chromium runs every profile in one
+    // process, so a connected profile also covers its uninstrumented sibling profiles
+    // (their open pages then count only through new connections). Upgrade path: none at
+    // the pid level; it needs the extension in every profile.
     pub fn covered(&self) -> CoveredBrowsers {
         CoveredBrowsers(self.conns.values().filter_map(|c| c.browser_pid).collect())
     }
