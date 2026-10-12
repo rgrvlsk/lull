@@ -61,3 +61,9 @@ test("wire guards reject malformed payloads and unknown fields", () => {
   assert.throws(() => decodeMessage({ jsonrpc: "2.0", method: "server.removed", params: { seq: -1, id: "s", reason: "idle" } }));
   assert.throws(() => decodeMessage({ jsonrpc: "2.0", id: 1, result: { seq: 1, servers: [{ id: "only-an-id" }] } }, "subscribe"));
 });
+
+test("browser.tabs.sync accepts an explicit null groupId", () => {
+  const line = '{"jsonrpc":"2.0","id":1,"method":"browser.tabs.sync","params":{"tabs":[{"tabId":812,"windowId":3,"url":"http://localhost:5187/","groupId":null,"active":false,"windowFocused":true}]}}';
+  const message: unknown = JSON.parse(line);
+  assert.deepEqual(decodeMessage(message), message);
+});

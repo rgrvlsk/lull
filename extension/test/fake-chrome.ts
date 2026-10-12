@@ -61,6 +61,8 @@ export function fakeChrome() {
   const onCreated = new Event<[chrome.tabs.Tab]>();
   const onUpdated = new Event<[number, chrome.tabs.OnUpdatedInfo, chrome.tabs.Tab]>();
   const onRemoved = new Event<[number, { windowId: number; isWindowClosing: boolean }]>();
+  const onAttached = new Event<[number, chrome.tabs.OnAttachedInfo]>();
+  const onDetached = new Event<[number, chrome.tabs.OnDetachedInfo]>();
   const onActivated = new Event<[{ tabId: number; windowId: number }]>();
   const onFocusChanged = new Event<[number]>();
   const onMessage = new Event<[unknown, chrome.runtime.MessageSender]>();
@@ -77,7 +79,7 @@ export function fakeChrome() {
       connectNative: (host: string) => { record("connectNative", host); if (!available) throw new Error("Native host missing"); const port = new NativePort(); ports.push(port); return port; },
     },
     tabs: {
-      onCreated, onUpdated, onRemoved, onActivated,
+      onCreated, onUpdated, onRemoved, onAttached, onDetached, onActivated,
       query: async () => [...tabs.values()].map((tab) => structuredClone(tab)),
       get: async (id: number) => structuredClone(getTab(id)),
       create: async (details: { url: string; active: boolean; windowId?: number }) => {
@@ -115,7 +117,7 @@ export function fakeChrome() {
     idle: { queryState: async (seconds: number) => { record("idle", seconds); return idleState; } },
     alarms: { onAlarm, create: async (...args: unknown[]) => { record("alarm", ...args); } },
   };
-  return { api: api as unknown as typeof chrome, events: { onCreated, onUpdated, onRemoved, onActivated, onFocusChanged, onMessage, onAlarm },
+  return { api: api as unknown as typeof chrome, events: { onCreated, onUpdated, onRemoved, onAttached, onDetached, onActivated, onFocusChanged, onMessage, onAlarm },
     tabs, groups, windows, calls, ports, addTab,
     setIdle: (state: "active" | "idle" | "locked") => { idleState = state; },
     setAvailable: (value: boolean) => { available = value; },

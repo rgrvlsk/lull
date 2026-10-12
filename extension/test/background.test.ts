@@ -118,7 +118,9 @@ for (const [file, apiMethod] of [["tab-close", "remove"], ["tab-discard", "disca
 
 test("open routes to last focused window, groups, preserves background focus, and refuses remote URLs", async (t) => {
   const fake = await setup(t), port = fake.ports[0]!;
-  fake.events.onFocusChanged.emit(4); fake.events.onFocusChanged.emit(-1);
+  fake.windows.get(3)!.focused = false; fake.windows.get(4)!.focused = true;
+  // No focus event: use the browser's current state.
+  fake.events.onFocusChanged.emit(-1);
   port.onMessage.emit(fixture("tab-open")[0]); await flush();
   assert.deepEqual(result(fake, "d1"), fixture("tab-open")[1]);
   assert.deepEqual(fake.calls.find((c) => c.method === "create")!.args, [{ url: "http://127.0.0.1:5187/admin", active: false, windowId: 4 }]);
@@ -188,7 +190,7 @@ test("content script reports transitions and 30s visible heartbeats only", async
 
 test("loopback recognition and browser identity include IPv6/subdomains and reject other schemes", () => {
   for (const url of ["http://localhost/", "https://127.0.0.1/", "http://[::1]:5187/", "https://app.localhost/"]) assert.ok(loopbackUrl(url));
-  for (const url of ["file://localhost/a", "ftp://localhost/", "http://localhost.evil/", "https://example.com/", "bad", "http://127.0.0.2/"]) assert.equal(loopbackUrl(url), undefined);
+  for (const url of ["file://localhost/a", "ftp://localhost/", "http://localhost.evil/", "https://example.com/", "bad"]) assert.equal(loopbackUrl(url), undefined);
   assert.equal(browserInfo("1", { userAgent: "Chrome/120.1" }).name, "chromium");
   assert.equal(browserInfo("1", agent).name, "helium");
 });
@@ -252,7 +254,6 @@ test("concurrent adoption and open create only one Dev group in a window", async
   assert.equal([...fake.groups.values()].filter((g) => g.windowId === 4 && g.title === "Dev").length, 1);
 });
 
-
 for (const url of ["https://example.com/", "http://localhost:9999/"]) {
   test(`queued adoption refuses a tab that has navigated to ${url}`, async (t) => {
     const fake = await setup(t, (f) => {
@@ -264,5 +265,58 @@ for (const url of ["https://example.com/", "http://localhost:9999/"]) {
       }) as typeof f.api.tabs.get;
     });
     assert.equal(fake.tabs.get(812)!.groupId, -1);
+  });
+}
+
+for (const url of ["https://example.com/", "http://localhost:9999/"]) {
+  test(`adoption rechecks navigation to ${url} after the Dev-group lookup`, async (t) => {
+    const fake = await setup(t, (f) => {
+      const query = f.api.tabGroups.query.bind(f.api.tabGroups);
+      f.api.tabGroups.query = (async (details: chrome.tabGroups.QueryInfo) => {
+        const groups = await query(details);
+        if (details.windowId === 3) f.tabs.get(812)!.url = url;
+        return groups;
+      }) as typeof f.api.tabGroups.query;
+    });
+    assert.equal(fake.tabs.get(812)!.groupId, -1);
+    assert.ok(!fake.calls.some((c) => c.method === "group" && (c.args[0] as { tabIds: number }).tabIds === 812));
+  });
+}
+
+test("dragging out while disconnected survives reconnect", async (t) => {
+  const fake = await setup(t);
+  fake.ports[0]!.disconnect(); await flush();
+  const tab = fake.tabs.get(812)!; tab.groupId = -1;
+  fake.events.onUpdated.emit(812, { groupId: -1 }, tab);
+  fake.events.onAlarm.emit({ name: RECONNECT_ALARM, scheduledTime: 0 }); await flush();
+  assert.equal(tab.groupId, -1);
+  assert.equal(fake.ports[1]!.requests("browser.tabs.sync").length, 1);
+});
+
+for (const event of ["onDetached", "onAttached"] as const) {
+  test(`${event} debounces a loopback tab snapshot with its current window`, async (t) => {
+    const fake = await setup(t), port = fake.ports[0]!;
+    const emit = (id: number) => {
+      if (event === "onDetached") fake.events.onDetached.emit(id, { oldWindowId: 3, oldPosition: 0 });
+      else fake.events.onAttached.emit(id, { newWindowId: 4, newPosition: 0 });
+    };
+    await sync(t); // Drain the initial adoption's group-change snapshot.
+    const count = port.requests("browser.tabs.sync").length;
+    emit(900); await flush(); await sync(t);
+    assert.equal(port.requests("browser.tabs.sync").length, count);
+    fake.tabs.get(812)!.windowId = 4;
+    emit(812); emit(812); await flush(); await sync(t);
+    assert.equal(port.requests("browser.tabs.sync").length, count + 1);
+    const last = port.requests("browser.tabs.sync").at(-1) as Request<"browser.tabs.sync">;
+    assert.equal(last.params.tabs.find((tab) => tab.tabId === 812)!.windowId, 4);
+  });
+}
+
+for (const [accepted, urls] of [
+  [true, ["http://localhost:5173/", "https://app.localhost", "http://127.0.0.1:8080/x?y", "http://127.0.0.2:5187/", "http://[::1]:3000/", "HTTP://LOCALHOST:1/"]],
+  [false, ["https://example.com/", "file:///etc/passwd", "http://localhost@evil.com/", "http://user@localhost:5187/", "http://127.0.0.1.evil.com/", "http://localhost.evil.com/", "https://example.com\\.localhost/", "http://127.0.0.256/", "http://app%2elocalhost/", "http://user:secret@localhost/"]],
+] as const) {
+  for (const url of urls) test(`daemon loopback rule ${accepted ? "accepts" : "rejects"} ${url}`, () => {
+    assert.equal(loopbackUrl(url) !== undefined, accepted);
   });
 }
