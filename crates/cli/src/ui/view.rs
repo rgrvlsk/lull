@@ -10,7 +10,7 @@ use ratatui::widgets::{
     Block, BorderType, Cell, Clear, HighlightSpacing, Padding, Paragraph, Row, Table, Wrap,
 };
 
-use super::app::{App, FIELDS, Prompt, View, config_value, tilde};
+use super::app::{App, FIELDS, Prompt, SAMPLES, View, config_value, tilde};
 use crate::cli::{enum_str, origin, parse_rfc3339};
 
 const MIN: (u16, u16) = (40, 8);
@@ -45,11 +45,11 @@ pub fn draw(f: &mut Frame, app: &mut App) {
 /// and not at all on small ones.
 fn split(area: Rect) -> (Rect, Option<Rect>) {
     if area.width >= 100 {
-        let [a, b] = Layout::horizontal([Constraint::Fill(3), Constraint::Fill(2)]).areas(area);
+        let [a, b] = Layout::horizontal([Constraint::Fill(2), Constraint::Fill(1)]).areas(area);
         (a, Some(b))
     } else if area.height >= 24 {
-        // The full server detail is 22 rows; give it that, up to half the height.
-        let detail = Constraint::Length(22.min(area.height / 2));
+        // The full server detail is 23 rows; give it that, up to half the height.
+        let detail = Constraint::Length(23.min(area.height / 2));
         let [a, b] = Layout::vertical([Constraint::Fill(1), detail]).areas(area);
         (a, Some(b))
     } else {
@@ -180,48 +180,87 @@ fn servers(f: &mut Frame, main: Rect, side: Option<Rect>, app: &mut App) {
         return empty(f, main, block, title, hint);
     }
     let now = app.now;
+    // Columns that fit: the framework goes first (the detail title has it), then the load
+    // columns (the detail pane has them too). Origin keeps at least 12 columns.
+    let width = |f: fn(&Server) -> String, cap: usize| {
+        app.servers
+            .iter()
+            .map(|s| Span::raw(f(s)).width())
+            .max()
+            .unwrap_or(0)
+            .min(cap)
+    };
+    let project = width(|s| s.project.clone(), 24);
+    let framework = width(|s| enum_str(&s.framework), 12);
+    let need = |fw: bool, load: bool| {
+        let cols = [
+            (true, project),
+            (true, 1),
+            (fw, framework),
+            (true, 6),
+            (true, 11),
+            (load, 14),
+            (load, 5),
+            (true, 12),
+        ];
+        let shown: Vec<_> = cols.iter().filter(|c| c.0).map(|c| c.1).collect();
+        shown.iter().sum::<usize>() + 2 * (shown.len() - 1) + 2 + 4
+    };
+    let (show_fw, show_load) = [(true, true), (false, true), (true, false), (false, false)]
+        .into_iter()
+        .find(|&(fw, load)| need(fw, load) <= main.width as usize)
+        .unwrap_or((false, false));
     let rows: Vec<Row> = app
         .servers
         .iter()
         .enumerate()
         .map(|(i, s)| {
             let first = i == 0 || app.servers[i - 1].project != s.project;
-            Row::new([
+            let mut cells = vec![
                 Cell::from(if first {
                     fit(&s.project, 24).bold()
                 } else {
                     "".into()
                 }),
                 Cell::from(glyph(s)),
-                Cell::from(enum_str(&s.framework)),
-                Cell::from(s.ports.first().map_or("—".into(), |p| format!(":{p}"))),
-                Cell::from(stops(s, now)),
-                Cell::from(origin_span(&s.origin)),
-            ])
+            ];
+            if show_fw {
+                cells.push(Cell::from(enum_str(&s.framework)));
+            }
+            cells.push(Cell::from(
+                s.ports.first().map_or("—".into(), |p| format!(":{p}")),
+            ));
+            cells.push(Cell::from(stops(s, now)));
+            if show_load {
+                let (cpu, _) = series(app, s);
+                cells.push(Cell::from(Line::from(vec![
+                    format!("{:>5.1}% ", s.cpu_percent).into(),
+                    spark(&cpu, 7, cpu_range(&cpu)).cyan(),
+                ])));
+                cells.push(Cell::from(
+                    Line::from(short_bytes(s.rss_bytes)).right_aligned(),
+                ));
+            }
+            cells.push(Cell::from(origin_span(&s.origin)));
+            Row::new(cells)
         })
         .collect();
-    let widths = vec![
-        widest(app.servers.iter().map(|s| s.project.as_str()), 24),
-        Constraint::Length(1),
-        widest(
-            app.servers
-                .iter()
-                .map(|s| enum_str(&s.framework))
-                .collect::<Vec<_>>()
-                .iter()
-                .map(String::as_str),
-            12,
-        ),
-        Constraint::Length(6),
-        Constraint::Length(11),
-        Constraint::Fill(1),
-    ];
+    let mut widths = vec![Constraint::Length(project as u16), Constraint::Length(1)];
+    if show_fw {
+        widths.push(Constraint::Length(framework as u16));
+    }
+    widths.extend([Constraint::Length(6), Constraint::Length(11)]);
+    if show_load {
+        widths.extend([Constraint::Length(14), Constraint::Length(5)]);
+    }
+    widths.push(Constraint::Fill(1));
     f.render_stateful_widget(table(rows, widths, block), main, &mut app.lists[0]);
     if let (Some(side), Some(s)) = (side, app.selected_server()) {
-        let block = panel(Line::from(format!(" {} ", s.project).bold()));
+        let title = format!(" {} · {} ", s.project, enum_str(&s.framework));
+        let block = panel(Line::from(title.bold()));
         let inner = block.inner(side);
         f.render_widget(block, side);
-        let text = server_detail(s, now, inner.width as usize);
+        let text = server_detail(s, series(app, s), now, inner.width as usize);
         f.render_widget(Paragraph::new(text).wrap(Wrap { trim: false }), inner);
     }
 }
@@ -265,7 +304,7 @@ fn origin_span(o: &lull_protocol::Origin) -> Span<'static> {
     }
 }
 
-fn server_detail(s: &Server, now: u64, width: usize) -> Text<'static> {
+fn server_detail(s: &Server, load: (Vec<f64>, Vec<f64>), now: u64, width: usize) -> Text<'static> {
     let at = |t: &str| parse_rfc3339(t).unwrap_or(now);
     let last = at(&s.last_activity_at);
     let mut lines = vec![
@@ -338,10 +377,25 @@ fn server_detail(s: &Server, now: u64, width: usize) -> Text<'static> {
                 .join(" "),
         ),
         ("pids", join(&s.pids)),
-        (
-            "load",
-            format!("{:.1}% cpu · {}", s.cpu_percent, bytes(s.rss_bytes)),
-        ),
+    ] {
+        lines.push(kv(k, v));
+    }
+    let (cpu, mem) = load;
+    // Value first, then the trend: the chart fills in from the right as samples arrive.
+    let w = width.saturating_sub(10 + 8).clamp(4, SAMPLES);
+    lines.extend([
+        Line::from(vec![
+            format!("{:<10}", "cpu").dim(),
+            format!("{:<8}", format!("{:.1}%", s.cpu_percent)).into(),
+            spark(&cpu, w, cpu_range(&cpu)).cyan(),
+        ]),
+        Line::from(vec![
+            format!("{:<10}", "mem").dim(),
+            format!("{:<8}", bytes(s.rss_bytes)).into(),
+            spark(&mem, w, mem_range(&mem)).green(),
+        ]),
+    ]);
+    for (k, v) in [
         (
             "started",
             format!("{} ago", dur(now.saturating_sub(at(&s.started_at)))),
@@ -623,6 +677,42 @@ pub fn dur(ms: u64) -> String {
     }
 }
 
+/// The last `width` values as ▁…█ bars between `lo` and `hi`, newest on the right.
+fn spark(values: &[f64], width: usize, (lo, hi): (f64, f64)) -> String {
+    const BARS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+    let tail = &values[values.len().saturating_sub(width)..];
+    let bars: String = tail
+        .iter()
+        .map(|v| BARS[(((v - lo) / (hi - lo)).clamp(0.0, 1.0) * 7.0).round() as usize])
+        .collect();
+    " ".repeat(width - tail.len()) + &bars
+}
+
+/// CPU from 0 to at least 10%, so an idle server's noise stays flat.
+fn cpu_range(cpu: &[f64]) -> (f64, f64) {
+    (0.0, cpu.iter().copied().fold(10.0, f64::max))
+}
+
+/// Memory from its lowest sample over at least 64 MiB, so growth shows and jitter does not.
+fn mem_range(mem: &[f64]) -> (f64, f64) {
+    let lo = mem.iter().copied().fold(f64::MAX, f64::min);
+    let hi = mem.iter().copied().fold(0.0, f64::max);
+    (lo, lo + (hi - lo).max(64.0 * 1024.0 * 1024.0))
+}
+
+/// A server's CPU % and RSS samples, oldest first.
+fn series(app: &App, s: &Server) -> (Vec<f64>, Vec<f64>) {
+    let samples = app.load.get(&s.id).into_iter().flatten();
+    samples.map(|&(c, r)| (c, r as f64)).unzip()
+}
+
+fn short_bytes(b: u64) -> String {
+    match b {
+        b if b >= 1 << 30 => format!("{:.1}G", b as f64 / (1u64 << 30) as f64),
+        b => format!("{}M", b >> 20),
+    }
+}
+
 fn bytes(b: u64) -> String {
     match b {
         b if b >= 1 << 30 => format!("{:.1} GB", b as f64 / (1u64 << 30) as f64),
@@ -636,6 +726,7 @@ mod tests {
     use super::*;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
+    use serde_json::json;
 
     fn render(app: &mut App, w: u16, h: u16) -> String {
         let mut t = Terminal::new(TestBackend::new(w, h)).unwrap();
@@ -699,6 +790,22 @@ mod tests {
     }
 
     #[test]
+    fn sparks_scale_and_pad() {
+        assert_eq!(spark(&[0.0, 5.0, 10.0], 5, (0.0, 10.0)), "  ▁▅█");
+        assert_eq!(spark(&[20.0; 9], 4, cpu_range(&[20.0])), "████");
+        assert_eq!(cpu_range(&[0.2, 0.1]), (0.0, 10.0));
+        let mib = 1024.0 * 1024.0;
+        assert_eq!(
+            spark(
+                &[100.0 * mib, 101.0 * mib],
+                2,
+                mem_range(&[100.0 * mib, 101.0 * mib])
+            ),
+            "▁▁"
+        );
+    }
+
+    #[test]
     fn durations_read_naturally() {
         let s = 1000;
         assert_eq!(
@@ -713,6 +820,13 @@ mod tests {
     #[ignore]
     fn show() {
         let mut app = app();
+        // Two and a half minutes of varying load, as the 5 s refresh would collect.
+        for i in 0..30u32 {
+            let mut list = serde_json::to_value(&app.servers).unwrap();
+            list[0]["cpuPercent"] = json!((f64::from(i) * 0.7).sin().abs() * 35.0);
+            list[0]["rssBytes"] = json!(182_452_224 + u64::from(i) * 3_000_000);
+            app.on_result(super::super::app::Req::List, Ok(list));
+        }
         for view in super::super::app::VIEWS {
             app.view = view;
             print!("{}", render(&mut app, 120, 24));

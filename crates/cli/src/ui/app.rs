@@ -1,6 +1,8 @@
 //! Terminal UI state: what is on screen and what each key does. No I/O: `ui/mod.rs`
 //! feeds in daemon messages and keys and sends the requests queued in `out`.
 
+use std::collections::{HashMap, VecDeque};
+
 use lull_protocol::rpc::{DaemonNotification, HelloResult, SubscribeResult};
 use lull_protocol::{Config, OriginKind, Server, StoppedServer};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -85,6 +87,8 @@ pub const FIELDS: [(&str, &str); 8] = [
 ];
 
 const FLASH_MS: u64 = 4000;
+/// Load samples kept per server: 30 × the 5 s refresh = 2.5 minutes.
+pub const SAMPLES: usize = 30;
 
 pub struct App {
     pub view: View,
@@ -95,6 +99,8 @@ pub struct App {
     pub servers: Vec<Server>,
     pub history: Vec<StoppedServer>,
     pub config: Option<Config>,
+    /// CPU % and RSS per server id, one sample per snapshot or refresh, newest last.
+    pub load: HashMap<String, VecDeque<(f64, u64)>>,
     pub lists: [TableState; 3],
     pub prompt: Option<Prompt>,
     pub flash: Option<(String, bool, u64)>,
@@ -113,6 +119,7 @@ impl App {
             servers: Vec::new(),
             history: Vec::new(),
             config: None,
+            load: HashMap::new(),
             lists: Default::default(),
             prompt: None,
             flash: None,
@@ -212,8 +219,12 @@ impl App {
             Req::Subscribe => serde_json::from_value(value).map(|r: SubscribeResult| {
                 self.seq = Some(r.seq);
                 self.set_servers(r.servers);
+                self.sample();
             }),
-            Req::List => serde_json::from_value(value).map(|s| self.set_servers(s)),
+            Req::List => serde_json::from_value(value).map(|s| {
+                self.set_servers(s);
+                self.sample();
+            }),
             Req::History => serde_json::from_value(value).map(|h| self.set_history(h)),
             Req::Config | Req::SetConfig => serde_json::from_value(value).map(|mut c: Config| {
                 c.open_with = clean(&c.open_with);
@@ -251,6 +262,19 @@ impl App {
         self.servers = servers;
         let n = self.servers.len();
         list.select((n > 0).then(|| at.min(n - 1)));
+    }
+
+    /// Record each server's current load; forget servers that are gone.
+    fn sample(&mut self) {
+        let live: HashMap<_, _> = self.servers.iter().map(|s| (&s.id, s)).collect();
+        self.load.retain(|id, _| live.contains_key(id));
+        for (id, s) in live {
+            let samples = self.load.entry(id.clone()).or_default();
+            samples.push_back((s.cpu_percent, s.rss_bytes));
+            if samples.len() > SAMPLES {
+                samples.pop_front();
+            }
+        }
     }
 
     fn set_history(&mut self, mut history: Vec<StoppedServer>) {
@@ -663,6 +687,19 @@ pub(crate) mod tests {
         app.set_config("open_with", "30");
         assert_eq!(app.out[0].params, json!({"patch": {"idle_minutes": 45}}));
         assert_eq!(app.out[1].params, json!({"patch": {"open_with": "30"}}));
+    }
+
+    #[test]
+    fn load_keeps_the_last_samples_of_live_servers() {
+        let mut app = app();
+        let list = fixture("servers-list.ndjson", 1)["result"].clone();
+        for _ in 0..SAMPLES + 5 {
+            app.on_result(Req::List, Ok(list.clone()));
+        }
+        assert!(app.load.values().all(|v| v.len() == SAMPLES));
+        let one = json!([list[0].clone()]);
+        app.on_result(Req::List, Ok(one));
+        assert_eq!(app.load.len(), 1);
     }
 
     #[test]
