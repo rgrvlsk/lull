@@ -1,0 +1,3 @@
+ID                   PROJECT  FRAMEWORK  URL                     ORIGIN        STATE    STOPS
+22249-1791530155000  crm      vite       http://127.0.0.1:5187/  agent/claude  running  in 12m
+31002-1791600000000  site     astro      http://localhost:4321/  you           running  never

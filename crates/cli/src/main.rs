@@ -6,7 +6,13 @@
 use std::process::ExitCode;
 
 mod browsers;
+mod cli;
+mod client;
+mod daemon;
+mod doctor;
+mod local;
 mod nm_host;
+mod paths;
 
 fn main() -> ExitCode {
     let mut args: Vec<String> = std::env::args().collect();
@@ -19,6 +25,11 @@ fn main() -> ExitCode {
     };
     let rest = args.split_off(1);
     match cmd.as_str() {
+        "ls" | "stop" | "pin" | "unpin" | "touch" | "open" | "restart" | "history" | "forget"
+        | "config" => cli::run(&cmd, rest),
+        "daemon" => daemon::run(rest),
+        "doctor" => doctor::run(rest),
+        "debug" => local::debug(rest),
         "browsers" => browsers::run(rest),
         "nm-host" => nm_host::run(rest),
         "--version" => {

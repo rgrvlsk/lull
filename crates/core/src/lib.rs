@@ -19,6 +19,6 @@ pub mod state;
 pub mod testing;
 
 pub use traits::{
-    ActivityBackend, ActivityBackendKind, Clock, Instant, ProcessSource, Signal, Signaler,
-    SpawnRequest, Spawner, StateStore,
+    ActivityBackend, ActivityBackendKind, Clock, ConfigStore, Instant, ProcessSource, Signal,
+    Signaler, SpawnRequest, Spawner, StateStore,
 };

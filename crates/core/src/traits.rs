@@ -110,3 +110,11 @@ pub trait StateStore {
     /// where it went.
     fn quarantine(&mut self) -> io::Result<String>;
 }
+
+/// The text of `config.toml` (§6). The daemon parses and validates it; a bad file keeps
+/// the last good config.
+pub trait ConfigStore {
+    /// `Ok(None)` when there is no config file (all defaults).
+    fn load(&mut self) -> io::Result<Option<String>>;
+    fn save(&mut self, text: &str) -> io::Result<()>;
+}

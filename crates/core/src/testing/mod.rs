@@ -198,3 +198,19 @@ pub fn env(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
         .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
         .collect()
 }
+
+/// `config.toml` kept in memory.
+#[derive(Debug, Default)]
+pub struct MemoryConfigStore {
+    pub text: Option<String>,
+}
+
+impl crate::traits::ConfigStore for MemoryConfigStore {
+    fn load(&mut self) -> io::Result<Option<String>> {
+        Ok(self.text.clone())
+    }
+    fn save(&mut self, text: &str) -> io::Result<()> {
+        self.text = Some(text.to_owned());
+        Ok(())
+    }
+}
