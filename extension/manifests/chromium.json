@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "lull",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqyPfBBICCy0sFTgZ6PzH1oIjrZoShlm/4O1CgumN50buCESiMKWkK9rjZL8Ja7X5DOYfbYi7sVaZntJT61N4ZZLMuSwQKFHKQGjgY76Fmo/BOtx5yJ3hptRzrldmnR30LtByhvImrWyRKu9i5Qn/UPZxcERgi6XlLFHMgRSNO2ASm1SlRPZOVgRDzk3PJr11XZcRYHNPJXBI5pjzsEBB5QWP3NowAltUabV2q3K4SEEkmBMinlMFlMU930ItQBSuvPqzHHig6Xy/YpD8Xds2RL5BkT36BUm4Y3t6gStPKJZSQCbQZYQayIJ23iHz6hLxMAx2MDTettjLzcbvHeDwUQIDAQAB",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "minimum_chrome_version": "120",
   "background": { "service_worker": "background.js", "type": "module" },
   "action": { "default_title": "lull" },
