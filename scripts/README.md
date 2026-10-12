@@ -1,11 +1,10 @@
 # scripts
 
-Development and maintenance scripts, run by hand and never in CI. Planned (see
-`docs/plan.md`):
+Development and maintenance scripts, run by hand and never in CI (see `docs/plan.md`).
+Both touch the user's real LaunchAgents.
 
-- `dev-launchagent.sh` (WP1.6): bootstrap/bootout a dev LaunchAgent for the daemon before
-  the menu-bar app exists (ADR-0006). Removed when M4 lands.
-- `retire-prototype.sh` (WP1.6): retire the bash `devserver-reaper` prototype during the
-  M1 cutover.
-
-Empty in M0.
+- `dev-launchagent.sh install|uninstall` (WP1.6): builds `target/release/lull` and
+  bootstraps/bootouts the dev LaunchAgent `io.github.rgrvlsk.lull.daemon` running
+  `lull daemon`. Removed when the Homebrew formula ships (ADR-0008).
+- `retire-prototype.sh` (WP1.6): boots out `local.devserver-reaper` and removes its
+  plist and state, for the M1 cutover.
