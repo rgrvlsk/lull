@@ -25,7 +25,7 @@ test("hello, subscribe, full loopback snapshot, existing/new per-window Dev grou
   });
   const port = fake.ports[0]!;
   assert.deepEqual(port.sent.slice(0, 3).map((m) => "method" in m ? m.method : "ack"), ["hello", "subscribe", "browser.tabs.sync"]);
-  assert.deepEqual((port.requests("hello")[0] as Request<"hello">).params, { client: "browser", version: "0.1.0", protocol: { major: 1, minor: 1 }, browser: { name: "helium", version: "0.5.7.1", extensionVersion: "0.1.0" } });
+  assert.deepEqual((port.requests("hello")[0] as Request<"hello">).params, { client: "browser", version: "0.1.0", protocol: { major: 1, minor: 2 }, browser: { name: "helium", version: "0.5.7.1", extensionVersion: "0.1.0" } });
   assert.equal(fake.tabs.get(812)!.groupId, 9);
   assert.equal(fake.tabs.get(813)!.groupId, -1);
   assert.equal(fake.tabs.get(820)!.groupId, fake.tabs.get(821)!.groupId);
@@ -99,7 +99,8 @@ test("visibility heartbeat requires visible plus active idle state, without wind
 
 for (const [file, apiMethod] of [["tab-close", "remove"], ["tab-discard", "discard"], ["tab-reload", "reload"], ["tab-focus", "updateTab"]] as const) {
   test(`${file} executes fixture request and acknowledges its string ID`, async (t) => {
-    const fake = await setup(t), port = fake.ports[0]!;
+    // tab-close also targets 813; keep it on one of the fixture's ports (56306).
+    const fake = await setup(t, (f) => { f.tabs.get(813)!.url = "http://localhost:56306/"; }), port = fake.ports[0]!;
     const command = fixture(file)[0] as Request;
     port.onMessage.emit(command); await flush();
     assert.deepEqual(result(fake, command.id as string), fixture(file)[1]);
@@ -115,6 +116,31 @@ for (const [file, apiMethod] of [["tab-close", "remove"], ["tab-discard", "disca
     assert.ok(!fake.calls.some((c) => c.method === apiMethod));
   });
 }
+
+for (const [method, params, apiMethod] of [["tab.discard", { tabIds: [812] }, "discard"], ["tab.focus", { tabId: 812 }, "updateTab"]] as const) {
+  test(`${method} with ports acts only while the tab is loopback on a listed port`, async (t) => {
+    const fake = await setup(t), port = fake.ports[0]!, tab = fake.tabs.get(812)!;
+    const navigate = async (url: string) => { tab.url = url; fake.events.onUpdated.emit(812, { url }, tab); await sync(t); };
+    // Resynced after navigating to another loopback port: the origin re-check alone would pass.
+    await navigate("http://127.0.0.1:4321/");
+    port.onMessage.emit({ jsonrpc: "2.0", id: "moved", method, params: { ...params, ports: [5187, 56306] } }); await flush();
+    assert.deepEqual(result(fake, "moved"), { jsonrpc: "2.0", id: "moved", result: { error: "tab url no longer matches server origin" } });
+    assert.ok(!fake.calls.some((c) => c.method === apiMethod));
+    await navigate("http://127.0.0.1:5187/");
+    port.onMessage.emit({ jsonrpc: "2.0", id: "listed", method, params: { ...params, ports: [5187, 56306] } }); await flush();
+    assert.deepEqual(result(fake, "listed"), { jsonrpc: "2.0", id: "listed", result: { ok: true } });
+    assert.ok(fake.calls.some((c) => c.method === apiMethod));
+  });
+}
+
+test("tab commands without ports or with empty ports keep the 1.1 origin-only check", async (t) => {
+  const fake = await setup(t), port = fake.ports[0]!, tab = fake.tabs.get(812)!;
+  tab.url = "http://127.0.0.1:4321/"; fake.events.onUpdated.emit(812, { url: tab.url }, tab); await sync(t);
+  port.onMessage.emit({ jsonrpc: "2.0", id: "none", method: "tab.discard", params: { tabIds: [812] } }); await flush();
+  assert.deepEqual(result(fake, "none"), { jsonrpc: "2.0", id: "none", result: { ok: true } });
+  port.onMessage.emit({ jsonrpc: "2.0", id: "empty", method: "tab.reload", params: { tabIds: [640], ports: [] } }); await flush();
+  assert.deepEqual(result(fake, "empty"), { jsonrpc: "2.0", id: "empty", result: { ok: true } });
+});
 
 test("open routes to last focused window, groups, preserves background focus, and refuses remote URLs", async (t) => {
   const fake = await setup(t), port = fake.ports[0]!;

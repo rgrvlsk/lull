@@ -1,6 +1,7 @@
 // Wire names and shapes mirror crates/protocol. No URLs are fetched by the extension.
 export type RequestId = number | string;
 export interface ProtocolVersion { major: number; minor: number }
+export const PROTOCOL: ProtocolVersion = { major: 1, minor: 2 };
 export interface BrowserInfo { name: string; profile?: string; version: string; extensionVersion: string }
 export interface HelloParams { client: "app" | "cli" | "browser"; version: string; protocol: ProtocolVersion; browser?: BrowserInfo }
 export interface HelloResult { daemonVersion: string; protocol: ProtocolVersion; connectionId: string; capabilities: string[]; activityBackend: "ntstat" | "scan" }
@@ -37,6 +38,7 @@ export interface Config {
   history_size: number; history_hours: number; project?: ProjectRule[]; agent_marker?: AgentMarker[];
 }
 export type ConfigPatch = Partial<Config>;
+export interface TabIdsParams { tabIds: number[]; ports?: number[] }
 export interface ParamsByMethod {
   hello: HelloParams;
   "servers.list": Record<string, never>;
@@ -54,10 +56,11 @@ export interface ParamsByMethod {
   "browser.tabs.sync": TabsSyncParams;
   "browser.activity": BrowserActivityParams;
   "tab.open": { url: string; focus: boolean };
-  "tab.close": { tabIds: number[] };
-  "tab.discard": { tabIds: number[] };
-  "tab.reload": { tabIds: number[] };
-  "tab.focus": { tabId: number };
+  // ports (1.2): the server's ports; act only while the tab is loopback on one of them.
+  "tab.close": TabIdsParams;
+  "tab.discard": TabIdsParams;
+  "tab.reload": TabIdsParams;
+  "tab.focus": { tabId: number; ports?: number[] };
 }
 export interface ResultsByMethod {
   hello: HelloResult;
@@ -143,7 +146,7 @@ const configFields = {
 const config = object<Config>(configFields);
 const patch = object<ConfigPatch>(Object.fromEntries(Object.entries(configFields).map(([key, guard]) => [key, optional(guard as Guard<unknown>)])) as { [K in keyof Config]-?: Guard<Config[K] | undefined> });
 const id = object<{ id: string }>({ id: string });
-const tabIds = object<{ tabIds: number[] }>({ tabIds: array(integer) });
+const tabIds = object<TabIdsParams>({ tabIds: array(integer), ports: optional(array(uint(65535))) });
 const ack = either(object<{ ok: boolean }>({ ok: boolean }), object<{ error: string }>({ error: string }));
 const params: { [M in Method]: Guard<ParamsByMethod[M]> } = {
   hello, "servers.list": empty, "servers.stop": id, "servers.pin": object({ id: string, pinned: boolean }),
@@ -154,7 +157,7 @@ const params: { [M in Method]: Guard<ParamsByMethod[M]> } = {
   "browser.tabs.sync": object({ tabs: array(object<BrowserTab>({ tabId: integer, windowId: integer, url: string, groupId: optional(nullable(integer)), active: boolean, windowFocused: boolean })) }),
   "browser.activity": object({ tabId: integer, url: string }),
   "tab.open": object({ url: string, focus: boolean }), "tab.close": tabIds, "tab.discard": tabIds,
-  "tab.reload": tabIds, "tab.focus": object({ tabId: integer }),
+  "tab.reload": tabIds, "tab.focus": object<{ tabId: number; ports?: number[] }>({ tabId: integer, ports: optional(array(uint(65535))) }),
 };
 const results: { [M in Method]: Guard<ResultsByMethod[M]> } = {
   hello: helloResult, "servers.list": array(server), "servers.stop": empty, "servers.pin": server,

@@ -1,4 +1,4 @@
-import { decodeMessage } from "./protocol.ts";
+import { decodeMessage, PROTOCOL } from "./protocol.ts";
 import type { BrowserCommand, BrowserInfo, BrowserTab, DaemonNotification, Method, ParamsByMethod, RequestId, ResultsByMethod, Server } from "./protocol.ts";
 
 export const RECONNECT_ALARM = "lull-reconnect";
@@ -197,13 +197,15 @@ export function startBackground(api: typeof chrome, agent: Parameters<typeof bro
       scheduleSync(); return;
     }
     const ids = command.method === "tab.focus" ? [command.params.tabId] : command.params.tabIds;
+    const ports = command.params.ports?.length ? command.params.ports : undefined;
     async function checkedTab(id: number) {
       let tab: chrome.tabs.Tab;
       try { tab = await api.tabs.get(id); }
       catch { throw new Error(ORIGIN_ERROR); }
       requireConnection(connection);
-      const origin = loopbackUrl(tab.url)?.origin;
-      if (!origin || reported.get(id) !== origin) throw new Error(ORIGIN_ERROR);
+      const url = loopbackUrl(tab.url);
+      if (!url || reported.get(id) !== url.origin) throw new Error(ORIGIN_ERROR);
+      if (ports && !ports.includes(Number(url.port || (url.protocol === "https:" ? 443 : 80)))) throw new Error(ORIGIN_ERROR);
       return tab;
     }
     // Preflight the whole batch, then re-read immediately before each mutation.
@@ -252,7 +254,7 @@ export function startBackground(api: typeof chrome, agent: Parameters<typeof bro
       connection.onMessage.addListener((message) => receive(message, connection));
       connection.onDisconnect.addListener(() => { void api.runtime.lastError; drop(connection); });
       const version = api.runtime.getManifest().version;
-      void request("hello", { client: "browser", version, protocol: { major: 1, minor: 1 }, browser: browserInfo(version, agent) })
+      void request("hello", { client: "browser", version, protocol: PROTOCOL, browser: browserInfo(version, agent) })
         .then((hello) => {
           requireConnection(connection);
           if (hello.protocol.major !== 1 || hello.protocol.minor < 1) throw new Error("update lull");
