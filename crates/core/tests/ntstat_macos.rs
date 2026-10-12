@@ -20,6 +20,10 @@ impl Drop for Server {
     }
 }
 
+/// A static file server on 127.0.0.1 that listens without `python3 -m http.server`'s
+/// reverse-DNS lookup between bind and listen, which hangs on CI runners. Argument: port
+/// (0 = any); prints `Serving HTTP on 127.0.0.1 port <n>`.
+const SERVE: &str = "import socketserver as s, http.server as h, sys; srv = s.TCPServer(('127.0.0.1', int(sys.argv[1])), h.SimpleHTTPRequestHandler); print('Serving HTTP on 127.0.0.1 port', srv.server_address[1], flush=True); srv.serve_forever()";
 #[test]
 fn short_curl_reports_the_server_port_and_client_pid() {
     let mut backend = match NtstatBackend::open() {
@@ -31,12 +35,12 @@ fn short_curl_reports_the_server_port_and_client_pid() {
     };
     let mut server = Server(
         Command::new("python3")
-            .args(["-u", "-m", "http.server", "0", "--bind", "127.0.0.1"])
+            .args(["-u", "-c", SERVE, "0"])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
-            .expect("spawn fixture python3 -m http.server"),
+            .expect("spawn the python3 fixture server"),
     );
     let stdout = server.0.stdout.take().unwrap();
     let (tx, rx) = mpsc::channel();

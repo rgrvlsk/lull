@@ -13,6 +13,8 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use super::sys;
 
 pub(super) const SOCKET_FDINFO_SIZE: usize = 792;
+/// End of the last field `parse` reads (`tcpsi_state`).
+pub(super) const SOCKET_FDINFO_MIN: usize = TCPSI_STATE + 4;
 const SOI_KIND: usize = 256;
 const SOCKINFO_TCP: u32 = 2;
 // tcp_sockinfo.tcpsi_ini (in_sockinfo); ports are ints holding a network-order u16.

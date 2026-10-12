@@ -17,6 +17,11 @@ use serde_json::Value;
 
 const BIN: &str = env!("CARGO_BIN_EXE_lull");
 const POLL: Duration = Duration::from_millis(100);
+/// A static file server on 127.0.0.1 that listens without `python3 -m http.server`'s
+/// reverse-DNS lookup between bind and listen, which hangs on CI runners. Argument: port
+/// (0 = any); prints `Serving HTTP on 127.0.0.1 port <n>`.
+const SERVE: &str = "import socketserver as s, http.server as h, sys; srv = s.TCPServer(('127.0.0.1', int(sys.argv[1])), h.SimpleHTTPRequestHandler); print('Serving HTTP on 127.0.0.1 port', srv.server_address[1], flush=True); srv.serve_forever()";
+
 const TIMEOUT: Duration = Duration::from_secs(15);
 const SURVIVAL: Duration = Duration::from_secs(7);
 const IDLE_MINUTES: u32 = 3;
@@ -232,15 +237,9 @@ impl Fixture {
         } else {
             command("python3")
         };
-        cmd.args([
-            "-m",
-            "http.server",
-            &port.to_string(),
-            "--bind",
-            "127.0.0.1",
-        ])
-        .current_dir(&self.project)
-        .stdout(File::create(self.dir.join(format!("server-{port}.log"))).unwrap());
+        cmd.args(["-c", SERVE, &port.to_string()])
+            .current_dir(&self.project)
+            .stdout(File::create(self.dir.join(format!("server-{port}.log"))).unwrap());
         if agent {
             cmd.env("CLAUDECODE", "1");
         }
@@ -514,8 +513,8 @@ fn restart_returns_as_user_and_clears_history() {
     assert_eq!(original["origin"]["kind"], "agent");
     let record = fixture.wait_stopped(&original);
     assert_eq!(record["cwd"].as_str(), fixture.project.to_str());
-    assert_eq!(record["argv"][1], "-m");
-    assert_eq!(record["argv"][2], "http.server");
+    assert_eq!(record["argv"][1], "-c");
+    assert_eq!(record["argv"][2], SERVE);
     // The id is the history record of our previously verified Python group.
     assert!(
         fixture

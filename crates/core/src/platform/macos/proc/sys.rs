@@ -162,8 +162,11 @@ pub(super) fn socket_fdinfo(
             size,
         )
     };
+    // The kernel copies its own `sizeof(struct socket_fdinfo)` (792 bytes on macOS 15
+    // and 27); every field we read sits in the prefix, so only that prefix must be there
+    // if a release ever changes the size.
     match n {
-        n if n == size => Ok(()),
+        n if n >= super::socket::SOCKET_FDINFO_MIN as c_int => Ok(()),
         n if n <= 0 => Err(io::Error::last_os_error()),
         _ => Err(io::Error::new(
             io::ErrorKind::InvalidData,

@@ -11,7 +11,12 @@ use lull_core::model::Snapshot;
 use lull_core::platform::macos::proc::MacProcessSource;
 use lull_core::traits::ProcessSource;
 
-/// A `python3 -m http.server` in its own session; its whole group is killed on drop.
+/// A static file server on 127.0.0.1 that listens without `python3 -m http.server`'s
+/// reverse-DNS lookup between bind and listen, which hangs on CI runners. Argument: port
+/// (0 = any); prints `Serving HTTP on 127.0.0.1 port <n>`.
+const SERVE: &str = "import socketserver as s, http.server as h, sys; srv = s.TCPServer(('127.0.0.1', int(sys.argv[1])), h.SimpleHTTPRequestHandler); print('Serving HTTP on 127.0.0.1 port', srv.server_address[1], flush=True); srv.serve_forever()";
+
+/// A Python test server (`SERVE`) in its own session; its whole group is killed on drop.
 struct Server {
     child: Child,
     port: u16,
@@ -29,18 +34,12 @@ impl Server {
             std::env::temp_dir().join(format!("lull-proc-test-{}-{port}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let mut cmd = Command::new("python3");
-        cmd.args([
-            "-m",
-            "http.server",
-            &port.to_string(),
-            "--bind",
-            "127.0.0.1",
-        ])
-        .current_dir(&dir)
-        .env("CLAUDECODE", "1")
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
+        cmd.args(["-c", SERVE, &port.to_string()])
+            .current_dir(&dir)
+            .env("CLAUDECODE", "1")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
         // SAFETY: setsid is async-signal-safe.
         unsafe {
             cmd.pre_exec(|| match libc::setsid() {
@@ -94,7 +93,7 @@ fn group_reads_setsid_agent_server() {
     let members = source.group(server.pgid()).unwrap();
     let proc = members
         .iter()
-        .find(|p| p.argv.iter().flatten().any(|a| a == "http.server"))
+        .find(|p| p.argv.iter().flatten().any(|a| a == SERVE))
         .unwrap_or_else(|| panic!("{members:#?}"));
     assert_eq!(proc.pgid, server.pgid());
     let cwd = std::fs::canonicalize(&server.dir).unwrap();
@@ -131,13 +130,7 @@ fn finds_setsid_agent_server_and_its_local_client() {
     let env = proc.env.as_ref().expect("env readable");
     assert_eq!(env.get("CLAUDECODE").map(String::as_str), Some("1"));
     assert_eq!(proc.has_tty, Some(false));
-    assert!(
-        proc.argv
-            .as_ref()
-            .unwrap()
-            .iter()
-            .any(|a| a == "http.server")
-    );
+    assert!(proc.argv.as_ref().unwrap().iter().any(|a| a == SERVE));
     assert!(proc.start_epoch_ms > 0 && proc.rss_bytes > 0, "{proc:#?}");
     assert!(proc.errors.is_empty(), "{:?}", proc.errors);
 
