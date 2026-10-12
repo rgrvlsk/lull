@@ -799,3 +799,113 @@ fn next_deadline_follows_the_state_machine() {
     h.at(2 * MIN);
     assert_eq!(h.lc.next_deadline(), Some(h.clock.now().plus_ms(5000)));
 }
+
+#[test]
+fn vanished_stop_id_aborts_on_turnover_or_records_an_empty_group() {
+    for reason in [StopReason::Idle, StopReason::Manual] {
+        for empty in [false, true] {
+            let mut h = H::new();
+            h.tick();
+            if reason == StopReason::Manual {
+                h.lc.request_stop(ID).unwrap();
+                h.at(1000);
+            } else {
+                h.at(30 * MIN);
+            }
+            assert_eq!(h.sig.sent, vec![(100, Signal::Term)]);
+
+            h.exit(100);
+            if !empty {
+                let mut replacement = server(100, OriginKind::Agent);
+                replacement.id = "100-9000".into();
+                replacement.members = vec![Witness {
+                    pid: 103,
+                    start_epoch_ms: 9000,
+                }];
+                h.add(replacement);
+            }
+            let fx = h.at(5000);
+            assert_eq!(h.sig.sent, vec![(100, Signal::Term)], "no SIGKILL");
+            assert!(h.lc.record(ID).is_none());
+            if empty {
+                assert!(has(&fx, &removed(ID, reason)));
+                assert!(!fx.iter().any(|f| matches!(f, Effect::StopAborted { .. })));
+                let history = h.lc.history();
+                assert_eq!(history.len(), 1);
+                assert_eq!(history[0].id, ID);
+                assert_eq!(history[0].reason, reason);
+            } else {
+                assert!(has(&fx, &Effect::StopAborted { id: ID.into() }));
+                assert!(!fx.iter().any(|f| matches!(f, Effect::Removed { .. })));
+                assert!(h.lc.history().is_empty());
+                assert!(h.lc.record("100-9000").is_some());
+            }
+        }
+    }
+}
+
+#[test]
+fn unreadable_new_member_withholds_sigkill_but_exiting_witness_does_not() {
+    for joined_after_decision in [false, true] {
+        let mut h = H::new();
+        h.tick();
+        h.at(30 * MIN);
+        assert_eq!(h.sig.sent, vec![(100, Signal::Term)]);
+
+        if joined_after_decision {
+            let child = ProcessInfo {
+                exe: None,
+                ..process(103, 100, 9000)
+            };
+            h.server_mut(100).members.push(child.witness());
+            h.src.snapshot.processes.push(child);
+        } else {
+            h.src.snapshot.processes[0].exe = None;
+        }
+        h.at(5000);
+        let withheld =
+            h.lc.doctor()
+                .iter()
+                .any(|line| line.contains("SIGKILL withheld"));
+        if joined_after_decision {
+            assert_eq!(h.sig.sent, vec![(100, Signal::Term)]);
+            assert!(withheld);
+        } else {
+            assert_eq!(h.sig.sent, vec![(100, Signal::Term), (100, Signal::Kill)]);
+            assert!(!withheld);
+        }
+        assert_eq!(h.state(ID), ServerState::Stopping);
+        assert!(h.lc.history().is_empty());
+    }
+}
+
+#[test]
+fn repeated_unpin_preserves_activity_and_real_unpin_is_manual_activity() {
+    let mut h = H::new();
+    h.tick();
+    let initial = h.lc.record(ID).unwrap().clone();
+    for _ in 0..2 {
+        h.clock.advance_ms(1000);
+        h.lc.pin(ID, false, &h.clock.now(), h.clock.wall_ms)
+            .unwrap();
+        let rec = h.lc.record(ID).unwrap();
+        assert_eq!(rec.last_activity, initial.last_activity);
+        assert_eq!(rec.last_activity_source, initial.last_activity_source);
+    }
+
+    h.lc.pin(ID, true, &h.clock.now(), h.clock.wall_ms).unwrap();
+    h.clock.advance_ms(1000);
+    let now = h.clock.now();
+    h.lc.pin(ID, false, &now, h.clock.wall_ms).unwrap();
+    let rec = h.lc.record(ID).unwrap();
+    assert!(!rec.pinned);
+    assert_eq!(rec.last_activity, now);
+    assert_eq!(rec.last_activity_source, Activity::Manual);
+
+    h.clock.advance_ms(1000);
+    h.lc.pin(ID, false, &h.clock.now(), h.clock.wall_ms)
+        .unwrap();
+    let rec = h.lc.record(ID).unwrap();
+    assert_eq!(rec.last_activity, now);
+    assert_eq!(rec.last_activity_source, Activity::Manual);
+}
