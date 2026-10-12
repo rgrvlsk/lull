@@ -60,7 +60,13 @@ pub fn debug(args: Vec<String>) -> ExitCode {
     match scan() {
         Ok((snapshot, _)) => {
             let clean = scrub(&snapshot, &home(), &discovery::is_marker_key);
-            println!("{}", serde_json::to_string_pretty(&clean).unwrap());
+            let mut json = serde_json::to_string_pretty(&clean).unwrap();
+            // Fixtures get shared: the machine name (in e.g. mysqld's argv) goes too.
+            if let Some(host) = hostname().filter(|h| h.len() > 2) {
+                let short = host.trim_end_matches(".local").to_owned();
+                json = json.replace(&host, "host.local").replace(&short, "host");
+            }
+            println!("{json}");
             ExitCode::SUCCESS
         }
         Err(e) => {
@@ -68,4 +74,12 @@ pub fn debug(args: Vec<String>) -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+fn hostname() -> Option<String> {
+    let mut buf = [0u8; 256];
+    // SAFETY: gethostname writes at most `buf.len()` bytes, NUL-terminated on success.
+    let rc = unsafe { libc::gethostname(buf.as_mut_ptr().cast(), buf.len()) };
+    let end = buf.iter().position(|&b| b == 0)?;
+    (rc == 0).then(|| String::from_utf8_lossy(&buf[..end]).into_owned())
 }
