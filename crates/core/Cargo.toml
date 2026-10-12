@@ -11,6 +11,7 @@ rust-version.workspace = true
 lull-protocol = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+libc = { workspace = true }
 
 [lints]
 workspace = true

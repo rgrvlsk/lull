@@ -1,19 +1,34 @@
-//! Platform traits. Core logic (M1) only talks to the operating system through these.
+//! Platform traits. Core logic only talks to the operating system through these.
 //! Fakes for every trait live in [`crate::testing`].
 
 use std::collections::BTreeMap;
 use std::io;
 
+use serde::{Deserialize, Serialize};
+
 pub use lull_protocol::rpc::ActivityBackend as ActivityBackendKind;
+
+use crate::model::{BackendHealth, ProcessInfo, Snapshot, TrafficEvent};
 
 /// A monotonic instant that stops while the Mac sleeps (contract §5, "Clock"):
 /// `CLOCK_UPTIME_RAW` plus the boot session it belongs to.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Instant {
     /// Milliseconds of awake time since boot.
     pub uptime_ms: u64,
     /// `kern.bootsessionuuid`; instants from different sessions are not comparable.
     pub boot_session: String,
+}
+
+impl Instant {
+    /// This instant moved forward by `ms` of awake time.
+    pub fn plus_ms(&self, ms: u64) -> Instant {
+        Instant {
+            uptime_ms: self.uptime_ms + ms,
+            boot_session: self.boot_session.clone(),
+        }
+    }
 }
 
 /// Time source (§5).
@@ -24,75 +39,25 @@ pub trait Clock {
     fn wall_now_ms(&self) -> u64;
 }
 
-/// A TCP listening socket of a process.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ListenerSocket {
-    pub pid: u32,
-    pub local_addr: String,
-    pub local_port: u16,
-}
-
-/// An accepted or outgoing TCP connection, with its 5-tuple.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TcpConnection {
-    pub pid: u32,
-    pub local_addr: String,
-    pub local_port: u16,
-    pub remote_addr: String,
-    pub remote_port: u16,
-}
-
-/// One process as observed in a scan (§4.2). Fields that could not be read are `None`
-/// and the failure is listed in `errors`, so discovery can apply §4.8.
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct ProcessInfo {
-    pub pid: u32,
-    pub pgid: u32,
-    pub ppid: u32,
-    pub uid: u32,
-    pub start_epoch_ms: u64,
-    pub exe: Option<String>,
-    pub argv: Option<Vec<String>>,
-    /// Initial environment; `None` when unreadable.
-    pub env: Option<BTreeMap<String, String>>,
-    pub cwd: Option<String>,
-    /// Whether the process has a controlling tty (ADR-0001 veto).
-    pub has_tty: Option<bool>,
-    pub listeners: Option<Vec<ListenerSocket>>,
-    pub connections: Option<Vec<TcpConnection>>,
-    pub cpu_percent: f64,
-    pub rss_bytes: u64,
-    pub errors: Vec<String>,
-}
-
-/// One scan of every process of the current uid.
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct Snapshot {
-    pub taken_at: Option<Instant>,
-    pub processes: Vec<ProcessInfo>,
-}
-
 /// Source of process and socket information (§4.1–4.2; libproc on macOS, `/proc` later).
 pub trait ProcessSource {
-    fn snapshot(&mut self) -> io::Result<Snapshot>;
-}
-
-/// An activity observation from the platform (§5 `traffic`).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ActivityEvent {
-    /// A new TCP connection to `local_port` from `client_pid` (unknown when `None`).
-    Traffic {
-        local_port: u16,
-        client_pid: Option<u32>,
-        at: Instant,
-    },
+    /// Every same-uid listening group, plus every member of `also_pgids` (known servers
+    /// that may have lost their listener, §4.8).
+    fn snapshot(&mut self, also_pgids: &[u32]) -> io::Result<Snapshot>;
+    /// Current members of one group, read fresh: the re-check immediately before a
+    /// signal (§7). An empty vec means the group has no members left.
+    fn group(&mut self, pgid: u32) -> io::Result<Vec<ProcessInfo>>;
+    /// Parent pid of a live process (covered browsers, §5).
+    fn parent(&mut self, pid: u32) -> Option<u32>;
 }
 
 /// Source of `traffic` events: ntstat, or the accepted-socket diff fallback (ADR-0003).
 pub trait ActivityBackend {
     fn kind(&self) -> ActivityBackendKind;
-    /// Events observed since the previous call.
-    fn drain(&mut self) -> Vec<ActivityEvent>;
+    /// New connections observed since the previous call. The scan fallback diffs
+    /// `snapshot.connections` against the previous one; ntstat ignores it.
+    fn drain(&mut self, snapshot: &Snapshot, now: &Instant) -> Vec<TrafficEvent>;
+    fn health(&self) -> BackendHealth;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -124,10 +89,13 @@ pub trait Spawner {
     fn spawn(&mut self, request: &SpawnRequest) -> io::Result<u32>;
 }
 
-/// Persistence of `state.json` (§4.7). The schema is owned by core (WP1.4); the store
-/// moves bytes atomically and reports a corrupt file by moving it aside.
+/// Persistence of `state.json` (§4.7). The schema is owned by lifecycle; the store moves
+/// bytes atomically.
 pub trait StateStore {
-    /// `Ok(None)` when no state exists yet.
+    /// `Ok(None)` when no state exists yet; `Err(InvalidData)` when it is not JSON.
     fn load(&mut self) -> io::Result<Option<serde_json::Value>>;
     fn save(&mut self, state: &serde_json::Value) -> io::Result<()>;
+    /// Move a corrupt or unknown-version file aside (`state.json.corrupt-<ts>`); returns
+    /// where it went.
+    fn quarantine(&mut self) -> io::Result<String>;
 }

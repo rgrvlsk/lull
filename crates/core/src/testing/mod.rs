@@ -3,15 +3,18 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::io;
 
+use crate::model::{BackendHealth, ProcessInfo, Snapshot, TrafficEvent};
 use crate::traits::{
-    ActivityBackend, ActivityBackendKind, ActivityEvent, Clock, Instant, ProcessSource, Signal,
-    Signaler, Snapshot, SpawnRequest, Spawner, StateStore,
+    ActivityBackend, ActivityBackendKind, Clock, Instant, ProcessSource, Signal, Signaler,
+    SpawnRequest, Spawner, StateStore,
 };
 
-/// Returns a pre-set snapshot on every scan; replace it with `set`.
+/// Returns a pre-set snapshot on every scan; edit `snapshot` between scans. `group` and
+/// `parent` answer from the same snapshot (`parents` adds pids outside it).
 #[derive(Debug, Default)]
 pub struct FakeProcessSource {
     pub snapshot: Snapshot,
+    pub parents: BTreeMap<u32, u32>,
     /// When set, the next scan fails with this error instead.
     pub fail_next: Option<io::ErrorKind>,
 }
@@ -20,25 +23,39 @@ impl FakeProcessSource {
     pub fn new(snapshot: Snapshot) -> Self {
         Self {
             snapshot,
-            fail_next: None,
+            ..Self::default()
         }
     }
 }
 
 impl ProcessSource for FakeProcessSource {
-    fn snapshot(&mut self) -> io::Result<Snapshot> {
+    fn snapshot(&mut self, _also_pgids: &[u32]) -> io::Result<Snapshot> {
         match self.fail_next.take() {
             Some(kind) => Err(io::Error::from(kind)),
             None => Ok(self.snapshot.clone()),
         }
     }
+    fn group(&mut self, pgid: u32) -> io::Result<Vec<ProcessInfo>> {
+        if let Some(kind) = self.fail_next.take() {
+            return Err(io::Error::from(kind));
+        }
+        let members = self.snapshot.processes.iter().filter(|p| p.pgid == pgid);
+        Ok(members.cloned().collect())
+    }
+    fn parent(&mut self, pid: u32) -> Option<u32> {
+        let from_snapshot = self.snapshot.processes.iter().find(|p| p.pid == pid);
+        from_snapshot
+            .map(|p| p.ppid)
+            .or_else(|| self.parents.get(&pid).copied())
+    }
 }
 
-/// Replays queued activity events.
+/// Replays queued traffic events; `health` is whatever the test sets.
 #[derive(Debug)]
 pub struct FakeActivityBackend {
     pub kind: ActivityBackendKind,
-    pub queue: VecDeque<ActivityEvent>,
+    pub queue: VecDeque<TrafficEvent>,
+    pub health: BackendHealth,
 }
 
 impl Default for FakeActivityBackend {
@@ -46,6 +63,7 @@ impl Default for FakeActivityBackend {
         Self {
             kind: ActivityBackendKind::Scan,
             queue: VecDeque::new(),
+            health: BackendHealth::Healthy,
         }
     }
 }
@@ -54,8 +72,11 @@ impl ActivityBackend for FakeActivityBackend {
     fn kind(&self) -> ActivityBackendKind {
         self.kind
     }
-    fn drain(&mut self) -> Vec<ActivityEvent> {
+    fn drain(&mut self, _snapshot: &Snapshot, _now: &Instant) -> Vec<TrafficEvent> {
         self.queue.drain(..).collect()
+    }
+    fn health(&self) -> BackendHealth {
+        self.health.clone()
     }
 }
 
@@ -140,16 +161,28 @@ impl Spawner for FakeSpawner {
     }
 }
 
-/// Keeps state in memory and counts saves.
+/// Keeps state in memory and counts saves. `corrupt` makes `load` fail as if the file
+/// were not JSON; `quarantine` clears it and records the call.
 #[derive(Debug, Default)]
 pub struct MemoryStateStore {
     pub state: Option<serde_json::Value>,
     pub saves: usize,
+    pub corrupt: bool,
+    pub quarantined: usize,
 }
 
 impl StateStore for MemoryStateStore {
     fn load(&mut self) -> io::Result<Option<serde_json::Value>> {
+        if self.corrupt {
+            return Err(io::Error::from(io::ErrorKind::InvalidData));
+        }
         Ok(self.state.clone())
+    }
+    fn quarantine(&mut self) -> io::Result<String> {
+        self.corrupt = false;
+        self.state = None;
+        self.quarantined += 1;
+        Ok("state.json.corrupt-0".into())
     }
     fn save(&mut self, state: &serde_json::Value) -> io::Result<()> {
         self.state = Some(state.clone());
