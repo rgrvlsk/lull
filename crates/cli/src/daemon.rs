@@ -25,7 +25,8 @@ use lull_core::platform::macos::{
 use lull_core::state::FileStateStore;
 use lull_core::traits::ConfigStore;
 
-use ratatui::crossterm::style::Stylize;
+use ratatui::crossterm::style::{Color, Stylize};
+use ratatui::crossterm::terminal;
 
 use crate::paths::{Paths, home};
 
@@ -309,20 +310,56 @@ fn clock() -> String {
     format!("{:02}:{:02}:{:02}", tm.tm_hour, tm.tm_min, tm.tm_sec)
 }
 
-fn banner(paths: &Paths, ntstat: bool, dry_run: bool) {
-    let (l, u) = (["█   ", "█   ", "█▄▄ "], ["█  █", "█  █", "▀▄▄▀"]);
-    let side = [
-        String::new(),
-        format!("   lull {}", env!("CARGO_PKG_VERSION"))
-            .bold()
-            .to_string(),
-        "   stops the dev servers you forgot".dim().to_string(),
-    ];
-    println!();
-    for i in 0..3 {
-        let row = [l[i], u[i], l[i], l[i]].join("  ");
-        println!("  {}{}", row.cyan(), side[i]);
+/// The logo, sleeping cat and wordmark, two pixel rows per line in half blocks.
+const LOGO: [&str; 7] = [
+    "          ▄█▄     ▄",
+    "    ▄▄███████▄▄ ▄██     ██         ██ ██",
+    "  ▄████████████████     ██ ▄▄   ▄▄ ██ ██",
+    " ███▄▄▄▀███▀▀██████     ██ ██   ██ ██ ██",
+    " ███████▄▀█████▀▀██     ██ ██   ██ ██ ██",
+    " ▀███████▄▀▀▀▀▀██▀      ██ ▀█████▀ ██ ██",
+    "   ▀▀█████████▀",
+];
+const LOGO_WIDTH: usize = 40;
+
+/// Brand lavender on indigo, or the nearest 256-colour pair when the terminal does not
+/// announce 24-bit colour. A filled plate reads the same on light and dark themes.
+fn brand_colours() -> (Color, Color) {
+    match std::env::var("COLORTERM").as_deref() {
+        Ok("truecolor" | "24bit") => (
+            Color::Rgb {
+                r: 0xee,
+                g: 0xed,
+                b: 0xf6,
+            },
+            Color::Rgb {
+                r: 0x27,
+                g: 0x27,
+                b: 0x44,
+            },
+        ),
+        _ => (Color::AnsiValue(255), Color::AnsiValue(236)),
     }
+}
+
+fn banner(paths: &Paths, ntstat: bool, dry_run: bool) {
+    // Margin around the cat: a quarter of its height.
+    let side = 4;
+    println!();
+    if terminal::size().is_ok_and(|(w, _)| usize::from(w) >= LOGO_WIDTH + 2 * side + 2) {
+        let (ink, paper) = brand_colours();
+        for line in [""].iter().chain(&LOGO).chain(&[""]) {
+            let line = format!("{:side$}{line:<LOGO_WIDTH$}{:side$}", "", "");
+            println!("  {}", line.with(ink).on(paper));
+        }
+        println!();
+    }
+    println!(
+        "  {} {} · {}",
+        "lull".bold(),
+        env!("CARGO_PKG_VERSION"),
+        "stops the dev servers you forgot".dim()
+    );
     let backend = if ntstat { "ntstat" } else { "scan" };
     let dry = if dry_run {
         " · dry run, nothing is stopped"
