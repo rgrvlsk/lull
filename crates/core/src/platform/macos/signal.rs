@@ -83,7 +83,8 @@ impl Spawner for LoginShellSpawner {
         let mut child = cmd.spawn()?;
         let pid = child.id();
         // Reap the session leader so it does not linger as a zombie member of its group.
-        // ponytail: one parked thread per restart; restarts are rare and manual.
+        // ponytail: one parked thread per restart; restarts are rare and manual. Upgrade
+        // path: reap with a single SIGCHLD/waitpid(-1) loop if restarts become frequent.
         std::thread::spawn(move || child.wait());
         Ok(pid)
     }

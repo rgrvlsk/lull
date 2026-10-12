@@ -619,7 +619,10 @@ impl Lifecycle {
                     incomplete.join("; ")
                 ))
             } else if t.hold_stops {
-                Some("wake/start grace or backend switch".to_owned())
+                Some(
+                    "grace period after daemon start, sleep or an activity backend switch"
+                        .to_owned(),
+                )
             } else if !ticked {
                 Some("first scan".to_owned())
             } else {
@@ -944,7 +947,7 @@ impl Lifecycle {
         } else if !obs.complete() {
             format!("incomplete observation ({})", obs.incomplete.join("; "))
         } else if self.hold {
-            "wake/start grace or backend switch".to_owned()
+            "grace period after daemon start, sleep or an activity backend switch".to_owned()
         } else {
             return None;
         };

@@ -470,26 +470,23 @@ impl Daemon {
         self.first_scan = false;
 
         let mut out = Vec::new();
+        // Lifecycle already logs every outcome as an `Effect::Log` line.
         for effect in effects {
             match effect {
                 Effect::Removed { id, reason } => {
-                    (self.p.log)(&format!("removed {id} ({})", json!(reason)));
                     self.sent.remove(&id);
                     self.seq += 1;
                     let n = json!({"jsonrpc": "2.0", "method": "server.removed",
                         "params": {"seq": self.seq, "id": id, "reason": reason}});
                     out.extend(self.broadcast(&n));
                 }
-                Effect::StopAborted { id } => (self.p.log)(&format!("stop of {id} aborted")),
-                Effect::StopStuck { id } => (self.p.log)(&format!("stop of {id} is stuck")),
-                Effect::RestartSucceeded {
-                    record_id,
-                    server_id,
-                } => (self.p.log)(&format!("restarted {record_id} as {server_id}")),
-                Effect::RestartFailed { record_id } => {
-                    (self.p.log)(&format!("restart of {record_id} failed"))
-                }
                 Effect::Log(line) => (self.p.log)(&line),
+                // ponytail: tab reload after a restart arrives with the browser registry
+                // (WP2.4); M1 has nothing else to do for these.
+                Effect::StopAborted { .. }
+                | Effect::StopStuck { .. }
+                | Effect::RestartSucceeded { .. }
+                | Effect::RestartFailed { .. } => {}
             }
         }
         if let Err(e) = self.lifecycle.save(self.p.store.as_mut()) {

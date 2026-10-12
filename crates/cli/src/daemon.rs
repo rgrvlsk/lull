@@ -180,7 +180,8 @@ fn accept(listener: UnixListener, tx: Sender<Msg>) {
         let tx = tx.clone();
         thread::spawn(move || {
             // ponytail: no per-line size cap on the daemon socket; every client is the
-            // same uid (ADR-0004). nm-host caps browser messages at 1 MiB.
+            // same uid (ADR-0004) and nm-host caps browser messages at 1 MiB. Upgrade
+            // path: read through `Read::take` per line if a client ever misbehaves.
             for line in BufReader::new(stream).lines() {
                 let Ok(line) = line else { break };
                 if tx.send(Msg::Line(id, line)).is_err() {

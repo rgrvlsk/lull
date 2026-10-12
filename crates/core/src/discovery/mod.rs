@@ -51,6 +51,7 @@ pub fn discover(
     let mut out = Discovery::default();
     // §4.8: a known server whose member list could not be read is kept as it was.
     // ponytail: ports and primaryUrl are not refreshed for such a scan; it is transient.
+    // Upgrade path: rebuild them from `snap.listeners` if unreadable groups persist.
     for s in prev {
         if snap.unreadable_groups.contains(&s.pgid) && !groups.contains_key(&s.pgid) {
             out.servers.push(ObservedServer {
@@ -286,13 +287,9 @@ pub fn is_protected(members: &[ProcessInfo], ctx: &Context) -> bool {
         .any(|p| patterns::protected_by(p, ctx).is_some())
 }
 
-/// Real `git_root` implementation (walks up looking for `.git`); the daemon injects it.
-pub fn find_git_root(cwd: &str) -> Option<String> {
-    std::path::Path::new(cwd)
-        .ancestors()
-        .find(|dir| dir.join(".git").exists())
-        .map(|dir| dir.to_string_lossy().into_owned())
-}
+/// Real `git_root` implementation, injected by the daemon (it lives with the platform
+/// code because it reads the filesystem).
+pub use crate::platform::find_git_root;
 
 /// ADR-0002: strictly inside `$HOME` (not `$HOME`, not `~/Library`) or a temp directory.
 fn is_project_location(cwd: &str, home: &str) -> bool {
