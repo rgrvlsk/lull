@@ -48,7 +48,9 @@ fn split(area: Rect) -> (Rect, Option<Rect>) {
         let [a, b] = Layout::horizontal([Constraint::Fill(3), Constraint::Fill(2)]).areas(area);
         (a, Some(b))
     } else if area.height >= 24 {
-        let [a, b] = Layout::vertical([Constraint::Fill(1), Constraint::Length(14)]).areas(area);
+        // The full server detail is 22 rows; give it that, up to half the height.
+        let detail = Constraint::Length(22.min(area.height / 2));
+        let [a, b] = Layout::vertical([Constraint::Fill(1), detail]).areas(area);
         (a, Some(b))
     } else {
         (area, None)
@@ -710,7 +712,7 @@ mod tests {
         for view in super::super::app::VIEWS {
             app.view = view;
             print!("{}", render(&mut app, 120, 24));
-            print!("{}", render(&mut app, 80, 30));
+            print!("{}", render(&mut app, 95, 50));
         }
     }
 }
