@@ -156,7 +156,13 @@ fn nm_host(exe: &Path) -> Result<PathBuf, String> {
     if brew.is_none()
         && fs::symlink_metadata(&host).is_err_and(|e| e.kind() == std::io::ErrorKind::NotFound)
     {
-        symlink(exe, &host).map_err(|e| format!("create {}: {e}", host.display()))?;
+        // Another `lull browsers install` may have created it meanwhile.
+        match symlink(exe, &host) {
+            Err(e) if e.kind() != std::io::ErrorKind::AlreadyExists => {
+                return Err(format!("create {}: {e}", host.display()));
+            }
+            _ => {}
+        }
     }
     if !host.is_file() {
         return Err(format!(
