@@ -49,7 +49,7 @@ M0 ─▶ M0.5 model ─┬─▶ WP1.1 proc source ─┐
                   ├─▶ WP2.2 extension core (mock) ─┼─▶ WP2.4 daemon browser integ ────┘
                   └─▶ WP2.3 browsers install ──────┘
                                     v1.1
-WP-R ─▶ M3 Firefox/Zen · M4 app (WP4.1 may start any time after M0.5) ─▶ M5 cask
+WP-R ─▶ WP-T terminal UI · M3 Firefox/Zen · M4 app (WP4.1 may start any time after M0.5) ─▶ M5 cask
 Spikes first: S1 ntstat parsing (in WP1.3) · S2 Zen tab groups (WP3.1) · S3 signed
 embedded binary + SMAppService + nm-host link (WP4.4, v1.1)
 ```
@@ -290,6 +290,29 @@ after its idle time while one shown in a visible tab is not.
 
 Specified so v1 keeps their seams; started after WP-R ships (WP4.1 may start earlier
 against fixtures).
+
+---
+
+## WP-T — Terminal UI (first in v1.1; ADR-0009)
+
+Paths: `crates/cli/src/ui/`, the `ui` arm and bare-`lull` dispatch in
+`crates/cli/src/main.rs`, `ratatui` and `crossterm` in `Cargo.toml` and
+`crates/cli/Cargo.toml`, README "Use".
+
+- **Live data:** one socket connection; `subscribe` with gap re-subscribe, `servers.list`
+  every few seconds for CPU/RSS, history and config fetched when shown and after
+  `server.removed`; reconnect with a visible "daemon unreachable" state.
+- **Views:** servers grouped by project with a detail pane (stacked below on narrow
+  terminals), history, config; actions open, stop, pin/unpin, keep alive (`touch`),
+  restart, forget, config edits through `config.set`.
+- **Safety:** control characters in process-supplied text are replaced before drawing;
+  confirm before stopping a user-started server and before restart (shows the command).
+- **Look:** 16-colour ANSI palette, `NO_COLOR`, keyboard only, wording rules (§10).
+
+Accept: renders `protocol/fixtures/` data into a test backend without panics at
+40×10 and 200×60, including long paths, 30 servers and none; a server whose argv
+contains `\x1b[2J` draws no escape; idle CPU stays near zero; the terminal is restored
+after `q`, Ctrl-C and a panic.
 
 ---
 
