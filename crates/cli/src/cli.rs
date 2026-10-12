@@ -147,7 +147,7 @@ fn resolve(ids: Vec<String>, arg: &str) -> Result<String, String> {
 
 /// `key=value` pairs → `ConfigPatch` JSON. Values are TOML (`idle_minutes=90`,
 /// `auto_stop=all`); a value that is not valid TOML is taken as a string.
-pub(crate) fn config_patch(pairs: &[String]) -> Result<Value, String> {
+fn config_patch(pairs: &[String]) -> Result<Value, String> {
     let mut patch = serde_json::Map::new();
     for pair in pairs {
         let (k, v) = pair

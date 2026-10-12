@@ -441,15 +441,48 @@ impl App {
         }
     }
 
+    /// Checked here so a typo gets a plain answer, not the daemon's decoding error.
     fn set_config(&mut self, key: &str, value: &str) {
-        match crate::cli::config_patch(&[format!("{key}={value}")]) {
-            Ok(patch) => self.out.push(Cmd::new(
+        let value = value.trim();
+        let value = match accepts(key) {
+            Accepts::Number => value.parse::<u32>().ok().map(|n| json!(n)),
+            Accepts::OneOf(words) => words.contains(&value).then(|| json!(value)),
+            Accepts::Text => Some(json!(value)),
+        };
+        match value {
+            Some(v) => self.out.push(Cmd::new(
                 Req::SetConfig,
                 "config.set",
-                json!({"patch": patch}),
+                json!({"patch": {key: v}}),
             )),
-            Err(e) => self.flash(e, true),
+            None => self.flash(format!("{key} takes {}", accepts(key).describe()), true),
         }
+    }
+}
+
+pub enum Accepts {
+    Number,
+    OneOf(&'static [&'static str]),
+    Text,
+}
+
+impl Accepts {
+    pub fn describe(&self) -> String {
+        match self {
+            Accepts::Number => "a whole number".into(),
+            Accepts::OneOf(words) => words.join(", "),
+            Accepts::Text => "an app name, or nothing for the default".into(),
+        }
+    }
+}
+
+/// What each §6 setting in `FIELDS` accepts.
+pub fn accepts(key: &str) -> Accepts {
+    match key {
+        "auto_stop" => Accepts::OneOf(&["agent", "all", "none"]),
+        "tabs_on_stop" => Accepts::OneOf(&["discard", "close", "keep"]),
+        "open_with" => Accepts::Text,
+        _ => Accepts::Number,
     }
 }
 
@@ -610,6 +643,26 @@ pub(crate) mod tests {
         servers.push(early);
         app.on_result(Req::List, Ok(serde_json::to_value(servers).unwrap()));
         assert_eq!(app.selected_server().unwrap().project, "site");
+    }
+
+    #[test]
+    fn config_edits_are_checked_before_they_are_sent() {
+        let mut app = app();
+        for (key, bad) in [
+            ("auto_stop", "bogus"),
+            ("idle_minutes", "soon"),
+            ("idle_minutes", "-1"),
+        ] {
+            app.set_config(key, bad);
+            assert!(
+                app.out.is_empty() && app.flash_text().unwrap().1,
+                "{key}={bad}"
+            );
+        }
+        app.set_config("idle_minutes", " 45 ");
+        app.set_config("open_with", "30");
+        assert_eq!(app.out[0].params, json!({"patch": {"idle_minutes": 45}}));
+        assert_eq!(app.out[1].params, json!({"patch": {"open_with": "30"}}));
     }
 
     #[test]

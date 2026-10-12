@@ -119,6 +119,21 @@ fn widest<'a>(cells: impl Iterator<Item = &'a str>, cap: usize) -> Constraint {
     Constraint::Length(w.min(cap) as u16)
 }
 
+/// `s` cut to `max` columns, with `…` when something was cut.
+fn fit(s: &str, max: usize) -> String {
+    if Span::raw(s).width() <= max {
+        return s.to_owned();
+    }
+    let mut out = String::new();
+    for c in s.chars() {
+        if Span::raw(format!("{out}{c}…")).width() > max {
+            break;
+        }
+        out.push(c);
+    }
+    out + "…"
+}
+
 fn empty(f: &mut Frame, area: Rect, block: Block, title: &str, hint: String) {
     let inner = block.inner(area);
     f.render_widget(block, area);
@@ -167,7 +182,7 @@ fn servers(f: &mut Frame, main: Rect, side: Option<Rect>, app: &mut App) {
             let first = i == 0 || app.servers[i - 1].project != s.project;
             Row::new([
                 Cell::from(if first {
-                    s.project.clone().bold()
+                    fit(&s.project, 24).bold()
                 } else {
                     "".into()
                 }),
@@ -376,7 +391,7 @@ fn history(f: &mut Frame, main: Rect, side: Option<Rect>, app: &mut App) {
         .iter()
         .map(|h| {
             Row::new([
-                Cell::from(h.project.clone().bold()),
+                Cell::from(fit(&h.project, 24).bold()),
                 Cell::from(enum_str(&h.framework)),
                 Cell::from(ago(&h.stopped_at, now)),
                 Cell::from(enum_str(&h.reason)),
@@ -520,7 +535,8 @@ fn footer(f: &mut Frame, area: Rect, app: &App) {
         let line = Line::from(vec![format!(" {key} = ").bold(), value.clone().into()]);
         let x = area.x + line.width() as u16;
         f.render_widget(line, area);
-        let hint = Line::from(" enter save · esc cancel ".dim()).right_aligned();
+        let takes = super::app::accepts(key).describe();
+        let hint = Line::from(format!(" {takes} · enter save · esc cancel ").dim()).right_aligned();
         f.render_widget(hint, area);
         f.set_cursor_position((x.min(area.right().saturating_sub(1)), area.y));
         return;
@@ -541,11 +557,16 @@ fn footer(f: &mut Frame, area: Rect, app: &App) {
         View::History => &[("↑↓", "move"), ("r", "restart"), ("f", "forget")],
         View::Config => &[("↑↓", "move"), ("⏎", "edit")],
     };
-    let mut spans = vec![" ".into()];
+    // Whole hints only: one that does not fit is dropped, not cut mid-word.
+    let mut line = Line::from(" ");
     for (k, label) in keys.iter().chain(&[("tab", "view"), ("q", "quit")]) {
-        spans.extend([k.bold(), format!(" {label}   ").dim()]);
+        let hint = [k.bold(), format!(" {label}   ").dim()];
+        if line.width() + hint.iter().map(Span::width).sum::<usize>() > area.width as usize {
+            break;
+        }
+        line.extend(hint);
     }
-    f.render_widget(Line::from(spans), area);
+    f.render_widget(line, area);
 }
 
 fn confirm(f: &mut Frame, area: Rect, text: &str) {
@@ -660,6 +681,15 @@ mod tests {
         let screen = render(&mut app, 120, 30);
         assert!(!screen.contains('\u{1b}') && !screen.contains('\u{7}'));
         assert!(screen.contains("vite \u{fffd}[2J"));
+    }
+
+    #[test]
+    fn long_names_end_in_an_ellipsis() {
+        assert_eq!(
+            fit("lullcheck-a-project-with-a-long-name", 12),
+            "lullcheck-a…"
+        );
+        assert_eq!(fit("crm", 12), "crm");
     }
 
     #[test]
