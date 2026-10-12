@@ -6,6 +6,7 @@
 //! Offsets into `struct socket_fdinfo` are from the macOS SDK `sys/proc_info.h` (public,
 //! stable ABI): `psi` at 24, `soi_kind` at 256, `pri_tcp` at 264.
 
+use std::collections::HashSet;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
@@ -38,17 +39,17 @@ pub(super) struct Sock {
     pub fport: u16,
 }
 
-/// Every TCP socket of every process of `uid`. Fails only when the process list itself
+/// Every TCP socket of every process of `uid`, plus the pids whose fd list could not be
+/// read (§4.8: their groups are incomplete). Fails only when the process list itself
 /// cannot be read.
-pub(super) fn tcp_sockets(uid: u32) -> io::Result<Vec<Sock>> {
+pub(super) fn tcp_sockets(uid: u32) -> io::Result<(Vec<Sock>, HashSet<u32>)> {
     let mut socks = Vec::new();
+    let mut unreadable = HashSet::new();
     let mut fds = Vec::new();
     let mut info = [0u8; SOCKET_FDINFO_SIZE];
     for pid in sys::uid_pids(uid)? {
-        // ponytail: a same-uid process whose fd list cannot be read (it is exiting) is
-        // skipped, so the snapshot has no per-process socket failure (model.rs, §4.8).
-        // Upgrade path: report such pids if a real permission failure ever shows up.
         if sys::socket_fds(pid, &mut fds).is_err() {
+            unreadable.insert(pid);
             continue;
         }
         for &fd in &fds {
@@ -57,7 +58,7 @@ pub(super) fn tcp_sockets(uid: u32) -> io::Result<Vec<Sock>> {
             }
         }
     }
-    Ok(socks)
+    Ok((socks, unreadable))
 }
 
 fn addr(raw: &[u8], v6: bool) -> IpAddr {

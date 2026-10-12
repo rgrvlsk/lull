@@ -280,15 +280,15 @@ pub enum StopOutcome {
 
 /// Length of one policy minute (`idle_minutes`, `warn_before_minutes`,
 /// `wake_grace_minutes`) in ms.
-// ponytail: test-only knob — `LULL_MINUTE_MS` lets the e2e suite run "minutes" in
-// seconds against a real daemon; read once, 60 000 otherwise.
+// ponytail: test-only knob — in debug builds `LULL_MINUTE_MS` lets the e2e suite run
+// "minutes" in seconds against a real daemon. Release builds always use 60 000.
 pub fn minute_ms() -> u64 {
     static MINUTE: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
     *MINUTE.get_or_init(|| {
-        std::env::var("LULL_MINUTE_MS")
-            .ok()
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(60_000)
+        let test = cfg!(debug_assertions)
+            .then(|| std::env::var("LULL_MINUTE_MS").ok()?.parse().ok())
+            .flatten();
+        test.filter(|&ms| ms > 0).unwrap_or(60_000)
     })
 }
 

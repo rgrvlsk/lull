@@ -124,7 +124,8 @@ pub(super) fn framework(members: &[&ProcessInfo]) -> Framework {
 }
 
 /// §4 `primaryUrl`: a listening port named in a member's argv or `PORT` env (oldest member
-/// first), else the lowest port outside the inspector range 9229–9239, else the lowest.
+/// first), else the lowest port outside the inspector range 9229–9239; none when every
+/// port is an inspector port.
 pub(super) fn primary_url(members: &[&ProcessInfo], ports: &[u16]) -> Option<String> {
     let mut oldest_first = members.to_vec();
     oldest_first.sort_by_key(|p| (p.start_epoch_ms, p.pid));
@@ -137,7 +138,7 @@ pub(super) fn primary_url(members: &[&ProcessInfo], ports: &[u16]) -> Option<Str
             .find(|port| ports.contains(port))
     });
     let not_inspector = ports.iter().copied().find(|p| !(9229..=9239).contains(p));
-    let port = named.or(not_inspector).or(ports.first().copied())?;
+    let port = named.or(not_inspector)?;
     Some(format!("http://127.0.0.1:{port}/"))
 }
 

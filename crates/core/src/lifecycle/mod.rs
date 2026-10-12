@@ -241,24 +241,6 @@ fn reason_name(reason: StopReason) -> &'static str {
     }
 }
 
-/// Keeps what a scan cannot be trusted to recompute: the launch command captured when the
-/// server was first seen, and the whole classification when this scan is incomplete.
-fn merge(prev: Option<&ObservedServer>, mut next: ObservedServer) -> ObservedServer {
-    let Some(prev) = prev else { return next };
-    if !prev.launch_argv.is_empty() {
-        next.launch_argv.clone_from(&prev.launch_argv);
-        next.command.clone_from(&prev.command);
-        next.restart_env.clone_from(&prev.restart_env);
-    }
-    if !next.complete() {
-        next.origin = prev.origin.clone();
-        next.framework = prev.framework;
-        next.project.clone_from(&prev.project);
-        next.cwd.clone_from(&prev.cwd);
-    }
-    next
-}
-
 /// Why a signal must not be sent now.
 enum Refusal {
     /// The member list could not be read: retry on the next tick.
@@ -271,10 +253,10 @@ enum Refusal {
     NoWitness,
 }
 
-/// The re-check of §7 immediately before every signal. `before_term`: before `SIGTERM`
-/// every member's exe and argv must be readable, since the protected test cannot pass on
-/// unknown fields (§4.8); before `SIGKILL` members are exiting and the witness check
-/// already proves it is the same group.
+/// The re-check of §7 immediately before every signal. The protected test cannot pass on
+/// unknown fields (§4.8), so members whose exe or argv is unreadable block the signal:
+/// all of them before `SIGTERM`; before `SIGKILL` only members that joined after the
+/// decision, since the witnesses were checked at `SIGTERM` and may now be exiting.
 fn check_group(
     sys: &mut Sys,
     discovery: &Discovery,
@@ -298,13 +280,14 @@ fn check_group(
             p.pid, p.uid
         )));
     }
-    if before_term {
-        if let Some(p) = members.iter().find(|p| p.exe.is_none() || p.argv.is_none()) {
-            return Err(Refusal::Unreadable(format!(
-                "pid {} exe/argv unreadable",
-                p.pid
-            )));
-        }
+    let unknown = members.iter().find(|p| {
+        (p.exe.is_none() || p.argv.is_none()) && (before_term || !witnesses.contains(&p.witness()))
+    });
+    if let Some(p) = unknown {
+        return Err(Refusal::Unreadable(format!(
+            "pid {} exe/argv unreadable",
+            p.pid
+        )));
     }
     if (sys.protected)(&members) {
         return Err(Refusal::Unsafe("the group is protected".into()));
@@ -437,6 +420,34 @@ impl Lifecycle {
             .cloned()
             .collect();
         for id in gone {
+            // A stop under way whose id vanished while its pgid still has members: every
+            // member known at decision time exited and new ones took over, so discovery
+            // gave the group a new id. That is the abort of §7.3, not a removal.
+            // ponytail: no server.removed for the old id (§7.3); subscribers keep it until
+            // they re-subscribe. Fine without the v1.1 app.
+            if let Some(stop) = &self.entries[&id].record.stop {
+                let pgid = self.entries[&id].record.pgid;
+                match sys.source.group(pgid) {
+                    Ok(members) if members.is_empty() => {}
+                    Ok(_) => {
+                        let reason = reason_name(stop.reason);
+                        self.entries.remove(&id);
+                        let line = format!(
+                            "{}: {reason} stop of {id} (pgid {pgid}) aborted: every member recorded at decision time exited but the group has new members",
+                            rfc3339(*wall_ms)
+                        );
+                        self.notes.push(line.clone());
+                        if self.notes.len() > DOCTOR_NOTES {
+                            self.notes.remove(0);
+                        }
+                        fx.push(Effect::Log(line));
+                        fx.push(Effect::StopAborted { id });
+                        continue;
+                    }
+                    // Unknown: decide on a later tick.
+                    Err(_) => continue,
+                }
+            }
             let entry = self.entries.remove(&id).expect("listed above");
             // Restored from state.json and not resumed: dropped silently.
             let Some(obs) = entry.observed else { continue };
@@ -481,7 +492,9 @@ impl Lifecycle {
                 Some(entry) => {
                     entry.record.pgid = s.pgid;
                     entry.record.witnesses.clone_from(&s.members);
-                    entry.observed = Some(merge(entry.observed.as_ref(), s.clone()));
+                    // Discovery already keeps the launch command and, on an incomplete
+                    // scan, the classification (§4.8, §7.6).
+                    entry.observed = Some(s.clone());
                     entry
                 }
                 None => {
@@ -690,6 +703,8 @@ impl Lifecycle {
         match &stop.sigkill_at {
             None if elapsed(&t.now, &stop.sigterm_at, SIGKILL_AFTER_MS) => {
                 match check_group(sys, t.discovery, pgid, &stop.witnesses, false) {
+                    // Never reached in a dry run (no SIGTERM is sent); kept explicit.
+                    Ok(()) if t.dry_run => {}
                     Ok(()) => match sys.signaler.signal_group(pgid, Signal::Kill) {
                         Ok(()) => {
                             if let Some(s) = e.record.stop.as_mut() {
@@ -758,12 +773,6 @@ impl Lifecycle {
         self.entries.get(id).map(|e| &e.record)
     }
 
-    /// The last observation with the classification kept across incomplete scans and the
-    /// launch command captured when first seen; build the wire `Server` from this.
-    pub fn observed(&self, id: &str) -> Option<&ObservedServer> {
-        self.entries.get(id).and_then(|e| e.observed.as_ref())
-    }
-
     pub fn policy(&self, server: &ObservedServer, config: &Config, home: &str) -> EffectivePolicy {
         let over = self
             .entries
@@ -790,10 +799,11 @@ impl Lifecycle {
         wall_ms: u64,
     ) -> Result<(), LifecycleError> {
         let e = self.entries.get_mut(id).ok_or(LifecycleError::UnknownId)?;
-        e.record.pinned = pinned;
-        if !pinned {
+        // Only a real unpin is activity, so a repeated request changes nothing (§8).
+        if e.record.pinned && !pinned {
             e.touch(now.clone(), Activity::Manual, wall_ms);
         }
+        e.record.pinned = pinned;
         e.refresh(now);
         Ok(())
     }

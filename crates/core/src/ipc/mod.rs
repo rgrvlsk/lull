@@ -193,6 +193,11 @@ impl Daemon {
                 conn,
                 line: reply.to_string(),
             });
+            // Acknowledged mutations are on disk before the next scan (§4.7); `save`
+            // writes only when something changed.
+            if let Err(e) = self.lifecycle.save(self.p.store.as_mut()) {
+                (self.p.log)(&format!("cannot save state: {e}"));
+            }
         }
         // Responses (browser command acks) and notifications from clients: nothing in M1.
         out.extend(self.changes());
@@ -398,7 +403,20 @@ impl Daemon {
         self.reload_config();
         let now = self.p.clock.now();
         let wall = self.p.clock.wall_now_ms();
-        let also: Vec<u32> = self.discovery.servers.iter().map(|s| s.pgid).collect();
+        let resume = if self.first_scan {
+            self.lifecycle.known_groups()
+        } else {
+            Vec::new()
+        };
+        // Known groups are read even without a listener (§4.8); on the first scan that
+        // includes the ones restored from state.json.
+        let also: Vec<u32> = self
+            .discovery
+            .servers
+            .iter()
+            .map(|s| s.pgid)
+            .chain(resume.iter().map(|k| k.pgid))
+            .collect();
         let snapshot = match self.p.source.snapshot(&also) {
             Ok(s) => s,
             Err(e) => {
@@ -413,11 +431,6 @@ impl Daemon {
             extra_markers: &self.config.agent_markers,
             git_root: &*self.p.git_root,
         };
-        let resume = if self.first_scan {
-            self.lifecycle.known_groups()
-        } else {
-            Vec::new()
-        };
         let discovery = discovery::discover(&snapshot, &ctx, &self.discovery.servers, &resume);
         let minute = crate::model::minute_ms();
         let grace_ms = u64::from(self.config.wake_grace_minutes) * minute;
@@ -429,7 +442,6 @@ impl Daemon {
             now: now.clone(),
             wall_ms: wall,
             scan_interval_ms: self.s.scan_interval_ms,
-            wake_grace_ms: grace_ms,
         });
         let hold_stops = self.activity.holds_stops(&now, grace_ms);
         let protected =
@@ -510,7 +522,7 @@ impl Daemon {
         }
         let parsed = match &text {
             None => Ok(Config::default()),
-            Some(t) => policy::parse_toml(t).and_then(|c| policy::validate(&c).map(|()| c)),
+            Some(t) => policy::parse_toml(t),
         };
         match parsed {
             Ok(config) => {
@@ -674,12 +686,19 @@ pub fn loopback_url_port(url: &str) -> Option<u16> {
         _ => (authority, default),
     };
     let host = host.to_ascii_lowercase();
-    let loopback = host == "localhost"
-        || host.ends_with(".localhost")
-        || host == "[::1]"
-        || host.strip_prefix("127.").is_some_and(|r| {
-            r.split('.').count() == 3 && r.split('.').all(|o| o.parse::<u8>().is_ok())
-        });
+    // Only plain DNS characters: a browser reads `\`, `%` and the like differently from
+    // this parser (`http://example.com\.localhost/` is example.com to a browser).
+    let plain = host == "[::1]"
+        || host
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-');
+    let loopback = plain
+        && (host == "localhost"
+            || host.ends_with(".localhost")
+            || host == "[::1]"
+            || host.strip_prefix("127.").is_some_and(|r| {
+                r.split('.').count() == 3 && r.split('.').all(|o| o.parse::<u8>().is_ok())
+            }));
     loopback.then_some(port)
 }
 

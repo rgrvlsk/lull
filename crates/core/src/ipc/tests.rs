@@ -326,6 +326,8 @@ fn only_loopback_urls_are_opened() {
         "http://127.0.0.1.evil.com/",
         "javascript:alert(1)",
         "http://localhost.evil.com/",
+        "https://example.com\\.localhost/",
+        "http://example.com%2F.localhost/",
     ] {
         assert!(loopback_url_port(bad).is_none(), "{bad}");
     }

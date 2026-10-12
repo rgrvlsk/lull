@@ -94,9 +94,16 @@ pub fn discover(
         // A group lull could not signal as a whole is never a server (§7).
         let foreign = members.iter().any(|p| p.uid != ctx.uid);
         // §4.8: a known server keeps its verdict without a listener or with unknowns.
-        let is_server = match prev {
-            Some(_) if ports.is_empty() || !incomplete.is_empty() => true,
-            _ => !ports.is_empty() && anchor.is_some() && !from_app && !foreign,
+        // Known = seen in the previous scan, or restored from state.json with a witness
+        // still in the group (§4.7), so a daemon restart keeps a listener-less server.
+        let known = prev.is_some()
+            || resume.iter().any(|k| {
+                k.pgid == pgid && members.iter().any(|p| k.witnesses.contains(&p.witness()))
+            });
+        let is_server = if known && (ports.is_empty() || !incomplete.is_empty()) {
+            true
+        } else {
+            !ports.is_empty() && anchor.is_some() && !from_app && !foreign
         };
         if is_server {
             out.servers.push(server(
@@ -239,6 +246,10 @@ fn origin(members: &[&ProcessInfo], ctx: &Context) -> Origin {
     }
 }
 
+/// Prefix of the `ProcessInfo::errors` entry a process source records when it could not
+/// list a process's sockets (§4.8).
+pub const SOCKETS_UNREADABLE: &str = "sockets unreadable";
+
 /// §4.8 reasons this scan's observation of the group is incomplete; empty when complete.
 fn incomplete(pgid: u32, members: &[&ProcessInfo], snap: &Snapshot) -> Vec<String> {
     let mut reasons = Vec::new();
@@ -252,6 +263,12 @@ fn incomplete(pgid: u32, members: &[&ProcessInfo], snap: &Snapshot) -> Vec<Strin
             ("env", p.env.is_none()),
             ("cwd", p.cwd.is_none()),
             ("tty", p.has_tty.is_none()),
+            // The T3 Code direct-child rule (§4.4) needs it; launchd (ppid 1) is exempt.
+            ("parent executable", p.parent_exe.is_none() && p.ppid > 1),
+            (
+                "sockets",
+                p.errors.iter().any(|e| e.starts_with(SOCKETS_UNREADABLE)),
+            ),
         ];
         for (field, missing) in unread {
             if missing {

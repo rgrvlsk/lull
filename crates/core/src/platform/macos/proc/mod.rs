@@ -171,7 +171,7 @@ impl MacProcessSource {
 
 impl ProcessSource for MacProcessSource {
     fn snapshot(&mut self, also_pgids: &[u32]) -> io::Result<Snapshot> {
-        let socks = socket::tcp_sockets(self.uid)?;
+        let (socks, sockets_unreadable) = socket::tcp_sockets(self.uid)?;
         let mut listeners: Vec<Listener> = socks
             .iter()
             .filter(|s| s.state == TSI_S_LISTEN)
@@ -206,6 +206,11 @@ impl ProcessSource for MacProcessSource {
             }
         }
         self.cpu = cpu;
+        for p in &mut snap.processes {
+            if sockets_unreadable.contains(&p.pid) {
+                p.errors.push(crate::discovery::SOCKETS_UNREADABLE.into());
+            }
+        }
         let live: HashSet<(u32, u64)> = snap
             .processes
             .iter()

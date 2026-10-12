@@ -56,7 +56,6 @@ pub struct ScanInput<'a> {
     pub now: Instant,
     pub wall_ms: u64,
     pub scan_interval_ms: u64,
-    pub wake_grace_ms: u64,
 }
 
 /// The `traffic` source (§5): owns the active backend, the scan fallback, wake detection
@@ -308,7 +307,6 @@ mod tests {
                 now: self.clock.now(),
                 wall_ms: self.clock.wall_now_ms(),
                 scan_interval_ms: SCAN,
-                wake_grace_ms: GRACE,
             })
         }
 

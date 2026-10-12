@@ -102,10 +102,8 @@ pub fn run(_args: Vec<String>) -> ExitCode {
 
     match fs::read_to_string(paths.config()) {
         Err(_) => line("config", true, "defaults (no config.toml)".into()),
-        Ok(text) => match lull_core::policy::parse_toml(&text)
-            .and_then(|c| lull_core::policy::validate(&c))
-        {
-            Ok(()) => line("config", true, paths.config().display().to_string()),
+        Ok(text) => match lull_core::policy::parse_toml(&text) {
+            Ok(_) => line("config", true, paths.config().display().to_string()),
             Err(e) => line(
                 "config",
                 false,

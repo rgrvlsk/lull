@@ -424,15 +424,12 @@ fn parse_sockaddr(b: &[u8]) -> Result<Option<Endpoint>, String> {
             loopback: b[4] == 127,
         })),
         (28, 30) => {
-            let addr = &b[8..24];
-            let v6_loopback = addr[..15].iter().all(|&x| x == 0) && addr[15] == 1;
-            let v4_mapped = addr[..10].iter().all(|&x| x == 0)
-                && addr[10] == 0xff
-                && addr[11] == 0xff
-                && addr[12] == 127;
+            let octets: [u8; 16] = b[8..24].try_into().expect("16-byte slice");
+            let addr = std::net::Ipv6Addr::from(octets);
             Ok(Some(Endpoint {
                 port,
-                loopback: v6_loopback || v4_mapped,
+                loopback: addr.is_loopback()
+                    || addr.to_ipv4_mapped().is_some_and(|v4| v4.is_loopback()),
             }))
         }
         _ => Err(format!("ntstat: sockaddr len {len} family {family}")),
@@ -448,9 +445,7 @@ fn u32_at(b: &[u8], o: usize) -> u32 {
 }
 
 fn u64_at(b: &[u8], o: usize) -> u64 {
-    let mut a = [0u8; 8];
-    a.copy_from_slice(&b[o..o + 8]);
-    u64::from_ne_bytes(a)
+    u64::from_ne_bytes(b[o..o + 8].try_into().expect("8-byte slice"))
 }
 
 // ───────────────────────── kernel control socket ─────────────────────────
