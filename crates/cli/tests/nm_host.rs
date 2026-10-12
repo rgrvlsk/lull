@@ -15,7 +15,7 @@ use serde_json::{Value, json};
 
 // Use the same source of caller identifiers as the binary without copying ids.
 #[allow(dead_code)]
-#[path = "../src/browsers/mod.rs"]
+#[path = "../src/browsers/ids.rs"]
 mod browsers;
 
 const MAX_MESSAGE: usize = 1024 * 1024;
