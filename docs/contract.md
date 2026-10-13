@@ -37,6 +37,7 @@ Goals (v1)
 
 v1.1 (specified here so v1 does not paint them into a corner, built after v1 ships;
 ADR-0008):
+- G7 Terminal UI (`lull ui`) to watch and manage servers live (§3, ADR-0009).
 - G4 Menu-bar app to monitor, open, stop, pin servers and change policy (§10).
 - G3 for Firefox and Zen (§9).
 - Cask distribution with `SMAppService` and signed, notarised artefacts (ADR-0006).
@@ -70,6 +71,10 @@ recently-stopped list is in scope (§7) — remote/containers (Docker, VMs).
 - The daemon exits cleanly when its own executable path no longer exists (checked every
   scan), so after an upgrade launchd restarts it from the new version.
 - The app (v1.1) is a pure client of the socket; it owns no policy.
+- `lull ui`, and bare `lull` when stdin and stdout are terminals, is a terminal UI
+  (v1.1, ADR-0009): a pure client of the socket that owns no policy, like the app.
+  Process-supplied text (argv, cwd, project, URLs) is drawn with control characters
+  replaced. Stopping a user-started server and restarting any server ask first.
 
 ## 4. Discovery (daemon)
 
@@ -502,9 +507,10 @@ v1:
    shipping the unpacked Chromium extension (ADR-0007, ADR-0008).
 
 v1.1:
-4. **M3** Firefox/Zen build, unlisted AMO signing with self-hosted updates.
-5. **M4** menu-bar app.
-6. **M5** cask packaging: app embedding the binary, `SMAppService`, Developer ID
+4. **WP-T** terminal UI (`lull ui`, ADR-0009), first.
+5. **M3** Firefox/Zen build, unlisted AMO signing with self-hosted updates.
+6. **M4** menu-bar app.
+7. **M5** cask packaging: app embedding the binary, `SMAppService`, Developer ID
    signing and notarisation (ADR-0006); the formula is retired in favour of the cask.
 
 Until the formula exists the daemon runs through the dev-only
