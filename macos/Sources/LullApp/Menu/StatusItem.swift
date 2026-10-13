@@ -42,7 +42,11 @@ final class StatusItem: NSObject {
         }
         Task { await store.refresh() }
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-        popover.contentViewController?.view.window?.makeKey()
+        if let window = popover.contentViewController?.view.window {
+            window.makeKey()
+            // Nothing focused or ringed on open; Tab still starts keyboard navigation.
+            window.makeFirstResponder(nil)
+        }
         paintPopoverFrame()
     }
 
