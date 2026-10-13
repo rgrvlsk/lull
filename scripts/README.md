@@ -8,3 +8,8 @@ Maintenance scripts, run by hand and never in CI (see `docs/plan.md`).
 
 `dev-launchagent.sh` ran the daemon from a checkout before the Homebrew formula existed; it was
 removed when the formula shipped (ADR-0008).
+
+- `build-app.sh [release|debug]` (WP4.4): builds `macos/.build/Lull.app` and signs it ad
+  hoc. Open it with `open macos/.build/Lull.app`; a debug build also takes
+  `open --env LULL_PREVIEW=fixtures|worst|empty|not-running|mismatch` to show preview
+  data without a daemon.
