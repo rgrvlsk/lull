@@ -13,6 +13,8 @@ pub struct Client {
     reader: BufReader<UnixStream>,
     writer: UnixStream,
     next_id: i64,
+    /// The daemon's `hello` result.
+    pub hello: Value,
 }
 
 impl Client {
@@ -29,9 +31,25 @@ impl Client {
             reader,
             writer,
             next_id: 0,
+            hello: Value::Null,
         };
-        client.hello(PROTOCOL_VERSION)?;
+        // A wedged daemon must not hang the CLI or the UI on connect.
+        let timeout = Some(std::time::Duration::from_secs(5));
+        client
+            .writer
+            .set_read_timeout(timeout)
+            .map_err(|e| e.to_string())?;
+        client.hello = client.hello(PROTOCOL_VERSION)?;
+        client
+            .writer
+            .set_read_timeout(None)
+            .map_err(|e| e.to_string())?;
         Ok(client)
+    }
+
+    /// The connection after `hello`, for a caller that reads notifications itself.
+    pub fn into_parts(self) -> (BufReader<UnixStream>, UnixStream) {
+        (self.reader, self.writer)
     }
 
     fn hello(&mut self, protocol: ProtocolVersion) -> Result<Value, String> {

@@ -35,6 +35,7 @@ Check everything with `lull doctor`.
 ## Use
 
 ```sh
+lull                    # live view to watch and manage servers (also `lull ui`)
 lull ls                 # dev servers: project, URL, origin (agent/you), when they stop
 lull ls --all           # plus unmanaged listeners, which lull never touches
 lull open <url|id>      # open in the Dev group (in the background when an agent runs it)

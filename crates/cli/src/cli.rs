@@ -226,7 +226,7 @@ fn table(rows: Vec<Vec<String>>) -> String {
     out
 }
 
-fn origin(o: &lull_protocol::Origin) -> String {
+pub(crate) fn origin(o: &lull_protocol::Origin) -> String {
     match &o.agent {
         Some(agent) => format!(
             "agent/{}",
@@ -236,7 +236,7 @@ fn origin(o: &lull_protocol::Origin) -> String {
     }
 }
 
-fn enum_str<T: serde::Serialize>(v: &T) -> String {
+pub(crate) fn enum_str<T: serde::Serialize>(v: &T) -> String {
     serde_json::to_value(v)
         .unwrap()
         .as_str()
