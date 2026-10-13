@@ -9,10 +9,9 @@ app=.build/Lull.app
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$(swift build -c "$config" --show-bin-path)/LullApp" "$app/Contents/MacOS/Lull"
-# The icon is drawn by the app from the logo's pixel grid; no image is committed.
-iconset=$(mktemp -d)/AppIcon.iconset
-"$app/Contents/MacOS/Lull" --write-iconset "$iconset"
-iconutil -c icns "$iconset" -o "$app/Contents/Resources/AppIcon.icns"
+# Brand artwork, converted once from the SVG masters (assets/brand/README.md).
+cp ../assets/brand/app-icon.icns "$app/Contents/Resources/AppIcon.icns"
+cp ../assets/brand/lull-micro-20.pdf ../assets/brand/logo-horizontal.pdf "$app/Contents/Resources/"
 version=$(sed -n 's/^version = "\(.*\)"/\1/p' ../Cargo.toml | head -n 1)
 sed "s/@VERSION@/$version/g" Resources/Info.plist >"$app/Contents/Info.plist"
 codesign --force --sign - "$app"

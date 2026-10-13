@@ -13,17 +13,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var notifier: Notifier?
 
     static func main() {
-        // build-app.sh: `Lull --write-iconset <dir>` writes the bundle icon from the logo grid.
-        let args = CommandLine.arguments
-        if args.count == 3, args[1] == "--write-iconset" {
-            do {
-                try Logo.writeIconset(to: URL(fileURLWithPath: args[2]))
-                exit(0)
-            } catch {
-                FileHandle.standardError.write(Data("\(error)\n".utf8))
-                exit(1)
-            }
-        }
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate

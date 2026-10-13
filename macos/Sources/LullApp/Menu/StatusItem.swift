@@ -24,7 +24,7 @@ final class StatusItem: NSObject {
         item.button?.target = self
         item.button?.action = #selector(toggle)
         item.button?.imagePosition = .imageLeading
-        item.button?.image = Logo.menuBarImage()
+        item.button?.image = Brand.menuBar
         render()
         // The count and dot preferences live in UserDefaults, which observation does not see.
         NotificationCenter.default.addObserver(
@@ -69,7 +69,7 @@ final class StatusItem: NSObject {
         let showCount = defaults.bool(forKey: MenuBarPrefs.showCount)
         let showDot = defaults.bool(forKey: MenuBarPrefs.showDot)
         let title = NSMutableAttributedString(
-            string: showCount && running > 0 ? " \(running)" : "",
+            string: Brand.menuBar == nil ? "lull" : showCount && running > 0 ? " \(running)" : "",
             attributes: [.font: NSFont.menuBarFont(ofSize: 0).withMonospacedDigits()])
         if showDot && soon {
             title.append(NSAttributedString(string: " ●", attributes: [

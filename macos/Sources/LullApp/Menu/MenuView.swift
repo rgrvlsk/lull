@@ -27,16 +27,8 @@ struct MenuView: View {
     // MARK: Header
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Image(nsImage: Self.logo)
-                .accessibilityLabel("lull")
-            pill
-            Spacer()
-        }
+        PanelHeader { pill }
     }
-
-    /// The cat and wordmark on the indigo plate, two points per logo pixel.
-    private static let logo = Logo.plate(columns: Logo.all, pixel: 2)
 
     private var pill: some View {
         let (text, color) = pillState
