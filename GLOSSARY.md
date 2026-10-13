@@ -85,6 +85,16 @@ _Avoid_: focused tab, active tab
 A server with no activity for longer than its idle time.
 _Avoid_: inactive, unused, asleep
 
+**Pulse**:
+One or two seconds in which a client opened a connection to a server or moved bytes on
+one; the unit traffic activity is judged in.
+_Avoid_: burst, hit, ping
+
+**Periodic traffic**:
+Pulses from one client that repeat at a steady period with the same size, such as an HMR
+ping or a status poll from a hidden tab. It is not activity.
+_Avoid_: polling noise, keep-alive traffic
+
 **Covered browser**:
 A browser whose lull extension is connected, so its tabs are judged by visibility rather
 than by the connections it holds open. All profiles of a Chromium browser are covered

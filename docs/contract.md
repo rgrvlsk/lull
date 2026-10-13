@@ -184,7 +184,7 @@ A server is **active** at time *t* if any source fired within the last
 | Source | Fires when | Notes |
 |---|---|---|
 | `tab` | one of the server's tabs is **visible** (`document.visibilityState == "visible"`, reported by a content script) and the OS user is present (`idle.queryState(60) == "active"`), whether or not its window has focus | heartbeat every 30 s while the condition holds; primary signal. Focus is used only for display and `open` routing. A visible window on a second monitor counts — that is intended |
-| `traffic` | (a) a **new** TCP connection to one of the server's ports from a process outside the group (ntstat event; fallback: 5-tuple not seen in the previous scan), or (b) at a scan, an **established** connection from a process outside the group that is not a *covered browser* | (a) catches new page loads, Playwright, curl. (b) keeps a server alive while an uninstrumented client holds a connection open — an HMR websocket from a browser without the extension, as the prototype did. Connections from covered browsers count only through (a); their open tabs are judged by `tab` |
+| `traffic` | a **pulse** from a process outside the group that is not **periodic traffic** (below), made of (a) a **new** TCP connection to one of the server's ports (ntstat event; fallback: 5-tuple not seen in the previous scan), or (b) bytes moving on an **established** connection to one of the server's ports from a client that is not a *covered browser* | (a) catches new page loads, Playwright, curl. (b) catches requests that reuse a keep-alive connection and HMR updates pushed to a browser without the extension; a connection held open with nothing moving on it is not activity. Connections from covered browsers count only through (a); their open tabs are judged by `tab` |
 | `started` | server first seen | grace period = `idleMinutes` |
 | `manual` | user/agent ran `open`, `touch`, or un-pinned | |
 
@@ -194,13 +194,51 @@ CPU is reported for display only and is **not** an activity source.
 descendants (Chromium opens connections from a network-service helper, not the main
 process). The daemon learns it per connection: `LOCAL_PEERPID` on the socket gives the
 nm-host's pid, whose parent is the browser. A connected browser covers only itself:
-another browser without the extension stays uncovered, and its established connections
-keep servers alive through `traffic` (b). Coverage is per browser process, and a Chromium
+another browser without the extension stays uncovered, and traffic on its established
+connections keeps servers alive through `traffic` (b). Coverage is per browser process, and a Chromium
 browser runs all its profiles in one process, so connecting the extension in one profile
 covers every profile of that browser: a page open only in a profile without the extension
 counts through new connections (`traffic` (a)) alone. The extension belongs in every
 profile, and `lull doctor` says so for a browser with several profiles. With no browser
-connected (all of M1), every established outside connection counts.
+connected (all of M1), traffic on every established outside connection counts.
+
+**Pulses and periodic traffic** (ADR-0010). Pages poll their dev server on a timer (HMR
+pings, status checks), and a hidden tab keeps polling; a health check or uptime monitor
+does the same. That repetition is a machine, not a person using the server, so it must
+not keep the server alive, whether or not the extension is installed. Traffic is read
+per **client key**: one server and one client pid (all remote or unknown clients share
+one key), in one-second slots of the daemon's clock.
+
+- A slot is *busy* when the key opened a connection to one of the server's ports in it,
+  or moved bytes (received plus sent, summed over its connections to those ports).
+- A **pulse** is a run of at most two consecutive busy slots (a response that crosses a
+  slot boundary stays one pulse; a third busy slot starts the next pulse). Its instant is
+  its first slot; its size is the bytes moved, or *unknown* when a connection in it
+  closed before its counters were read.
+- A **train** is a sequence of a key's pulses at a steady period *P* (3 s ≤ *P* ≤ 10 min)
+  with matching sizes (two sizes match when they differ by at most 10 % of the larger or
+  32 bytes, whichever is more). A pulse continues a train when it lands within
+  max(1 s, *P*/10) of the train's next expected instant, or of one of the two after it,
+  and its size matches. A pulse that
+  continues no train starts a candidate train with each of the key's pulses from the
+  last 10 minutes that continued no confirmed train. A train is **confirmed** once it
+  holds four pulses, and dropped when three expected instants pass without one. A key
+  keeps at most 16 trains; past that, the train whose last pulse is oldest is dropped.
+  Pulses of unknown size never join a train.
+- A pulse that brings a train to four pulses or continues a confirmed train is
+  **periodic traffic** and fires nothing. Every other pulse fires `traffic` at its
+  instant, under (a) or (b) as its connections allow.
+
+Every pulse of a key feeds the trains, including those that cannot fire by themselves
+(bytes on a covered browser's established connection), so a poll that sometimes reuses
+a connection and sometimes opens one is learned as one train. Consequences: a poller
+fires `traffic` for its first three pulses only, and again for three pulses after its
+period or size changes (Chromium throttles a hidden tab's timers to once a minute after
+five minutes); several hidden tabs of one browser, which share one network process,
+form separate trains; a page load, a reload, an agent's request and an HMR update after
+a save each land off the rhythm or with another size, and fire. A client that varies the
+size or timing of each request is not recognised and keeps the server alive, which is
+the safe way to fail.
 
 Clock: idle time counts **awake time only**. Activity instants are kept as
 `CLOCK_UPTIME_RAW` (stops while the Mac sleeps) plus `kern.bootsessionuuid`; persisted
@@ -215,12 +253,19 @@ time, never the sender's.
 (`com.apple.network.statistics`, ABI in xnu `bsd/net/ntstat.h`; ADR-0003): the daemon
 subscribes to TCP source add events and fires `traffic` when a connection's local port
 belongs to a server and its client end is owned by a pid outside the group and other than
-the daemon. This catches 50 ms agent `curl`s that a periodic scan misses. If the control
+the daemon. This catches 50 ms agent `curl`s that a periodic scan misses. Bytes come
+from the same socket: once a second the daemon queries the counters (`QUERY_SRC` →
+`SRC_COUNTS`) of each source whose local port belongs to a server and whose client is
+outside its group, one source at a time, never every source on the machine. If the control
 socket cannot be opened (`net.statistics_privcheck=1`) or reports an unknown message
 version, the daemon falls back to diffing the group's accepted sockets every scan and
 reports `activityBackend: "scan"` in `hello`/`lull doctor`. The scan fallback only sees
 connections that are open at a scan instant, so it misses most requests shorter than
-`scanIntervalSec`; `traffic` (b) and `tab` carry the load in that mode. A backend that
+`scanIntervalSec`; `traffic` (b) and `tab` carry the load in that mode. The fallback has
+no byte counters, so it cannot tell a quiet connection from a busy one: in that mode (b)
+fires at every scan for every established connection from a client outside the group
+that is not a covered browser, and periodic traffic is not filtered. When lull cannot
+see traffic, it keeps servers alive rather than stop one that may be in use. A backend that
 fails while running (socket closed, read errors) reports itself unhealthy; the daemon
 switches to the scan fallback, and no server is stopped until one full scan interval
 has run on the new backend.
