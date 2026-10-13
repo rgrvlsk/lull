@@ -54,3 +54,27 @@ or 32 bytes, four pulses to confirm, 16 trains per client) are in contract §5.
 - Activity depends on one more undocumented message pair. A `SRC_COUNTS` of the wrong
   length or an error reply to `QUERY_SRC` makes the backend unhealthy, which switches to
   the scan fallback as ADR-0003 describes.
+
+## Addendum (2026-10-13): counters are read four times a second
+
+Reading the counters once a second, as first decided, stamps each pulse up to a second
+late, and the train tolerance is also one second. With that, a poll at 5.02 s (a 5 s timer
+plus request latency) and 30 ms of timer jitter now and then shows an interval two seconds
+off another. The simulation in `crates/core/src/activity/periodic.rs` broke the train at
+181 s, 683 s and 934 s, and each break fired `traffic` again, so such a server would never
+go idle. The daemon now reads the counters every 250 ms on a fixed grid and stamps bytes
+with the grid instant. The same simulation stays one train for periods from 3 s to 60 s.
+Each train's period is the mean of its intervals, so the error does not add up. The cost
+is four small queries a second per watched connection; a development machine has a few
+dozen at most. Pulse slots remain one second.
+
+Live check on macOS 27.0.1 (Darwin 27.0.0, arm64, `net.statistics_privcheck=0`): the test
+`crates/core/tests/ntstat_macos.rs` holds a loopback connection to a fixture server
+without elevation. It sends 16 bytes, then 11, and receives `Bytes(16)` then `Bytes(11)`
+for its own pid and the server's port. It passed five consecutive runs. That confirms
+`QUERY_SRC` (1004), `SRC_COUNTS` (10004) and the `nstat_rxbytes`/`nstat_txbytes` offsets
+(40 and 56 in the message) against a live kernel.
+
+The sources that existed before the subscription are described as well, so their bytes
+count after a daemon restart. The reader describes new sources first; otherwise a backlog
+of a few hundred older sources delayed new connections by seconds.

@@ -254,9 +254,12 @@ time, never the sender's.
 subscribes to TCP source add events and fires `traffic` when a connection's local port
 belongs to a server and its client end is owned by a pid outside the group and other than
 the daemon. This catches 50 ms agent `curl`s that a periodic scan misses. Bytes come
-from the same socket: once a second the daemon queries the counters (`QUERY_SRC` →
-`SRC_COUNTS`) of each source whose local port belongs to a server and whose client is
-outside its group, one source at a time, never every source on the machine. If the control
+from the same socket: four times a second, on a fixed grid, the daemon queries the
+counters (`QUERY_SRC` → `SRC_COUNTS`) of each connection to a server's port whose client is
+outside the server's group, one source at a time, never every source on the machine. Bytes
+are stamped with the grid instant of the reading that saw them, so their timing error stays
+under 250 ms, well inside a train's 1 s tolerance. Connections that existed before the
+daemon subscribed are read too; their first reading is a baseline, not traffic. If the control
 socket cannot be opened (`net.statistics_privcheck=1`) or reports an unknown message
 version, the daemon falls back to diffing the group's accepted sockets every scan and
 reports `activityBackend: "scan"` in `hello`/`lull doctor`. The scan fallback only sees
