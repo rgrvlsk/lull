@@ -44,6 +44,13 @@ ledger when its trigger fires and the shortcut is upgraded. Maintenance rules: [
 - `crates/cli/src/nm_host.rs:46`, bridge workers end with the host process. ceiling: only
   correct as a standalone process. upgrade: interruptible fd reads and joins if embedded.
 
+## macos
+
+- `macos/Sources/LullKit/Store.swift:144`, history is re-fetched on `server.added`/`removed`
+  and when the panel opens; there is no history notification. ceiling: a record another
+  client forgot or restarted stays listed until then. upgrade: a `history.changed`
+  notification if stale records confuse anyone.
+
 ## extension
 
 - `extension/esbuild.config.mjs:4`, builds Chromium only. ceiling: no Firefox/Zen. upgrade:
@@ -52,4 +59,4 @@ ledger when its trigger fires and the shortcut is upgraded. Maintenance rules: [
   forgotten when the service worker restarts. upgrade: the `storage` permission
   (`chrome.storage.session`) if users report dragged-out tabs being regrouped.
 
-14 markers, 0 with no trigger.
+15 markers, 0 with no trigger.

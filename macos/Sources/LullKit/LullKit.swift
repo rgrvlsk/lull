@@ -1,9 +1,8 @@
-/// LullKit: the macOS client of the lull daemon socket (contract §8, §10).
-///
-/// M0 ships only the protocol version the client speaks; the Codable models, the socket
-/// client and the `@Observable` store arrive with WP4.1.
+/// LullKit: the macOS client of the lull daemon socket (contract §8, §10): Codable models
+/// (`Models.swift`), one socket connection (`Connection`) and the observable `Store`.
 public enum LullKit {
     /// Protocol version this client speaks; must match `lull_protocol::PROTOCOL_VERSION`.
+    /// The app also needs a daemon of at least this minor.
     public static let protocolVersion = ProtocolVersion(major: 1, minor: 3)
 }
 
