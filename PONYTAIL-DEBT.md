@@ -50,6 +50,9 @@ ledger when its trigger fires and the shortcut is upgraded. Maintenance rules: [
   and when the panel opens; there is no history notification. ceiling: a record another
   client forgot or restarted stays listed until then. upgrade: a `history.changed`
   notification if stale records confuse anyone.
+- `macos/Sources/LullApp/Menu/ProjectIcons.swift:29`, project icons are re-checked (stat-only
+  mtimes) only when the panel opens. ceiling: an icon changed while the panel is open shows on
+  the next open. upgrade: watch the search roots with FSEvents if users expect live updates.
 
 ## extension
 
@@ -59,4 +62,4 @@ ledger when its trigger fires and the shortcut is upgraded. Maintenance rules: [
   forgotten when the service worker restarts. upgrade: the `storage` permission
   (`chrome.storage.session`) if users report dragged-out tabs being regrouped.
 
-15 markers, 0 with no trigger.
+16 markers, 0 with no trigger.

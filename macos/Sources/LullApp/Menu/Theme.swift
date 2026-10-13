@@ -71,6 +71,7 @@ struct Badge: View {
 
 /// Small rounded tile with the framework's initials, in place of a logo.
 struct FrameworkTile: View {
+    static let size: CGFloat = 24
     var framework: Framework
 
     var body: some View {
@@ -78,7 +79,7 @@ struct FrameworkTile: View {
         Text(label)
             .font(.system(size: 10, weight: .bold, design: .rounded))
             .foregroundStyle(.white)
-            .frame(width: 24, height: 24)
+            .frame(width: Self.size, height: Self.size)
             .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(color.gradient))
             .accessibilityLabel(framework.rawValue)
     }

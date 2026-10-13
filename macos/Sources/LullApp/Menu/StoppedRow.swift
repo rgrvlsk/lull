@@ -16,7 +16,7 @@ struct StoppedRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
-                FrameworkTile(framework: record.framework).saturation(0).opacity(0.7)
+                ProjectTile(cwd: record.cwd, framework: record.framework).saturation(0).opacity(0.7)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(record.project).font(.system(size: 13, weight: .semibold)).lineLimit(1)

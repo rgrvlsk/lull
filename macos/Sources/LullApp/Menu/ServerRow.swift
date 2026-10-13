@@ -11,7 +11,7 @@ struct ServerRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            FrameworkTile(framework: server.framework)
+            ProjectTile(cwd: server.cwd, framework: server.framework)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(Format.ports(server.ports))

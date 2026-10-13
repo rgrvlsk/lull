@@ -8,6 +8,7 @@ import LullKit
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var store: Store!
+    private let icons = ProjectIcons()
     private var statusItem: StatusItem!
     private var settings: SettingsWindow!
     private var notifier: Notifier?
@@ -28,7 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #endif
         store = preview ?? Store()
         settings = SettingsWindow(store: store)
-        statusItem = StatusItem(store: store, openSettings: { [settings] in settings?.show() })
+        statusItem = StatusItem(store: store, icons: icons, openSettings: { [settings] in settings?.show() })
         notifier = Notifier.make(store: store)
         store.onServerChange = { [notifier] old, new in notifier?.serverChanged(from: old, to: new) }
         if preview == nil {
@@ -47,7 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
         let view = MenuView(openSettings: { [settings] in settings?.show() })
             .environment(store)
-            .background(.regularMaterial)
+            .environment(icons)
         let host = NSHostingController(rootView: view)
         host.sizingOptions = .preferredContentSize
         let window = NSWindow(contentViewController: host)

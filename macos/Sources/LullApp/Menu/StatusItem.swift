@@ -10,15 +10,17 @@ final class StatusItem: NSObject {
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let popover = NSPopover()
     private let store: Store
+    private let icons: ProjectIcons
 
-    init(store: Store, openSettings: @escaping () -> Void) {
+    init(store: Store, icons: ProjectIcons, openSettings: @escaping () -> Void) {
         self.store = store
+        self.icons = icons
         super.init()
         popover.behavior = .transient
         let host = NSHostingController(rootView: MenuView(openSettings: { [popover] in
             popover.performClose(nil)
             openSettings()
-        }).environment(store))
+        }).environment(store).environment(icons))
         host.sizingOptions = .preferredContentSize
         popover.contentViewController = host
         item.button?.target = self
@@ -41,6 +43,7 @@ final class StatusItem: NSObject {
             return
         }
         Task { await store.refresh() }
+        icons.revalidate()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         if let window = popover.contentViewController?.view.window {
             window.makeKey()
