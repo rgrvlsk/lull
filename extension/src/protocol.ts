@@ -14,7 +14,7 @@ export interface Server {
   project: string; framework: Framework; ports: number[]; primaryUrl: string | null; origin: Origin;
   startedAt: string; cpuPercent: number; rssBytes: number; lastActivityAt: string;
   lastActivitySource: "tab" | "traffic" | "started" | "manual"; idleMinutes: number;
-  autoStop: boolean; pinned: boolean; state: "running" | "stopping-soon" | "stopping" | "no-listener";
+  autoStop: boolean; pinned: boolean; pinSource: "env" | "user" | null; state: "running" | "stopping-soon" | "stopping" | "no-listener";
   stopsAt: string | null; tabs: TabRef[];
 }
 export interface StoppedServer {
@@ -135,7 +135,7 @@ const server = object<Server>({
   project: string, framework, ports: array(uint(65535)), primaryUrl: nullable(string), origin,
   startedAt: string, cpuPercent: number, rssBytes: u64, lastActivityAt: string,
   lastActivitySource: literal("tab", "traffic", "started", "manual"), idleMinutes: u32,
-  autoStop: boolean, pinned: boolean, state: literal("running", "stopping-soon", "stopping", "no-listener"),
+  autoStop: boolean, pinned: boolean, pinSource: nullable(literal("env", "user")), state: literal("running", "stopping-soon", "stopping", "no-listener"),
   stopsAt: nullable(string), tabs: array(tabRef),
 });
 const stopped = object<StoppedServer>({

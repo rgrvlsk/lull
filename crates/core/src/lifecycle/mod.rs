@@ -509,6 +509,7 @@ impl Lifecycle {
                         last_activity_wall_ms: *wall_ms,
                         last_activity_source: Activity::Started,
                         pinned: s.env_pin,
+                        pinned_by_env: s.env_pin,
                         auto_stop: None,
                         state: ServerState::Running,
                         stops_at: None,
@@ -807,6 +808,7 @@ impl Lifecycle {
             e.touch(now.clone(), Activity::Manual, wall_ms);
         }
         e.record.pinned = pinned;
+        e.record.pinned_by_env = false;
         e.refresh(now);
         Ok(())
     }

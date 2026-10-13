@@ -291,7 +291,8 @@ fn glyph(s: &Server) -> Span<'static> {
 
 fn stops(s: &Server, now: u64) -> Span<'static> {
     if s.pinned {
-        return "pinned".cyan();
+        let env = s.pin_source == Some(lull_protocol::PinSource::Env);
+        return if env { "pinned (env)" } else { "pinned" }.cyan();
     }
     match (s.state, s.stops_at.as_deref().and_then(parse_rfc3339)) {
         (ServerState::Stopping, _) => "stopping".red(),

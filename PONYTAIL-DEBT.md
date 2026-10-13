@@ -5,9 +5,6 @@ ledger when its trigger fires and the shortcut is upgraded. Maintenance rules: [
 
 ## crates/core
 
-- `crates/core/src/model.rs:247`, the pin is a bare bool. ceiling: a `LULL_KEEP=1` pin is
-  indistinguishable from a manual one, on the record and on the wire. upgrade: a pin-source
-  field when the menu-bar app (M4) must show "pinned (env)".
 - `crates/core/src/activity/mod.rs:180`, a client's ancestry comes only from connections
   open at a scan. ceiling: bytes from a covered browser's connection that opened and closed
   between scans count as uncovered traffic. upgrade: read the client's ancestry from the
@@ -35,7 +32,7 @@ ledger when its trigger fires and the shortcut is upgraded. Maintenance rules: [
 - `crates/core/src/lifecycle/mod.rs:426`, no `server.removed` for the old id on a turnover
   abort. ceiling: subscribers keep a ghost entry until they re-subscribe. upgrade: when the
   menu-bar app (M4) subscribes.
-- `crates/core/src/lifecycle/mod.rs:611`, the fresh observation before a stop is the
+- `crates/core/src/lifecycle/mod.rs:612`, the fresh observation before a stop is the
   preceding scan plus a member re-read. ceiling: up to one scan interval (5 s) between
   classification and signal. upgrade: re-run discovery on the group right before signalling.
 - `crates/core/src/browser/mod.rs:71`, a hidden tab reloaded on the same URL keeps its old
@@ -58,4 +55,4 @@ ledger when its trigger fires and the shortcut is upgraded. Maintenance rules: [
   forgotten when the service worker restarts. upgrade: the `storage` permission
   (`chrome.storage.session`) if users report dragged-out tabs being regrouped.
 
-16 markers, 0 with no trigger.
+15 markers, 0 with no trigger.

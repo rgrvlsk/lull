@@ -10,7 +10,7 @@ use lull_protocol::rpc::{
     INVALID_PARAMS, METHOD_NOT_FOUND, Message, NOT_RESTARTABLE, OpenParams, OpenResult,
     PROTOCOL_MISMATCH, ProtocolMismatch, Request, RequestId, RestartResult, SubscribeResult,
 };
-use lull_protocol::{Config, PROTOCOL_VERSION, Server, StopReason, TabsOnStop};
+use lull_protocol::{Config, PROTOCOL_VERSION, PinSource, Server, StopReason, TabsOnStop};
 use serde_json::{Value, json};
 
 use crate::activity::{Activity, ScanInput};
@@ -798,6 +798,11 @@ impl Daemon {
             idle_minutes: policy.idle_minutes,
             auto_stop: policy.auto_stop,
             pinned: rec.pinned,
+            pin_source: rec.pinned.then_some(if rec.pinned_by_env {
+                PinSource::Env
+            } else {
+                PinSource::User
+            }),
             state: rec.state,
             stops_at,
             tabs: self.browsers.tabs_of(&o.id),

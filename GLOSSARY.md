@@ -112,7 +112,8 @@ _Avoid_: warm-up, cooldown
 
 **Pin**:
 A user's instruction that one server must never be stopped automatically, kept until the
-server goes away.
+server goes away. Its *pin source* is `env` when the server started with `LULL_KEEP=1`
+(shown as *pinned (env)*) and `user` once anyone pins or unpins it explicitly.
 _Avoid_: lock, keep-alive, favourite
 
 ## Origin

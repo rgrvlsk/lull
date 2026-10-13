@@ -130,7 +130,7 @@ Scan every `scanIntervalSec` (default 5):
    number while the group has a member, so the id cannot collide.
 7. Persistent state: `~/Library/Application Support/lull/state.json` (versioned schema,
    written atomically via temp file + rename) maps `id → {pgid, witnesses: [{pid,
-   startEpochMs}], lastActivityAt, lastActivitySource, pinned, autoStop}`; written on
+   startEpochMs}], lastActivityAt, lastActivitySource, pinned, pinnedByEnv, autoStop}`; written on
    change, entry dropped on `server.removed`. On daemon start a live group resumes a
    persisted entry only if its pgid matches **and** at least one witness (pid + start
    time) is still a member — the computed id alone may differ because the oldest member
@@ -165,6 +165,7 @@ Scan every `scanIntervalSec` (default 5):
   "idleMinutes": 30,                    // effective policy value
   "autoStop": true,                     // effective policy value
   "pinned": false,
+  "pinSource": null,                    // env | user | null when not pinned (1.3)
   "state": "running",                   // running | stopping-soon | stopping | no-listener
   "stopsAt": "2026-10-11T20:42:00Z",   // null when autoStop=false or pinned
   "tabs": [{ "connectionId": "c7", "browser": "helium", "tabId": 812, "windowId": 3 }]
@@ -299,9 +300,9 @@ idle_minutes = 90
 # auto_stop = "none"
 ```
 
-Opt-out per process: env `LULL_KEEP=1` → the server starts pinned (shown as *pinned
-(env)*). It is only the initial value: an explicit Unpin by the user wins and is
-persisted. `DEVSERVER_KEEP` from the prototype is **not** honoured.
+Opt-out per process: env `LULL_KEEP=1` → the server starts pinned, with
+`pinSource: "env"` (shown as *pinned (env)*). It is only the initial value: an explicit
+pin or unpin wins, is persisted, and makes the source `user`. `DEVSERVER_KEEP` from the prototype is **not** honoured.
 
 `lull daemon --dry-run` makes every decision, logs and shows it, but sends no signals
 (for testing and fixtures; off by default).
@@ -399,7 +400,7 @@ recent stop.
 | `hello` | `{client: "app"\|"cli"\|"browser", version, protocol: {major, minor}, browser?: {name, profile?, version, extensionVersion}}` | `{daemonVersion, protocol: {major, minor}, connectionId, capabilities: [..], activityBackend: "ntstat"\|"scan"}` — a different `major`, or a `browser` with `minor` < 3 (ADR-0011), is rejected with error `-32010 protocol_mismatch` carrying the daemon's version; clients show "update lull" |
 | `servers.list` | `{}` | `Server[]` |
 | `servers.stop` | `{id}` | `{}` |
-| `servers.pin` | `{id, pinned}` | `Server` |
+| `servers.pin` | `{id, pinned}` | `Server` — `pinSource` becomes `user` (or `null` when unpinned) |
 | `servers.setAutoStop` | `{id, autoStop: bool \| null}` | `Server` — per-server override; `null` clears it |
 | `servers.touch` | `{id}` | `Server` (manual activity) |
 | `servers.history` | `{}` | `StoppedServer[]` |
