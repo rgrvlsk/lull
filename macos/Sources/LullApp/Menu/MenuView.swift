@@ -1,5 +1,6 @@
-// The panel: header with a status pill, banners for a missing or mismatched daemon and dry
-// run, live servers grouped by project, Recently stopped, and a Settings · Quit footer.
+// The panel: header with a status pill; then, scrolling, banners for a missing or mismatched
+// daemon and dry run, live servers grouped by project and Recently stopped; a Settings · Quit
+// footer.
 import SwiftUI
 import LullKit
 
@@ -7,22 +8,20 @@ struct MenuView: View {
     @Environment(Store.self) private var store
     @Environment(\.colorScheme) private var scheme
     var openSettings: () -> Void
-    @State private var listHeight: CGFloat = 0
 
     var body: some View {
         VStack(spacing: 0) {
             header
-            VStack(alignment: .leading, spacing: 12) {
-                banners
-                ScrollView {
-                    list.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
+            PanelScroll(maxHeight: Theme.maxListHeight, gutter: Theme.inset) {
+                VStack(alignment: .leading, spacing: 12) {
+                    banners
+                    list
                 }
-                .scrollIndicators(.automatic)
-                .frame(height: min(listHeight, Theme.maxListHeight))
-                footer
+                .padding(.horizontal, Theme.inset)
             }
-            .padding([.horizontal, .bottom], 14)
+            footer.padding(.horizontal, Theme.inset).padding(.top, 12)
         }
+        .padding(.bottom, Theme.inset)
         .frame(width: Theme.panelWidth)
         .background(Color(nsColor: Brand.panel))
     }

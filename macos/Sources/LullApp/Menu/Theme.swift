@@ -7,6 +7,8 @@ enum Theme {
     static let panelWidth: CGFloat = 380
     static let maxListHeight: CGFloat = 520
     static let corner: CGFloat = 12
+    /// Panel margin, which is also the scroll indicator's gutter.
+    static let inset: CGFloat = 14
 }
 
 struct Card<Content: View>: View {
