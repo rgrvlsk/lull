@@ -10,18 +10,21 @@ struct MenuView: View {
     @State private var listHeight: CGFloat = 0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(spacing: 0) {
             header
-            banners
-            ScrollView {
-                list.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
+            VStack(alignment: .leading, spacing: 12) {
+                banners
+                ScrollView {
+                    list.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
+                }
+                .scrollIndicators(.automatic)
+                .frame(height: min(listHeight, Theme.maxListHeight))
+                footer
             }
-            .scrollIndicators(.automatic)
-            .frame(height: min(listHeight, Theme.maxListHeight))
-            footer
+            .padding([.horizontal, .bottom], 14)
         }
-        .padding(14)
         .frame(width: Theme.panelWidth)
+        .background(Color(nsColor: Brand.panel))
     }
 
     // MARK: Header
@@ -39,7 +42,9 @@ struct MenuView: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 2.5)
         .foregroundStyle(color)
+        // Over the panel colour first, so the pill reads on the bright part of the sky.
         .background(Capsule().fill(color.opacity(0.14)))
+        .background(Capsule().fill(Color(nsColor: Brand.panel).opacity(0.85)))
     }
 
     private var pillState: (String, Color) {

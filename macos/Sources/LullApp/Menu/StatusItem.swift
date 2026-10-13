@@ -43,6 +43,19 @@ final class StatusItem: NSObject {
         Task { await store.refresh() }
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
+        paintPopoverFrame()
+    }
+
+    /// Paints the popover's frame, arrow included, in the panel colour instead of the
+    /// translucent material. NSPopover has no API for this, so a view goes under the content.
+    private func paintPopoverFrame() {
+        guard let content = popover.contentViewController?.view.window?.contentView,
+              let frame = content.superview,
+              !frame.subviews.contains(where: { $0 is PanelBackground })
+        else { return }
+        let background = PanelBackground(frame: frame.bounds)
+        background.autoresizingMask = [.width, .height]
+        frame.addSubview(background, positioned: .below, relativeTo: content)
     }
 
     /// Redraws the button whenever what it shows changes.
@@ -80,6 +93,13 @@ final class StatusItem: NSObject {
         }
         button.attributedTitle = title
         button.toolTip = "lull: \(running) running" + (soon ? ", stopping soon" : "")
+    }
+}
+
+private final class PanelBackground: NSView {
+    override func draw(_ dirtyRect: NSRect) {
+        Brand.panel.setFill()
+        dirtyRect.fill()
     }
 }
 

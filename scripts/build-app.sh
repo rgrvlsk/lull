@@ -12,6 +12,7 @@ cp "$(swift build -c "$config" --show-bin-path)/LullApp" "$app/Contents/MacOS/Lu
 # Brand artwork, converted once from the SVG masters (assets/brand/README.md).
 cp ../assets/brand/app-icon.icns "$app/Contents/Resources/AppIcon.icns"
 cp ../assets/brand/lull-micro-20.pdf ../assets/brand/logo-horizontal.pdf "$app/Contents/Resources/"
+cp ../assets/brand/header/header-*.png "$app/Contents/Resources/"
 version=$(sed -n 's/^version = "\(.*\)"/\1/p' ../Cargo.toml | head -n 1)
 sed "s/@VERSION@/$version/g" Resources/Info.plist >"$app/Contents/Info.plist"
 codesign --force --sign - "$app"

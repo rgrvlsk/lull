@@ -17,7 +17,7 @@ struct Card<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) { content }
             .background(
                 RoundedRectangle(cornerRadius: Theme.corner, style: .continuous)
-                    .fill(Color.white.opacity(scheme == .dark ? 0.075 : 0.38))
+                    .fill(Color.white.opacity(scheme == .dark ? 0.075 : 0.7))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.corner, style: .continuous)
