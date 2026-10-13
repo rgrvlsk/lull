@@ -1,6 +1,7 @@
 // The panel's scrolling list. The system indicator would sit over the rows' right column,
 // so the list draws its own: a thin capsule centred in the gutter right of the cards,
-// shown only when the content overflows, while scrolling or on hover. macOS 14 has no
+// shown only when the content overflows, while scrolling or while the pointer is over the
+// gutter, like the system's overlay scrollers. macOS 14 has no
 // `onScrollGeometryChange`, so the offset comes from the content's frame. The top `fade`
 // points are an inset at rest, which scrolled content passes through under whatever the
 // caller fades over it.
@@ -16,6 +17,7 @@ struct PanelScroll<Content: View>: View {
     @ViewBuilder var content: Content
 
     @State private var contentHeight: CGFloat = 0
+    @State private var width: CGFloat = 0
     @State private var offset: CGFloat = 0
     @State private var hovering = false
     @State private var scrolling = false
@@ -35,8 +37,15 @@ struct PanelScroll<Content: View>: View {
         .coordinateSpace(.named(scrollSpace))
         .scrollIndicators(.never)
         .frame(height: viewport)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .overlay(alignment: .topTrailing) { indicator(viewport: viewport) }
-        .onHover { hovering = $0 }
+        .onContinuousHover { phase in
+            if case .active(let point) = phase {
+                hovering = point.x >= width - gutter
+            } else {
+                hovering = false
+            }
+        }
     }
 
     @ViewBuilder private func indicator(viewport: CGFloat) -> some View {
