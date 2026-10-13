@@ -11,12 +11,19 @@
 //! event (its pid is the client, its remote port the server). Resolution matches that
 //! destination against server ports. Non-loopback peers emit the local port without a pid.
 //!
+//! Byte counters (§5 pulses, ADR-0010): four times a second, each connected source that
+//! reaches a watched port from a client outside its group is asked for its counts
+//! (`QUERY_SRC`), and the `SRC_COUNTS` reply becomes a `Bytes` event with the bytes moved
+//! since the previous reading, stamped with the sample's grid instant. Sources that existed before the subscription are described too, so
+//! their first reading is a baseline rather than traffic. A new source removed before its
+//! first reading emits `Unread`.
+//!
 //! Layout validation: there is no version field. `hdr.length` is validated for every
 //! message, the TCP descriptor must be at least the published 344 bytes (macOS 27 sends
 //! 360 with a shifted tail), and the first descriptor must decode to plausible sockaddrs before `open()` succeeds. Anything implausible later flips health to
 //! `Failed` and the daemon falls back to the scan backend.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::io;
 use std::mem;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -35,10 +42,12 @@ const CONTROL_NAME: &str = "com.apple.network.statistics";
 const MSG_SUCCESS: u32 = 0;
 const MSG_ERROR: u32 = 1;
 const MSG_ADD_ALL_SRCS: u32 = 1002;
+const MSG_QUERY_SRC: u32 = 1004;
 const MSG_GET_SRC_DESC: u32 = 1005;
 const MSG_SRC_ADDED: u32 = 10001;
 const MSG_SRC_REMOVED: u32 = 10002;
 const MSG_SRC_DESC: u32 = 10003;
+const MSG_SRC_COUNTS: u32 = 10004;
 const PROVIDER_TCP_KERNEL: u32 = 2;
 /// `sizeof(nstat_msg_hdr)`: context u64, type u32, length u16, flags u16.
 const HDR_LEN: usize = 16;
@@ -46,6 +55,13 @@ const HDR_LEN: usize = 16;
 const ADD_ALL_LEN: usize = 56;
 /// `sizeof(nstat_msg_get_src_description)`: header plus srcref.
 const GET_SRC_DESC_LEN: usize = 24;
+/// `sizeof(nstat_msg_query_src)`: header plus srcref.
+const QUERY_SRC_LEN: usize = 24;
+/// `nstat_msg_src_counts`: header, srcref, event_flags, then `nstat_counts`, whose
+/// `nstat_rxbytes` and `nstat_txbytes` follow the rx and tx packet counts.
+const COUNTS_RX_BYTES: usize = 40;
+const COUNTS_TX_BYTES: usize = 56;
+const COUNTS_MIN: usize = COUNTS_TX_BYTES + 8;
 /// `offsetof(nstat_msg_src_description, data)`: header, srcref, event_flags, provider.
 const SRC_DESC_DATA: usize = 40;
 /// Published minimum size; only stable prefix offsets are decoded.
@@ -61,20 +77,28 @@ const TCPS_LISTEN: u32 = 1;
 
 const ADD_ALL_CONTEXT: u64 = 1;
 const TICK: Duration = Duration::from_millis(250);
+/// How often byte counters are read. Bytes are stamped with the sample's instant, so this
+/// bounds their timing error, which must stay well inside the 1 s train tolerance (§5).
+const SAMPLE: Duration = Duration::from_millis(250);
 // ponytail: fixed burst and memory ceilings suit a developer machine; overflow fails
 // to scan. Tune these from measured workloads before supporting high-volume hosts.
 const REQUESTS_PER_TICK: usize = 16;
+/// Counter queries per sample; past it, the least recently read sources go first.
+const QUERIES_PER_SAMPLE: usize = 256;
 const MAX_SOURCES: usize = 16_384;
 const MAX_EVENTS: usize = 4_096;
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(3);
-/// Preexisting sources asked for a descriptor to validate the layout during `open()`.
-const LAYOUT_PROBES: usize = 8;
 const RECV_BUF: usize = 1 << 16;
 
+/// Watched ports, each with the pids whose connections are not read (§5 pulses).
+type Watch = BTreeMap<u16, BTreeSet<u32>>;
+
 /// Traffic events from the kernel network-statistics socket. A reader thread owns the
-/// socket and pushes `TrafficEvent{kind: New}` into a channel; `drain` collects them.
+/// socket and pushes `New`, `Bytes` and `Unread` events into a channel; `drain` collects
+/// them.
 pub struct NtstatBackend {
     rx: Receiver<TrafficEvent>,
+    watch: Arc<Mutex<Watch>>,
     health: Arc<Mutex<Option<String>>>,
     stop: Arc<AtomicBool>,
     reader: Option<JoinHandle<()>>,
@@ -88,7 +112,8 @@ impl NtstatBackend {
         let sock = Socket::open()?;
         sock.send(&add_all_tcp())?;
         let (tx, rx) = mpsc::sync_channel(MAX_EVENTS);
-        let mut reader = Reader::new(sock, tx);
+        let watch = Arc::new(Mutex::new(Watch::new()));
+        let mut reader = Reader::new(sock, tx, Arc::clone(&watch));
         let mut buf = vec![0u8; RECV_BUF];
         let deadline = StdInstant::now() + HANDSHAKE_TIMEOUT;
         while !(reader.subscribed && reader.validated) {
@@ -118,6 +143,7 @@ impl NtstatBackend {
             })?;
         Ok(Self {
             rx,
+            watch,
             health,
             stop,
             reader: Some(handle),
@@ -144,6 +170,14 @@ impl ActivityBackend for NtstatBackend {
         self.rx.try_iter().collect()
     }
 
+    fn reads_bytes(&self) -> bool {
+        true
+    }
+
+    fn watch(&mut self, ports: &Watch) {
+        *lock(&self.watch) = ports.clone();
+    }
+
     fn health(&self) -> BackendHealth {
         if let Some(reason) = lock(&self.health).clone() {
             return BackendHealth::Failed(reason);
@@ -157,8 +191,8 @@ impl ActivityBackend for NtstatBackend {
     }
 }
 
-fn lock(health: &Mutex<Option<String>>) -> std::sync::MutexGuard<'_, Option<String>> {
-    health.lock().unwrap_or_else(|e| e.into_inner())
+fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 // ───────────────────────── reader ─────────────────────────
@@ -167,32 +201,50 @@ struct Reader {
     sock: Socket,
     clock: MacClock,
     tx: SyncSender<TrafficEvent>,
+    watch: Arc<Mutex<Watch>>,
     /// `SUCCESS` for `ADD_ALL_SRCS` seen: sources added from now on are new connections.
     subscribed: bool,
     /// One TCP descriptor decoded with a plausible layout.
     validated: bool,
-    /// Preexisting sources asked for a descriptor to validate the layout.
-    probes: usize,
     sources: HashMap<u64, Source>,
     last_tick: StdInstant,
+    /// Samples run on a fixed grid; `Bytes` events carry the grid instant of the sample
+    /// that read them, not the time the reader got round to it.
+    next_sample: StdInstant,
+    sample_at: Option<Instant>,
 }
 
 enum Source {
-    Pending { emit: bool, next_query: StdInstant },
+    Pending {
+        emit: bool,
+        next_query: StdInstant,
+    },
+    /// A connected source: the port it reaches, its client, and its byte total at the last
+    /// reading (`None` before the first).
+    Connected {
+        port: u16,
+        client_pid: Option<u32>,
+        /// Added after the subscription; a preexisting source's first reading is a baseline.
+        new: bool,
+        total: Option<u64>,
+        last_query: Option<StdInstant>,
+    },
     Done,
 }
 
 impl Reader {
-    fn new(sock: Socket, tx: SyncSender<TrafficEvent>) -> Self {
+    fn new(sock: Socket, tx: SyncSender<TrafficEvent>, watch: Arc<Mutex<Watch>>) -> Self {
         Self {
             sock,
             clock: MacClock::new(),
             tx,
+            watch,
             subscribed: false,
             validated: false,
-            probes: 0,
             sources: HashMap::new(),
             last_tick: StdInstant::now(),
+            next_sample: StdInstant::now() + SAMPLE,
+            sample_at: None,
         }
     }
 
@@ -209,30 +261,116 @@ impl Reader {
             self.last_tick = StdInstant::now();
             self.tick()?;
         }
+        let now = StdInstant::now();
+        if now >= self.next_sample {
+            let late = now - self.next_sample;
+            let clock_now = self.clock.now();
+            self.sample_at = Some(Instant {
+                uptime_ms: clock_now
+                    .uptime_ms
+                    .saturating_sub(u64::try_from(late.as_millis()).unwrap_or(u64::MAX)),
+                boot_session: clock_now.boot_session,
+            });
+            self.next_sample += SAMPLE;
+            if self.next_sample <= now {
+                // Fell behind by more than a sample (the thread was not scheduled): restart
+                // the grid rather than sampling in a burst.
+                self.next_sample = now + SAMPLE;
+            }
+            self.sample()?;
+        }
         Ok(())
+    }
+
+    /// Asks for the byte counters of every watched source.
+    fn sample(&mut self) -> Result<(), String> {
+        let now = StdInstant::now();
+        let due = counts_due(&self.sources, &lock(&self.watch));
+        for srcref in due {
+            if let Some(Source::Connected { last_query, .. }) = self.sources.get_mut(&srcref) {
+                *last_query = Some(now);
+            }
+            if let Err(e) = self.sock.send(&query_src(srcref)) {
+                match e.raw_os_error() {
+                    Some(libc::ENOENT) => self.remove(srcref)?,
+                    Some(libc::EAGAIN) | Some(libc::EINTR) => break,
+                    _ => return Err(format!("ntstat counts request: {e}")),
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Forgets a source. A new watched connection that never had its counters read
+    /// emits `Unread`: the pulse it belongs to has an unknown size.
+    fn remove(&mut self, srcref: u64) -> Result<(), String> {
+        if let Some(Source::Connected {
+            port,
+            client_pid,
+            new: true,
+            total: None,
+            ..
+        }) = self.sources.remove(&srcref)
+            && watched(&lock(&self.watch), port, client_pid)
+        {
+            self.emit(port, client_pid, ConnectionKind::Unread, self.clock.now())?;
+        }
+        Ok(())
+    }
+
+    /// A `SRC_COUNTS` reply: emits the bytes moved since the previous reading.
+    fn counts(&mut self, srcref: u64, now_total: u64) -> Result<(), String> {
+        let Some(Source::Connected {
+            port,
+            client_pid,
+            new,
+            total,
+            ..
+        }) = self.sources.get_mut(&srcref)
+        else {
+            return Ok(());
+        };
+        let moved = match *total {
+            Some(previous) => now_total.saturating_sub(previous),
+            None if *new => now_total,
+            None => 0,
+        };
+        *total = Some(now_total);
+        let (port, client_pid) = (*port, *client_pid);
+        if moved > 0 {
+            let at = self.sample_at.clone().unwrap_or_else(|| self.clock.now());
+            self.emit(port, client_pid, ConnectionKind::Bytes(moved), at)?;
+        }
+        Ok(())
+    }
+
+    fn emit(
+        &self,
+        port: u16,
+        client_pid: Option<u32>,
+        kind: ConnectionKind,
+        at: Instant,
+    ) -> Result<(), String> {
+        self.tx
+            .try_send(TrafficEvent {
+                port,
+                client_pid,
+                kind,
+                at,
+            })
+            .map_err(|e| format!("ntstat event channel: {e}"))
     }
 
     fn tick(&mut self) -> Result<(), String> {
         let now = StdInstant::now();
-        let mut due: Vec<_> = self
-            .sources
-            .iter()
-            .filter_map(|(&srcref, source)| match source {
-                Source::Pending { next_query, .. } if *next_query <= now => {
-                    Some((*next_query, srcref))
-                }
-                _ => None,
-            })
-            .collect();
-        due.sort_unstable();
-        for (_, srcref) in due.into_iter().take(REQUESTS_PER_TICK) {
+        for srcref in descriptions_due(&self.sources, now) {
             if let Some(Source::Pending { next_query, .. }) = self.sources.get_mut(&srcref) {
                 *next_query = now + TICK;
             }
             if let Err(e) = self.sock.send(&get_src_desc(srcref)) {
                 match e.raw_os_error() {
                     Some(libc::ENOENT) => {
-                        self.sources.remove(&srcref);
+                        self.remove(srcref)?;
                     }
                     Some(libc::EAGAIN) | Some(libc::EINTR) => break,
                     _ => return Err(format!("ntstat descriptor request: {e}")),
@@ -272,7 +410,7 @@ impl Reader {
                 if context == ADD_ALL_CONTEXT || errno != libc::ENOENT {
                     return Err(format!("ntstat request rejected (errno {errno})"));
                 }
-                self.sources.remove(&context);
+                self.remove(context)?;
             }
             MSG_SRC_ADDED if m.len() >= 28 => {
                 let srcref = u64_at(m, 16);
@@ -282,21 +420,15 @@ impl Reader {
                 if self.sources.len() >= MAX_SOURCES {
                     return Err("ntstat: source capacity exceeded".into());
                 }
-                let source = if self.subscribed || self.probes < LAYOUT_PROBES {
-                    if !self.subscribed {
-                        self.probes += 1;
-                    }
-                    Source::Pending {
-                        emit: self.subscribed,
-                        next_query: StdInstant::now(),
-                    }
-                } else {
-                    Source::Done
-                };
-                self.sources.entry(srcref).or_insert(source);
+                // Preexisting sources are described too: the first validates the layout,
+                // and connected ones get a byte baseline.
+                self.sources.entry(srcref).or_insert(Source::Pending {
+                    emit: self.subscribed,
+                    next_query: StdInstant::now(),
+                });
             }
             MSG_SRC_REMOVED if m.len() >= 24 => {
-                self.sources.remove(&u64_at(m, 16));
+                self.remove(u64_at(m, 16))?;
             }
             MSG_SRC_DESC if m.len() >= SRC_DESC_DATA => {
                 if u32_at(m, 32) != PROVIDER_TCP_KERNEL {
@@ -307,8 +439,12 @@ impl Reader {
                 self.validated |= desc.local.is_some() || desc.remote.is_some();
                 self.descriptor(srcref, &desc)?;
             }
-            // Counters do not create traffic; SUCCESS may acknowledge another request.
-            MSG_SUCCESS | 10004 => {}
+            MSG_SRC_COUNTS if m.len() >= COUNTS_MIN => {
+                let total = u64_at(m, COUNTS_RX_BYTES).saturating_add(u64_at(m, COUNTS_TX_BYTES));
+                self.counts(u64_at(m, 16), total)?;
+            }
+            // SUCCESS may acknowledge another request.
+            MSG_SUCCESS => {}
             _ => return Err(format!("ntstat: unknown or truncated message type {kind}")),
         }
         Ok(())
@@ -329,26 +465,25 @@ impl Reader {
             return Ok(());
         }
         let emit = matches!(source, Source::Pending { emit: true, .. });
-        *source = Source::Done;
+        // No tail role flags: on loopback the source with remote == server port
+        // carries the client pid. Activity resolves the destination to a server.
+        let (port, client_pid) = if remote.loopback {
+            (remote.port, (desc.pid != 0).then_some(desc.pid))
+        } else {
+            // ponytail: a non-loopback client counts as outside the group, even a
+            // same-machine one via the LAN address. Upgrade path: pair the reversed
+            // tuple for local non-loopback addresses too.
+            (local.port, None)
+        };
+        *source = Source::Connected {
+            port,
+            client_pid,
+            new: emit,
+            total: None,
+            last_query: None,
+        };
         if emit {
-            // No tail role flags: on loopback the source with remote == server port
-            // carries the client pid. Activity resolves the destination to a server.
-            let (port, client_pid) = if remote.loopback {
-                (remote.port, (desc.pid != 0).then_some(desc.pid))
-            } else {
-                // ponytail: a non-loopback client counts as outside the group, even a
-                // same-machine one via the LAN address. Upgrade path: pair the reversed
-                // tuple for local non-loopback addresses too.
-                (local.port, None)
-            };
-            self.tx
-                .try_send(TrafficEvent {
-                    port,
-                    client_pid,
-                    kind: ConnectionKind::New,
-                    at: self.clock.now(),
-                })
-                .map_err(|e| format!("ntstat event channel: {e}"))?;
+            self.emit(port, client_pid, ConnectionKind::New, self.clock.now())?;
         }
         Ok(())
     }
@@ -383,6 +518,61 @@ fn get_src_desc(srcref: u64) -> Vec<u8> {
     m.extend_from_slice(&header(srcref, MSG_GET_SRC_DESC, GET_SRC_DESC_LEN));
     m.extend_from_slice(&srcref.to_ne_bytes());
     m
+}
+
+/// `nstat_msg_query_src` for one source; the context is the srcref, as for descriptors.
+fn query_src(srcref: u64) -> Vec<u8> {
+    let mut m = Vec::with_capacity(QUERY_SRC_LEN);
+    m.extend_from_slice(&header(srcref, MSG_QUERY_SRC, QUERY_SRC_LEN));
+    m.extend_from_slice(&srcref.to_ne_bytes());
+    m
+}
+
+fn watched(watch: &Watch, port: u16, client_pid: Option<u32>) -> bool {
+    watch
+        .get(&port)
+        .is_some_and(|skip| client_pid.is_none_or(|pid| !skip.contains(&pid)))
+}
+
+/// Pending sources due for a descriptor request, at most `REQUESTS_PER_TICK`. New
+/// connections go first: describing the sources that existed before the subscription
+/// (for their byte baseline) must not delay them.
+fn descriptions_due(sources: &HashMap<u64, Source>, now: StdInstant) -> Vec<u64> {
+    let mut due: Vec<_> = sources
+        .iter()
+        .filter_map(|(&srcref, source)| match source {
+            Source::Pending { emit, next_query } if *next_query <= now => {
+                Some((!emit, *next_query, srcref))
+            }
+            _ => None,
+        })
+        .collect();
+    due.sort_unstable();
+    due.into_iter()
+        .take(REQUESTS_PER_TICK)
+        .map(|(_, _, srcref)| srcref)
+        .collect()
+}
+
+/// Watched connected sources, least recently read first, at most `QUERIES_PER_SAMPLE`.
+fn counts_due(sources: &HashMap<u64, Source>, watch: &Watch) -> Vec<u64> {
+    let mut due: Vec<_> = sources
+        .iter()
+        .filter_map(|(&srcref, source)| match source {
+            Source::Connected {
+                port,
+                client_pid,
+                last_query,
+                ..
+            } if watched(watch, *port, *client_pid) => Some((*last_query, srcref)),
+            _ => None,
+        })
+        .collect();
+    due.sort_unstable();
+    due.into_iter()
+        .take(QUERIES_PER_SAMPLE)
+        .map(|(_, srcref)| srcref)
+        .collect()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -646,7 +836,7 @@ mod tests {
         d[DESC_LOCAL + 1] = 7;
         assert!(parse_tcp_desc(&d).is_err());
         let (tx, _) = mpsc::sync_channel(MAX_EVENTS);
-        let mut reader = Reader::new(Socket(-1), tx);
+        let mut reader = Reader::new(Socket(-1), tx, Arc::default());
         let m = description(9, &descriptor(360));
         for len in 1..m.len() {
             assert!(reader.datagram(&m[..len]).is_err());
@@ -682,7 +872,7 @@ mod tests {
     #[test]
     fn batches_deduplicate_and_preserve_unresolved_sources_until_connected() {
         let (tx, rx) = mpsc::sync_channel(MAX_EVENTS);
-        let mut reader = Reader::new(Socket(-1), tx);
+        let mut reader = Reader::new(Socket(-1), tx, Arc::default());
         pending(&mut reader, 9, true);
         reader.datagram(&description(9, &[0; 360])).unwrap();
         assert!(matches!(
@@ -721,7 +911,7 @@ mod tests {
     #[test]
     fn remote_peers_have_no_pid_and_channel_overflow_fails() {
         let (tx, rx) = mpsc::sync_channel(1);
-        let mut reader = Reader::new(Socket(-1), tx);
+        let mut reader = Reader::new(Socket(-1), tx, Arc::default());
         let mut d = descriptor(360);
         d[DESC_REMOTE + 4] = 10;
         pending(&mut reader, 9, true);
@@ -732,10 +922,134 @@ mod tests {
         assert_eq!((event.port, event.client_pid), (51000, None));
     }
 
+    fn counts(srcref: u64, rx: u64, tx: u64) -> Vec<u8> {
+        let mut m = header(srcref, MSG_SRC_COUNTS, 144).to_vec();
+        m.extend_from_slice(&srcref.to_ne_bytes());
+        m.extend_from_slice(&0u64.to_ne_bytes()); // event_flags
+        for value in [1, rx, 1, tx] {
+            m.extend_from_slice(&value.to_ne_bytes());
+        }
+        m.resize(144, 0);
+        m
+    }
+
+    fn removed(srcref: u64) -> Vec<u8> {
+        let mut m = header(0, MSG_SRC_REMOVED, 24).to_vec();
+        m.extend_from_slice(&srcref.to_ne_bytes());
+        m
+    }
+
+    fn watching(port: u16, skip: &[u32]) -> Arc<Mutex<Watch>> {
+        Arc::new(Mutex::new(Watch::from([(
+            port,
+            skip.iter().copied().collect(),
+        )])))
+    }
+
+    #[test]
+    fn counts_become_bytes_moved_since_the_previous_reading() {
+        let (tx, rx) = mpsc::sync_channel(MAX_EVENTS);
+        let mut reader = Reader::new(Socket(-1), tx, watching(3000, &[]));
+        // A new connection: its first reading is all traffic.
+        pending(&mut reader, 9, true);
+        reader.datagram(&description(9, &descriptor(360))).unwrap();
+        assert_eq!(rx.try_recv().unwrap().kind, ConnectionKind::New);
+        reader.datagram(&counts(9, 100, 20)).unwrap();
+        let event = rx.try_recv().unwrap();
+        assert_eq!(
+            (event.port, event.client_pid, event.kind),
+            (3000, Some(77), ConnectionKind::Bytes(120))
+        );
+        reader.datagram(&counts(9, 100, 20)).unwrap();
+        assert!(rx.try_recv().is_err(), "nothing moved");
+        reader.datagram(&counts(9, 150, 30)).unwrap();
+        assert_eq!(rx.try_recv().unwrap().kind, ConnectionKind::Bytes(60));
+        // A connection from before the subscription: the first reading is a baseline.
+        pending(&mut reader, 10, false);
+        reader.datagram(&description(10, &descriptor(360))).unwrap();
+        reader.datagram(&counts(10, 5_000, 900)).unwrap();
+        assert!(rx.try_recv().is_err());
+        reader.datagram(&counts(10, 5_010, 900)).unwrap();
+        assert_eq!(rx.try_recv().unwrap().kind, ConnectionKind::Bytes(10));
+        // Counts for an unknown source are ignored; a truncated reply is not.
+        reader.datagram(&counts(99, 1, 1)).unwrap();
+        assert!(rx.try_recv().is_err());
+        let short = counts(9, 1, 1);
+        let mut short = short[..COUNTS_MIN - 1].to_vec();
+        short[12..14].copy_from_slice(&((COUNTS_MIN - 1) as u16).to_ne_bytes());
+        assert!(reader.datagram(&short).is_err());
+    }
+
+    #[test]
+    fn a_new_watched_connection_removed_before_its_first_reading_is_unread() {
+        let (tx, rx) = mpsc::sync_channel(MAX_EVENTS);
+        let mut reader = Reader::new(Socket(-1), tx, watching(3000, &[]));
+        for srcref in [9, 10, 11] {
+            pending(&mut reader, srcref, true);
+            reader
+                .datagram(&description(srcref, &descriptor(360)))
+                .unwrap();
+            assert_eq!(rx.try_recv().unwrap().kind, ConnectionKind::New);
+        }
+        reader.datagram(&counts(10, 1, 1)).unwrap();
+        assert_eq!(rx.try_recv().unwrap().kind, ConnectionKind::Bytes(2));
+        reader.datagram(&removed(9)).unwrap();
+        let event = rx.try_recv().unwrap();
+        assert_eq!(
+            (event.port, event.client_pid, event.kind),
+            (3000, Some(77), ConnectionKind::Unread)
+        );
+        // Already read: nothing is unknown about it.
+        reader.datagram(&removed(10)).unwrap();
+        assert!(rx.try_recv().is_err());
+        // Not watched any more: nobody needs to know.
+        *lock(&reader.watch) = Watch::new();
+        reader.datagram(&removed(11)).unwrap();
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn only_watched_sources_outside_the_group_are_read_least_recent_first() {
+        let connected = |port, client_pid, last_query| Source::Connected {
+            port,
+            client_pid,
+            new: true,
+            total: None,
+            last_query,
+        };
+        let now = StdInstant::now();
+        let sources = HashMap::from([
+            (1, connected(3000, Some(7), Some(now))),
+            (2, connected(3000, Some(7), None)),
+            (3, connected(3000, Some(100), None)), // the server's own group
+            (4, connected(4000, Some(7), None)),   // not a server port
+            (5, connected(3000, None, Some(now - SAMPLE))), // remote client
+            (6, Source::Done),
+        ]);
+        let watch = Watch::from([(3000, BTreeSet::from([100]))]);
+        assert_eq!(counts_due(&sources, &watch), vec![2, 5, 1]);
+        assert!(counts_due(&sources, &Watch::new()).is_empty());
+    }
+
+    #[test]
+    fn new_connections_are_described_before_the_preexisting_backlog() {
+        let now = StdInstant::now();
+        let pending = |emit, next_query| Source::Pending { emit, next_query };
+        let mut sources: HashMap<u64, Source> = (100..140)
+            .map(|srcref| (srcref, pending(false, now - TICK)))
+            .collect();
+        sources.insert(7, pending(true, now));
+        sources.insert(8, pending(true, now + TICK)); // not due yet
+        let due = descriptions_due(&sources, now);
+        assert_eq!(due.len(), REQUESTS_PER_TICK);
+        assert_eq!(due[0], 7);
+        assert!(!due.contains(&8));
+    }
+
     #[test]
     fn only_missing_source_errors_are_tolerated() {
         let (tx, _) = mpsc::sync_channel(1);
-        let mut reader = Reader::new(Socket(-1), tx);
+        let mut reader = Reader::new(Socket(-1), tx, Arc::default());
         for errno in [libc::ENOENT, libc::EPERM] {
             pending(&mut reader, 9, true);
             let mut error = header(9, MSG_ERROR, 24).to_vec();

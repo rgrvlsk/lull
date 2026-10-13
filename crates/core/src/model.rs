@@ -165,13 +165,19 @@ pub struct KnownGroup {
 
 // ───────────────────────── activity ─────────────────────────
 
-/// Whether a traffic observation is a new connection (§5 `traffic` (a), emitted by an
-/// [`crate::ActivityBackend`]) or one held open at a scan (§5 `traffic` (b), derived by
-/// activity from `Snapshot::connections`).
+/// What a traffic observation saw on a connection (§5 `traffic`, pulses).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ConnectionKind {
+    /// A new connection (§5 `traffic` (a)), emitted by an [`crate::ActivityBackend`].
     New,
+    /// A connection held open at a scan (§5 `traffic` (b) in the scan fallback), derived
+    /// by activity from `Snapshot::connections`.
     Established,
+    /// Bytes received plus sent on one connection since its previous reading, emitted by
+    /// a backend that reads byte counters.
+    Bytes(u64),
+    /// A new connection closed before its byte counters were read.
+    Unread,
 }
 
 /// Raw traffic seen by an activity backend, before it is resolved to a server.

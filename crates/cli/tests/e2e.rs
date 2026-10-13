@@ -4,7 +4,7 @@
 #![cfg(target_os = "macos")]
 
 use std::fs::{self, File};
-use std::io;
+use std::io::{self, Write};
 use std::net::{TcpListener, TcpStream};
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
@@ -23,8 +23,10 @@ const POLL: Duration = Duration::from_millis(100);
 const SERVE: &str = "import socketserver as s, http.server as h, sys; srv = s.TCPServer(('127.0.0.1', int(sys.argv[1])), h.SimpleHTTPRequestHandler); print('Serving HTTP on 127.0.0.1 port', srv.server_address[1], flush=True); srv.serve_forever()";
 
 const TIMEOUT: Duration = Duration::from_secs(15);
-const SURVIVAL: Duration = Duration::from_secs(7);
-const IDLE_MINUTES: u32 = 3;
+const SURVIVAL: Duration = Duration::from_secs(9);
+/// Scaled to seconds. Traffic pulses are judged up to two seconds after they start (§5),
+/// in real time, so this stays well above that.
+const IDLE_MINUTES: u32 = 6;
 
 /// Rebuild the environment so the test runner's agent markers and LULL_KEEP never
 /// leak into a user server. Use a login shell without personal startup files.
@@ -493,16 +495,43 @@ fn curls_refresh_traffic_then_idle_stop() {
 }
 
 #[test]
-fn open_connection_holds_server_until_closed() {
+fn open_connection_holds_server_only_while_bytes_move() {
     let mut fixture = Fixture::new();
+    let backend = fixture.backend();
     let port = fixture.start_server(true, false, false);
     let server = fixture.wait_server(port, TIMEOUT);
     assert_eq!(server["origin"]["kind"], "agent");
-    let connection = TcpStream::connect(("127.0.0.1", port)).unwrap();
-    let current = fixture.stays(port, &server["id"]);
-    assert_eq!(current["lastActivitySource"], "traffic");
-    drop(connection);
+    let mut connection = TcpStream::connect(("127.0.0.1", port)).unwrap();
+    if backend == "scan" {
+        // Without byte counters an open connection counts at every scan (§5).
+        let current = fixture.stays(port, &server["id"]);
+        assert_eq!(current["lastActivitySource"], "traffic");
+        drop(connection);
+        fixture.wait_stopped(&server);
+        return;
+    }
+    // An unfinished request line, sent in pieces of different sizes: not periodic.
+    let deadline = Instant::now() + SURVIVAL;
+    let mut sizes = [3, 140, 9, 600, 41, 300, 2, 75].into_iter().cycle();
+    let mut traffic_seen = false;
+    while Instant::now() < deadline {
+        let size = sizes.next().unwrap();
+        connection.write_all(&vec![b'x'; size]).unwrap();
+        let current = fixture
+            .server(port)
+            .expect("moving bytes keep the server alive");
+        assert_eq!(current["id"], server["id"]);
+        assert_ne!(current["state"], "stopping");
+        traffic_seen |= current["lastActivitySource"] == "traffic";
+        thread::sleep(Duration::from_millis(700));
+    }
+    assert!(
+        traffic_seen,
+        "bytes on the connection must produce traffic activity"
+    );
+    // Still open, nothing moving: no longer activity, so the server stops.
     fixture.wait_stopped(&server);
+    drop(connection);
 }
 
 #[test]
