@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var store: Store!
     private var statusItem: StatusItem!
     private var settings: SettingsWindow!
+    private var notifier: Notifier?
 
     static func main() {
         let app = NSApplication.shared
@@ -27,6 +28,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store = preview ?? Store()
         settings = SettingsWindow(store: store)
         statusItem = StatusItem(store: store, openSettings: { [settings] in settings?.show() })
+        notifier = Notifier.make(store: store)
+        store.onServerChange = { [notifier] old, new in notifier?.serverChanged(from: old, to: new) }
         if preview == nil {
             Task { await store.run() }
         }
