@@ -90,6 +90,11 @@ One or two seconds in which a client opened a connection to a server or moved by
 one; the unit traffic activity is judged in.
 _Avoid_: burst, hit, ping
 
+**Train**:
+A run of pulses from one client at a steady period with matching sizes; once it holds
+four pulses, the pulses that continue it are periodic traffic.
+_Avoid_: rhythm, pattern, beat
+
 **Periodic traffic**:
 Pulses from one client that repeat at a steady period with the same size, such as an HMR
 ping or a status poll from a hidden tab. It is not activity.

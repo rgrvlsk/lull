@@ -5,19 +5,23 @@ ledger when its trigger fires and the shortcut is upgraded. Maintenance rules: [
 
 ## crates/core
 
-- `crates/core/src/model.rs:241`, the pin is a bare bool. ceiling: a `LULL_KEEP=1` pin is
+- `crates/core/src/model.rs:247`, the pin is a bare bool. ceiling: a `LULL_KEEP=1` pin is
   indistinguishable from a manual one, on the record and on the wire. upgrade: a pin-source
   field when the menu-bar app (M4) must show "pinned (env)".
-- `crates/core/src/activity/mod.rs:168`, traffic is matched to a server by port alone.
+- `crates/core/src/activity/mod.rs:180`, a client's ancestry comes only from connections
+  open at a scan. ceiling: bytes from a covered browser's connection that opened and closed
+  between scans count as uncovered traffic. upgrade: read the client's ancestry from the
+  process table if hidden tabs of covered browsers keep servers alive in practice.
+- `crates/core/src/activity/mod.rs:251`, traffic is matched to a server by port alone.
   ceiling: two groups on the same port at different addresses share activity. upgrade: carry
   the local address in `TrafficEvent`/`Connection` if that happens.
 - `crates/core/src/platform/macos/signal.rs:86`, one parked thread reaps each restart.
   ceiling: one thread per restart. upgrade: a single SIGCHLD/`waitpid(-1)` loop if restarts
   become frequent.
-- `crates/core/src/platform/macos/ntstat.rs:64`, fixed request burst (16) and source cap
-  (16 384). ceiling: overflow falls back to the scan backend. upgrade: tune from measured
+- `crates/core/src/platform/macos/ntstat.rs:83`, fixed request burst (16), counter queries
+  per sample (256) and source cap (16 384). ceiling: overflow falls back to the scan backend. upgrade: tune from measured
   workloads before supporting high-volume hosts.
-- `crates/core/src/platform/macos/ntstat.rs:339`, a non-loopback client counts as outside the
+- `crates/core/src/platform/macos/ntstat.rs:473`, a non-loopback client counts as outside the
   group. ceiling: a same-machine client via the LAN address counts as traffic. upgrade: pair
   the reversed tuple for local non-loopback addresses.
 - `crates/core/src/discovery/mod.rs:53`, ports and `primaryUrl` are kept from the previous
@@ -57,4 +61,4 @@ ledger when its trigger fires and the shortcut is upgraded. Maintenance rules: [
   forgotten when the service worker restarts. upgrade: the `storage` permission
   (`chrome.storage.session`) if users report dragged-out tabs being regrouped.
 
-16 markers, 0 with no trigger.
+17 markers, 0 with no trigger.

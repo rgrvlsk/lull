@@ -1,7 +1,7 @@
 //! Platform traits. Core logic only talks to the operating system through these.
 //! Fakes for every trait live in [`crate::testing`].
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 
 use serde::{Deserialize, Serialize};
@@ -69,6 +69,14 @@ pub trait ActivityBackend {
     /// `snapshot.connections` against the previous one; ntstat ignores it.
     fn drain(&mut self, snapshot: &Snapshot, now: &Instant) -> Vec<TrafficEvent>;
     fn health(&self) -> BackendHealth;
+    /// Whether `drain` also reports bytes moved on connections (§5 pulses). The scan
+    /// fallback has no byte counters.
+    fn reads_bytes(&self) -> bool {
+        false
+    }
+    /// The ports whose connections to read byte counters for, each with the pids whose
+    /// connections do not count (the group and the daemon). Called before every `drain`.
+    fn watch(&mut self, _ports: &BTreeMap<u16, BTreeSet<u32>>) {}
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

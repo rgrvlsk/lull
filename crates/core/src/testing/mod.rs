@@ -1,7 +1,8 @@
 //! Fakes for every platform trait, for table-driven tests (plan, "Ground rules").
 
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::io;
+use std::sync::{Arc, Mutex};
 
 use crate::model::{BackendHealth, ProcessInfo, Snapshot, TrafficEvent};
 use crate::traits::{
@@ -56,6 +57,9 @@ pub struct FakeActivityBackend {
     pub kind: ActivityBackendKind,
     pub queue: VecDeque<TrafficEvent>,
     pub health: BackendHealth,
+    pub reads_bytes: bool,
+    /// The last `watch` call, shared so a test can read it after boxing the backend.
+    pub watched: Arc<Mutex<BTreeMap<u16, BTreeSet<u32>>>>,
 }
 
 impl Default for FakeActivityBackend {
@@ -64,6 +68,8 @@ impl Default for FakeActivityBackend {
             kind: ActivityBackendKind::Scan,
             queue: VecDeque::new(),
             health: BackendHealth::Healthy,
+            reads_bytes: false,
+            watched: Arc::default(),
         }
     }
 }
@@ -77,6 +83,12 @@ impl ActivityBackend for FakeActivityBackend {
     }
     fn health(&self) -> BackendHealth {
         self.health.clone()
+    }
+    fn reads_bytes(&self) -> bool {
+        self.reads_bytes
+    }
+    fn watch(&mut self, ports: &BTreeMap<u16, BTreeSet<u32>>) {
+        *self.watched.lock().unwrap() = ports.clone();
     }
 }
 
