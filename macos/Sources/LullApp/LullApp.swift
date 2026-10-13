@@ -8,6 +8,7 @@ import LullKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var store: Store!
     private var statusItem: StatusItem!
+    private var settings: SettingsWindow!
 
     static func main() {
         let app = NSApplication.shared
@@ -24,7 +25,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let preview: Store? = nil
         #endif
         store = preview ?? Store()
-        statusItem = StatusItem(store: store, openSettings: {})
+        settings = SettingsWindow(store: store)
+        statusItem = StatusItem(store: store, openSettings: { [settings] in settings?.show() })
         if preview == nil {
             Task { await store.run() }
         }
