@@ -46,7 +46,7 @@ ledger when its trigger fires and the shortcut is upgraded. Maintenance rules: [
 
 ## macos
 
-- `macos/Sources/LullKit/Store.swift:144`, history is re-fetched on `server.added`/`removed`
+- `macos/Sources/LullKit/Store.swift:136`, history is re-fetched on `server.added`/`removed`
   and when the panel opens; there is no history notification. ceiling: a record another
   client forgot or restarted stays listed until then. upgrade: a `history.changed`
   notification if stale records confuse anyone.

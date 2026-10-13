@@ -29,16 +29,8 @@ public final class Store {
     @ObservationIgnored private var seq: UInt64 = 0
     @ObservationIgnored private var subscribing = false
 
-    public init(socketPath: String = Store.defaultSocketPath) {
+    public init(socketPath: String = LullPaths.socket) {
         self.socketPath = socketPath
-    }
-
-    /// `$LULL_DIR/daemon.sock` when set (as for the CLI), else the contract's location.
-    public nonisolated static var defaultSocketPath: String {
-        if let dir = ProcessInfo.processInfo.environment["LULL_DIR"] {
-            return (dir as NSString).appendingPathComponent("daemon.sock")
-        }
-        return NSHomeDirectory() + "/Library/Application Support/lull/daemon.sock"
     }
 
     /// Live servers by project, then port.
@@ -229,3 +221,20 @@ public final class Store {
         }
     }
 }
+
+#if DEBUG
+extension Store {
+    /// A store that never connects, for previews and the `LULL_PREVIEW` launch mode.
+    public static func preview(
+        phase: Phase = .connected, servers: [Server], history: [StoppedServer] = [],
+        status: DaemonStatus? = nil
+    ) -> Store {
+        let store = Store(socketPath: "/dev/null")
+        store.phase = phase
+        store.servers = Dictionary(servers.map { ($0.id, $0) }, uniquingKeysWith: { $1 })
+        store.history = history
+        store.status = status
+        return store
+    }
+}
+#endif
