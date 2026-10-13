@@ -51,7 +51,7 @@ M0 ─▶ M0.5 model ─┬─▶ WP1.1 proc source ─┐
                                     v1.1
 WP-R ─▶ WP-T terminal UI · M3 Firefox/Zen · M4 app (WP4.1 may start any time after M0.5) ─▶ M5 cask
 Spikes first: S1 ntstat parsing (in WP1.3) · S2 Zen tab groups (WP3.1) · S3 signed
-embedded binary + SMAppService + nm-host link (WP4.4, v1.1)
+embedded binary + SMAppService + nm-host link (WP5.1, v1.1)
 ```
 
 After M0.5 lands, up to six agents can work at once on v1: WP1.1–1.4, 2.1 and 2.2.
@@ -338,20 +338,26 @@ Reveal / Open terminal / Forget; row actions; icon count + stopping-soon dot; wo
 rules (§10). Preview data from fixtures, including worst cases (long paths, 30 servers,
 no servers).
 **WP4.3 — Settings** (`macos/Sources/LullApp/Settings/`). Policy, per-project rules,
-`open_with`, extension install helper (calls `lull browsers install`), validation errors
-from `config.set`.
-**WP4.4 — Registration and notifications** (`macos/Sources/LullApp/System/`). **S3
-spike first:** a Developer ID-signed app that embeds `lull`, registers it with
-`SMAppService.agent` (`BundleProgram`), and serves a working `lull-nm-host` link from
-the bundle. Then handle `requiresApproval`, re-register on update, and send
-stopping-soon notifications with *Keep alive*.
+`open_with`, launch at login, validation errors from `config.set`. No extension install
+helper: the extension is optional (ADR-0011) and `lull browsers install` stays the way in.
+**WP4.4 — Notifications** (`macos/Sources/LullApp/System/`). Stopping-soon notifications
+with *Keep alive*; `Info.plist` and `scripts/build-app.sh`, which builds `Lull.app` and
+signs it ad hoc.
+
+M4 is connect-only and publishes nothing: without a Developer ID the app connects to
+whichever daemon owns the socket (the formula's `brew services` job) and registers none.
+Accept: the app shows, stops, pins and restarts servers of the formula's daemon,
+reconnects after `brew services restart lull`, and notifies before a stop.
 
 ---
 
 ## M5 — Packaging and release
 
-**WP5.1 — Signing and notarisation CI.** Release workflow: build universal `lull`, the
-app, both extension builds; sign everything (hardened runtime), notarise, staple.
+**WP5.1 — Registration, signing and notarisation.** **S3 spike first:** a Developer
+ID-signed app that embeds `lull`, registers it with `SMAppService.agent`
+(`BundleProgram`), and serves a working `lull-nm-host` link from the bundle. Then handle
+`requiresApproval` and re-register on update. Release workflow: build universal `lull`,
+the app, both extension builds; sign everything (hardened runtime), notarise, staple.
 **WP5.2 — Firefox distribution.** AMO unlisted signing via `web-ext sign`;
 `updates.json` published on GitHub releases.
 **WP5.3 — Cask and docs.** `rgrvlsk/homebrew-tap` cask with a `binary` stanza and

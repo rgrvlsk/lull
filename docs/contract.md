@@ -512,15 +512,20 @@ Until the app exists, v1 has no stopping-soon notification; stops are listed by
 
 - Minimum macOS 14 Sonoma (whole product).
 - Not sandboxed (Developer ID distribution): a sandboxed app cannot reach the socket.
-- `MenuBarExtra` list of **every live server** (agent- and user-started, pinned or
+- The app connects to whichever daemon owns the socket; it registers the daemon only when
+  installed from the cask (M5, ADR-0006). If none answers it says how to start one.
+- A menu-bar panel listing **every live server** (agent- and user-started, pinned or
   not) grouped by project: name, framework icon, port, origin badge (agent / you),
   pin badge, idle countdown, CPU / RSS. Monitoring and actions work on all of them.
 - **Recently stopped** section below the live list (§7): project, command, stop time
   and reason. Actions: Restart, Copy command, Reveal in Finder, Open terminal here,
   Forget.
-- Row actions: Open, Stop, Pin/Unpin, Copy URL, Reveal in Finder, Show log.
-- Settings: idle minutes, auto-stop scope, warning, browser for `open`, per-project
-  rules, "Install browser extension…" helper, launch at login.
+  Records that are `restarting` or `restartFailed` also offer Show log, which opens
+  `restart-<id>.log`.
+- Row actions: Open, Stop, Pin/Unpin, Copy URL, Reveal in Finder.
+- Settings: idle minutes, auto-stop scope, warning, `tabs_on_stop`, browser for `open`,
+  per-project rules, launch at login. The extension is optional (ADR-0011); the app does
+  not install it.
 - Icon state: count of running servers; dot when something is `stopping-soon`.
 - Wording: "lull" suggests a resumable pause, but lull **terminates** processes.
   Every surface (protocol, notification, row, log, CLI) says *stop* / *stopped* /
