@@ -1,5 +1,8 @@
 # v1 is daemon + CLI + Chromium extension, shipped as a Homebrew formula
 
+_The extension's role is revised by [ADR-0011](0011-extension-is-optional.md): lull works
+without it, so it sharpens activity rather than carrying it._
+
 ADR-0006 made the cask the only artefact, so nothing could ship before the menu-bar app
 (M4) and Developer ID signing and notarisation (M5) existed. Most of the value is in
 M1 and M2: agent-started servers get stopped, and the ones a human is looking at do

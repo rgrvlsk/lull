@@ -30,7 +30,8 @@ Goals (v1)
 - G2 Stop idle **agent-started** servers after `idleMinutes` (default 30).
   User-started servers are shown but never auto-stopped unless the user opts in.
 - G3 Keep dev-server tabs in one "Dev" tab group per window of a Chromium browser and
-  use tab visibility as the primary activity signal.
+  use tab visibility as the sharpest activity signal. The extension is optional: lull
+  works without it, judging servers by `traffic` alone (ADR-0011).
 - G5 A CLI agents can call (`lull open <url>`, `lull ls`).
 - G6 Zero instructions required for correctness; at most one line in agent
   instruction files for convenience.
@@ -183,7 +184,7 @@ A server is **active** at time *t* if any source fired within the last
 
 | Source | Fires when | Notes |
 |---|---|---|
-| `tab` | one of the server's tabs is **visible** (`document.visibilityState == "visible"`, reported by a content script) and the OS user is present (`idle.queryState(60) == "active"`), whether or not its window has focus | heartbeat every 30 s while the condition holds; primary signal. Focus is used only for display and `open` routing. A visible window on a second monitor counts — that is intended |
+| `tab` | one of the server's tabs is **visible** (`document.visibilityState == "visible"`, reported by a content script) and the OS user is present (`idle.queryState(60) == "active"`), whether or not its window has focus | heartbeat every 30 s while the condition holds; the sharpest signal, but optional (ADR-0011). Focus is used only for display and `open` routing. A visible window on a second monitor counts — that is intended |
 | `traffic` | a **pulse** from a process outside the group that is not **periodic traffic** (below), made of (a) a **new** TCP connection to one of the server's ports (ntstat event; fallback: 5-tuple not seen in the previous scan), or (b) bytes moving on an **established** connection to one of the server's ports from a client that is not a *covered browser* | (a) catches new page loads, Playwright, curl. (b) catches requests that reuse a keep-alive connection and HMR updates pushed to a browser without the extension; a connection held open with nothing moving on it is not activity. Connections from covered browsers count only through (a); their open tabs are judged by `tab` |
 | `started` | server first seen | grace period = `idleMinutes` |
 | `manual` | user/agent ran `open`, `touch`, or un-pinned | |
@@ -395,7 +396,7 @@ recent stop.
 
 | Method | Params | Result |
 |---|---|---|
-| `hello` | `{client: "app"\|"cli"\|"browser", version, protocol: {major, minor}, browser?: {name, profile?, version, extensionVersion}}` | `{daemonVersion, protocol: {major, minor}, connectionId, capabilities: [..], activityBackend: "ntstat"\|"scan"}` — a different `major` is rejected with error `-32010 protocol_mismatch` carrying the daemon's version; clients show "update lull" |
+| `hello` | `{client: "app"\|"cli"\|"browser", version, protocol: {major, minor}, browser?: {name, profile?, version, extensionVersion}}` | `{daemonVersion, protocol: {major, minor}, connectionId, capabilities: [..], activityBackend: "ntstat"\|"scan"}` — a different `major`, or a `browser` with `minor` < 3 (ADR-0011), is rejected with error `-32010 protocol_mismatch` carrying the daemon's version; clients show "update lull" |
 | `servers.list` | `{}` | `Server[]` |
 | `servers.stop` | `{id}` | `{}` |
 | `servers.pin` | `{id, pinned}` | `Server` |
@@ -407,6 +408,13 @@ recent stop.
 | `servers.open` | `{id, path?, focus?}` or `{url, focus?}` | `{opened: bool, browser?}` — routed to a connected browser, else `open(1)` with the configured browser. `url` must be `http(s)` with a loopback or `*.localhost` host; anything else is rejected (never passed to `open(1)`). `focus` (protocol 1.1) overrides the default: focused, unless the caller's process carries an agent marker (§11; the daemon reads the caller's environment via `LOCAL_PEERPID`) |
 | `config.get` / `config.set` | `{}` / `{patch}` | `Config` |
 | `subscribe` | `{topics: ["servers","browsers"]}` | stream of notifications below |
+| `daemon.status` (1.3) | `{}` | `{pid, version, dryRun, activityBackend, activityHealth: "healthy"\|"failed", activityError, configError, warnings: [..], stops: [..], ineligible: {id: reason}, browsers: [{connectionId, name, browserPid, tabs}]}` — what `lull doctor` and the app show; `activityError` and `configError` are `null` when there is none, `stops` lists aborted and stuck stops |
+
+Versioning: `hello` carries `{major, minor}`. A minor may only add — fields, methods,
+optional params. Clients ignore fields they do not know; a client uses a method or param
+newer than the daemon's `minor` only after checking it in the `hello` result. A new value of
+an existing enum needs a fallback that older clients accept, or a major bump. `HelloParams`
+is frozen within a major, so any client can always be told it is too old.
 
 ### Browser → daemon (through nm-host)
 

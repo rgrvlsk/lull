@@ -144,9 +144,6 @@ fn serve(dry_run: bool) -> io::Result<()> {
                     return Ok(());
                 }
                 let outs = daemon.scan();
-                if let Some(status) = daemon.status() {
-                    let _ = write_atomic(&paths.status(), &status.to_string());
-                }
                 next_scan =
                     Instant::now() + Duration::from_millis(daemon.next_scan_in_ms().max(50));
                 outs

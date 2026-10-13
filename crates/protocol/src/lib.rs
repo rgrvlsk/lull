@@ -22,5 +22,5 @@ pub use server::{Activity, Agent, Framework, Origin, OriginKind, Server, ServerS
 /// Protocol version spoken by this crate (`hello.protocol`, contract §8).
 ///
 /// A different `major` is rejected with [`rpc::PROTOCOL_MISMATCH`]; `minor` grows with
-/// compatible additions.
-pub const PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion { major: 1, minor: 2 };
+/// additive changes (contract §8, "Versioning").
+pub const PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion { major: 1, minor: 3 };

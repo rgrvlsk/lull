@@ -4,7 +4,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use lull_protocol::rpc::BrowserTab;
+use lull_protocol::rpc::{BrowserConnection, BrowserTab};
 use lull_protocol::server::{Activity, TabRef};
 
 use crate::ipc::loopback_url_port as loopback_port;
@@ -204,17 +204,15 @@ impl Registry {
         CoveredBrowsers(self.conns.values().filter_map(|c| c.browser_pid).collect())
     }
 
-    /// For `lull doctor`: `(connectionId, name, browser pid, tab count)`.
-    pub fn summary(&self) -> Vec<(String, String, Option<u32>, usize)> {
+    /// The live connections, for `daemon.status`.
+    pub fn summary(&self) -> Vec<BrowserConnection> {
         self.conns
             .iter()
-            .map(|(id, c)| {
-                (
-                    format!("c{id}"),
-                    c.name.clone(),
-                    c.browser_pid,
-                    c.tabs.len(),
-                )
+            .map(|(id, c)| BrowserConnection {
+                connection_id: format!("c{id}"),
+                name: c.name.clone(),
+                browser_pid: c.browser_pid,
+                tabs: u32::try_from(c.tabs.len()).unwrap_or(u32::MAX),
             })
             .collect()
     }

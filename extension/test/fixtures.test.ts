@@ -13,7 +13,7 @@ const files = readdirSync(fixturesDir).filter((f) => f.endsWith(".ndjson")).sort
 type Envelope = { jsonrpc: "2.0"; id?: number | string; method?: string; params?: unknown; result?: unknown; error?: { code: number; message: string } };
 
 test("fixture set is present", () => {
-  assert.ok(files.length >= 22, `found ${files.length} fixtures`);
+  assert.ok(files.length >= 23, `found ${files.length} fixtures`);
 });
 
 for (const file of files) {
@@ -51,15 +51,21 @@ for (const file of files) {
   });
 }
 
-test("wire guards reject malformed payloads and unknown fields", () => {
+test("wire guards reject malformed payloads and unknown enum values", () => {
   const request = { jsonrpc: "2.0", id: "d1", method: "tab.open", params: { url: "http://localhost:5187", focus: false } };
-  for (const params of [{ url: 42, focus: true }, { url: "http://localhost", focus: "false" }, { ...request.params, extra: true }]) {
+  for (const params of [{ url: 42, focus: true }, { url: "http://localhost", focus: "false" }]) {
     assert.throws(() => decodeMessage({ ...request, params }));
   }
+  assert.throws(() => decodeMessage({ jsonrpc: "2.0", method: "server.removed", params: { seq: 1, id: "s", reason: "bored" } }));
   assert.throws(() => decodeMessage({ ...request, id: null }));
   assert.throws(() => decodeMessage({ jsonrpc: "2.0", id: 1, result: { ok: true }, error: { code: 1, message: "no" } }, "tab.open"));
   assert.throws(() => decodeMessage({ jsonrpc: "2.0", method: "server.removed", params: { seq: -1, id: "s", reason: "idle" } }));
   assert.throws(() => decodeMessage({ jsonrpc: "2.0", id: 1, result: { seq: 1, servers: [{ id: "only-an-id" }] } }, "subscribe"));
+});
+
+test("wire guards ignore unknown fields (additive minors, contract §8)", () => {
+  const message = { jsonrpc: "2.0", id: "d1", method: "tab.open", params: { url: "http://localhost:5187", focus: false, extra: true } };
+  assert.deepEqual(decodeMessage(message), message);
 });
 
 test("browser.tabs.sync accepts an explicit null groupId", () => {

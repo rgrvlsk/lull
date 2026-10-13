@@ -1,13 +1,14 @@
 //! `lull doctor` (plan WP1.5): daemon, socket and lock state, activity backend and its
 //! health, config validity, aborted or stuck stops, and why servers are not eligible
-//! to stop. The daemon's side comes from its internal `status.json`.
+//! to stop. The daemon's side comes from `daemon.status` (protocol 1.3).
 
 use std::fs::{self, File};
 use std::os::fd::AsRawFd;
 use std::os::unix::fs::PermissionsExt;
 use std::process::ExitCode;
 
-use serde_json::{Value, json};
+use lull_protocol::rpc::{ActivityHealth, DaemonStatus};
+use serde_json::json;
 
 use crate::client::Client;
 use crate::paths::Paths;
@@ -35,8 +36,10 @@ pub fn run(_args: Vec<String>) -> ExitCode {
     );
 
     let mode = fs::metadata(paths.socket()).map(|m| m.permissions().mode() & 0o777);
-    let hello = Client::connect(&paths).and_then(|mut c| c.call("servers.list", json!({})));
-    match (&mode, &hello) {
+    let status = Client::connect(&paths)
+        .and_then(|mut c| c.call("daemon.status", json!({})))
+        .and_then(|v| serde_json::from_value::<DaemonStatus>(v).map_err(|e| e.to_string()));
+    match (&mode, &status) {
         (Ok(0o600), Ok(_)) => line(
             "socket",
             true,
@@ -49,55 +52,46 @@ pub fn run(_args: Vec<String>) -> ExitCode {
             format!("{}: {e}", paths.socket().display()),
         ),
     }
-    if let Err(e) = &hello {
-        line("daemon", false, e.clone());
-    }
-
-    let status: Value = fs::read_to_string(paths.status())
-        .ok()
-        .and_then(|t| serde_json::from_str(&t).ok())
-        .unwrap_or(Value::Null);
-    if status.is_object() {
-        line(
-            "daemon",
-            hello.is_ok(),
-            format!(
-                "pid {} version {}{}",
-                status["pid"],
-                status["version"].as_str().unwrap_or("?"),
-                if status["dryRun"] == json!(true) {
-                    " (dry run: no signals)"
+    match &status {
+        Err(e) => line("daemon", false, e.clone()),
+        Ok(status) => {
+            line(
+                "daemon",
+                true,
+                format!(
+                    "pid {} version {}{}",
+                    status.pid,
+                    status.version,
+                    if status.dry_run {
+                        " (dry run: no signals)"
+                    } else {
+                        ""
+                    }
+                ),
+            );
+            let backend = json!(status.activity_backend);
+            let backend = backend.as_str().unwrap_or("?");
+            line(
+                "activity",
+                status.activity_health == ActivityHealth::Healthy,
+                match &status.activity_error {
+                    None => format!("{backend} backend, healthy"),
+                    Some(why) => format!("{backend} backend, failed: {why}"),
+                },
+            );
+            for w in &status.warnings {
+                line("state", false, w.clone());
+            }
+            line(
+                "stops",
+                status.stops.is_empty(),
+                if status.stops.is_empty() {
+                    "no aborted or stuck stops".into()
                 } else {
-                    ""
-                }
-            ),
-        );
-        let health = status["activityHealth"].as_str().unwrap_or("?");
-        line(
-            "activity",
-            health == "Healthy",
-            format!(
-                "{} backend, {health}",
-                status["activityBackend"].as_str().unwrap_or("?")
-            ),
-        );
-        for w in status["warnings"].as_array().into_iter().flatten() {
-            line("state", false, w.as_str().unwrap_or("").into());
+                    status.stops.join("; ")
+                },
+            );
         }
-        let stops = status["stops"].as_array().cloned().unwrap_or_default();
-        line(
-            "stops",
-            stops.is_empty(),
-            if stops.is_empty() {
-                "no aborted or stuck stops".into()
-            } else {
-                stops
-                    .iter()
-                    .filter_map(Value::as_str)
-                    .collect::<Vec<_>>()
-                    .join("; ")
-            },
-        );
     }
 
     match fs::read_to_string(paths.config()) {
@@ -116,10 +110,10 @@ pub fn run(_args: Vec<String>) -> ExitCode {
         line(&label, good, text);
     }
 
-    if let Some(ineligible) = status["ineligible"].as_object().filter(|m| !m.is_empty()) {
+    if let Some(status) = status.as_ref().ok().filter(|s| !s.ineligible.is_empty()) {
         println!("\nnot eligible to stop:");
-        for (id, reason) in ineligible {
-            println!("  {id}  {}", reason.as_str().unwrap_or("?"));
+        for (id, reason) in &status.ineligible {
+            println!("  {id}  {reason}");
         }
     }
     if ok {

@@ -6,6 +6,8 @@
 //!   ([`ClientRequest`], [`BrowserRequest`], [`DaemonNotification`], [`BrowserCommand`]);
 //! - the param and result structs of each method.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -188,6 +190,9 @@ pub enum ClientRequest {
     ConfigSet(ConfigSetParams),
     #[serde(rename = "subscribe")]
     Subscribe(SubscribeParams),
+    /// Protocol 1.3.
+    #[serde(rename = "daemon.status")]
+    DaemonStatus(Empty),
     #[serde(rename = "browser.tabs.sync")]
     BrowserTabsSync(TabsSyncParams),
     #[serde(rename = "browser.activity")]
@@ -310,6 +315,49 @@ pub struct BrowserActivityParams {
     pub url: String,
 }
 
+/// `daemon.status` result (protocol 1.3): the daemon's health, as `lull doctor` and the
+/// app show it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DaemonStatus {
+    pub pid: u32,
+    pub version: String,
+    /// `lull daemon --dry-run`: decisions are made and logged, no signal is sent (§6).
+    pub dry_run: bool,
+    pub activity_backend: ActivityBackend,
+    pub activity_health: ActivityHealth,
+    /// Why the activity backend failed; `null` while it is healthy.
+    pub activity_error: Option<String>,
+    /// `config.toml` was rejected; the daemon keeps the last good config (§6).
+    pub config_error: Option<String>,
+    /// State-file problems found at start-up (§4.7).
+    pub warnings: Vec<String>,
+    /// Aborted and stuck stops (§7.3, §7.4).
+    pub stops: Vec<String>,
+    /// Why a live server would not be stopped automatically now, by server id.
+    pub ineligible: BTreeMap<String, String>,
+    pub browsers: Vec<BrowserConnection>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ActivityHealth {
+    Healthy,
+    Failed,
+}
+
+/// One live extension connection (§5 "Covered browser").
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BrowserConnection {
+    pub connection_id: String,
+    pub name: String,
+    /// The browser process the connection covers; `null` when it could not be found.
+    pub browser_pid: Option<u32>,
+    /// Tabs on known servers, as last synced.
+    pub tabs: u32,
+}
+
 /// Typed results, by method, for the client → daemon requests.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -322,6 +370,7 @@ pub enum ClientResult {
     Open(OpenResult),
     Config(Box<Config>),
     Subscribe(SubscribeResult),
+    Status(Box<DaemonStatus>),
     Empty(Empty),
 }
 
@@ -454,6 +503,7 @@ impl ClientRequest {
             Self::ConfigGet(_) => "config.get",
             Self::ConfigSet(_) => "config.set",
             Self::Subscribe(_) => "subscribe",
+            Self::DaemonStatus(_) => "daemon.status",
             Self::BrowserTabsSync(_) => "browser.tabs.sync",
             Self::BrowserActivity(_) => "browser.activity",
         }
@@ -474,6 +524,7 @@ impl ClientRequest {
             Self::ServersOpen(_) => ClientResult::Open(de(r)?),
             Self::ConfigGet(_) | Self::ConfigSet(_) => ClientResult::Config(Box::new(de(r)?)),
             Self::Subscribe(_) => ClientResult::Subscribe(de(r)?),
+            Self::DaemonStatus(_) => ClientResult::Status(Box::new(de(r)?)),
             Self::ServersStop(_)
             | Self::ServersForget(_)
             | Self::BrowserTabsSync(_)

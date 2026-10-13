@@ -38,10 +38,6 @@ impl Paths {
     pub fn config(&self) -> PathBuf {
         self.dir.join("config.toml")
     }
-    /// Internal daemon status read by `lull doctor` (not part of the protocol).
-    pub fn status(&self) -> PathBuf {
-        self.dir.join("status.json")
-    }
     pub fn log_file(&self) -> PathBuf {
         self.logs.join("lull.log")
     }

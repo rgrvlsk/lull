@@ -20,7 +20,7 @@ private func fixtureFiles() throws -> [URL] {
 
 @Suite struct FixturesTests {
     @Test func fixtureSetIsPresent() throws {
-        #expect(try fixtureFiles().count >= 22)
+        #expect(try fixtureFiles().count >= 23)
     }
 
     @Test func protocolVersionMatchesHelloFixture() throws {

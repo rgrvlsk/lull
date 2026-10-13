@@ -25,7 +25,7 @@ test("hello, subscribe, full loopback snapshot, existing/new per-window Dev grou
   });
   const port = fake.ports[0]!;
   assert.deepEqual(port.sent.slice(0, 3).map((m) => "method" in m ? m.method : "ack"), ["hello", "subscribe", "browser.tabs.sync"]);
-  assert.deepEqual((port.requests("hello")[0] as Request<"hello">).params, { client: "browser", version: "0.1.0", protocol: { major: 1, minor: 2 }, browser: { name: "helium", version: "0.5.7.1", extensionVersion: "0.1.0" } });
+  assert.deepEqual((port.requests("hello")[0] as Request<"hello">).params, { client: "browser", version: "0.1.0", protocol: { major: 1, minor: 3 }, browser: { name: "helium", version: "0.5.7.1", extensionVersion: "0.1.0" } });
   assert.equal(fake.tabs.get(812)!.groupId, 9);
   assert.equal(fake.tabs.get(813)!.groupId, -1);
   assert.equal(fake.tabs.get(820)!.groupId, fake.tabs.get(821)!.groupId);

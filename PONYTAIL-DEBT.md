@@ -38,16 +38,13 @@ ledger when its trigger fires and the shortcut is upgraded. Maintenance rules: [
 - `crates/core/src/lifecycle/mod.rs:611`, the fresh observation before a stop is the
   preceding scan plus a member re-read. ceiling: up to one scan interval (5 s) between
   classification and signal. upgrade: re-run discovery on the group right before signalling.
-- `crates/core/src/ipc/mod.rs:835`, `lull doctor` reads `status.json`, not a protocol method.
-  ceiling: an internal file format. upgrade: a `daemon.status` method when the menu-bar app
-  (M4) needs the same data.
 - `crates/core/src/browser/mod.rs:71`, a hidden tab reloaded on the same URL keeps its old
   binding. ceiling: rebound only by its next visible heartbeat. upgrade: a load counter in
   `tabs.sync`.
 
 ## crates/cli
 
-- `crates/cli/src/daemon.rs:185`, no per-line size cap on the daemon socket. ceiling: a
+- `crates/cli/src/daemon.rs:193`, no per-line size cap on the daemon socket. ceiling: a
   misbehaving same-uid client can send huge lines (nm-host caps browser messages at 1 MiB).
   upgrade: read through `Read::take` per line if a client misbehaves.
 - `crates/cli/src/nm_host.rs:46`, bridge workers end with the host process. ceiling: only
@@ -61,4 +58,4 @@ ledger when its trigger fires and the shortcut is upgraded. Maintenance rules: [
   forgotten when the service worker restarts. upgrade: the `storage` permission
   (`chrome.storage.session`) if users report dragged-out tabs being regrouped.
 
-17 markers, 0 with no trigger.
+16 markers, 0 with no trigger.

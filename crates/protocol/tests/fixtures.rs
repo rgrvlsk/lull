@@ -29,7 +29,7 @@ fn every_fixture_decodes_and_round_trips() {
         .collect();
     files.sort();
     assert!(
-        files.len() >= 22,
+        files.len() >= 23,
         "expected the full fixture set, found {}",
         files.len()
     );
