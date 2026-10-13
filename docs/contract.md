@@ -515,8 +515,11 @@ Until the app exists, v1 has no stopping-soon notification; stops are listed by
 - The app connects to whichever daemon owns the socket; it registers the daemon only when
   installed from the cask (M5, ADR-0006). If none answers it says how to start one.
 - A menu-bar panel listing **every live server** (agent- and user-started, pinned or
-  not) grouped by project: name, framework icon, port, origin badge (agent / you),
-  pin badge, idle countdown, CPU / RSS. Monitoring and actions work on all of them.
+  not) grouped by project: name, project icon (read from the project's files; the
+  framework icon when none is found), port, origin badge (agent / you), pin badge, idle
+  countdown, CPU / RSS. Monitoring and actions work on all of them. The icon is never
+  fetched over the network: lull makes no network requests (§14), and a request to the
+  server would count as traffic and keep it alive.
 - **Recently stopped** section below the live list (§7): project, command, stop time
   and reason. Actions: Restart, Copy command, Reveal in Finder, Open terminal here,
   Forget.
