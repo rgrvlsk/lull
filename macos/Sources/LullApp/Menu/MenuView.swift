@@ -10,9 +10,12 @@ struct MenuView: View {
     var openSettings: () -> Void
 
     var body: some View {
+        // The list reaches up behind the band's lower part, from the skyline's base, and a
+        // copy of the band fades over it there, so scrolled rows dissolve into the skyline;
+        // at rest the list starts below the band. Masking the list instead would flatten
+        // its vibrant text.
         VStack(spacing: 0) {
-            header
-            PanelScroll(maxHeight: Theme.maxListHeight, gutter: Theme.inset) {
+            PanelScroll(maxHeight: Theme.maxListHeight + Self.fade, gutter: Theme.inset, fade: Self.fade) {
                 VStack(alignment: .leading, spacing: 12) {
                     banners
                     list
@@ -21,16 +24,28 @@ struct MenuView: View {
             }
             footer.padding(.horizontal, Theme.inset).padding(.top, 12)
         }
+        .padding(.top, PanelBackdrop.height - Self.fade)
         .padding(.bottom, Theme.inset)
+        .background(alignment: .top) { PanelBackdrop() }
+        .overlay(alignment: .top) {
+            PanelBackdrop()
+                .mask {
+                    LinearGradient(stops: [
+                        .init(color: .black, location: 1 - Self.fade / PanelBackdrop.height),
+                        .init(color: .clear, location: 1),
+                    ], startPoint: .top, endPoint: .bottom)
+                }
+                .allowsHitTesting(false)
+        }
+        .overlay(alignment: .top) { PanelHeader { pill } }
         .frame(width: Theme.panelWidth)
         .background(Color(nsColor: Brand.panel))
     }
 
     // MARK: Header
 
-    private var header: some View {
-        PanelHeader { pill }
-    }
+    /// From the skyline's base to the bottom of the band.
+    private static let fade: CGFloat = 30
 
     private var pill: some View {
         let (text, color) = pillState
