@@ -10,7 +10,7 @@ struct MenuView: View {
     var openSettings: () -> Void
 
     var body: some View {
-        // The list reaches up behind the band's lower part, from the skyline's base, and a
+        // The list reaches up behind the band's bottom edge, below the buildings, and a
         // copy of the band fades over it there, so scrolled rows dissolve into the skyline;
         // at rest the list starts below the band. Masking the list instead would flatten
         // its vibrant text.
@@ -44,8 +44,8 @@ struct MenuView: View {
 
     // MARK: Header
 
-    /// From the skyline's base to the bottom of the band.
-    private static let fade: CGFloat = 30
+    /// The bottom of the band, below the buildings, where scrolled rows fade out.
+    private static let fade: CGFloat = 14
 
     private var pill: some View {
         let (text, color) = pillState
