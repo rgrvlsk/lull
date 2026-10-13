@@ -19,7 +19,7 @@ struct Card<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) { content }
             .background(
                 RoundedRectangle(cornerRadius: Theme.corner, style: .continuous)
-                    .fill(Color.white.opacity(scheme == .dark ? 0.075 : 0.7))
+                    .fill(Color.white.opacity(scheme == .dark ? 0.075 : 0.6))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.corner, style: .continuous)
@@ -28,7 +28,16 @@ struct Card<Content: View>: View {
     }
 }
 
+/// Muted text that sits on the panel itself rather than on a card: the system secondary on
+/// dark, indigo on the light lavender panel, where neutral grey reads too faint.
+enum PanelText {
+    static func muted(_ scheme: ColorScheme) -> AnyShapeStyle {
+        scheme == .dark ? AnyShapeStyle(.secondary) : AnyShapeStyle(Brand.indigo.opacity(0.75))
+    }
+}
+
 struct SectionTitle: View {
+    @Environment(\.colorScheme) private var scheme
     var text: String
     var trailing: String?
 
@@ -40,7 +49,7 @@ struct SectionTitle: View {
         }
         .font(.system(size: 11, weight: .semibold))
         .tracking(0.6)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(PanelText.muted(scheme))
         .padding(.horizontal, 4)
     }
 }

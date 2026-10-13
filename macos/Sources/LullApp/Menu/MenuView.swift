@@ -219,6 +219,7 @@ private struct Banner: View {
 }
 
 private struct FooterButton: View {
+    @Environment(\.colorScheme) private var scheme
     var symbol: String
     var title: String
     var action: () -> Void
@@ -230,7 +231,7 @@ private struct FooterButton: View {
                 .font(.system(size: 12, weight: .medium))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .foregroundStyle(hovering ? .primary : .secondary)
+                .foregroundStyle(hovering ? AnyShapeStyle(.primary) : PanelText.muted(scheme))
                 .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(hovering ? 0.08 : 0)))
         }
         .buttonStyle(.plain)

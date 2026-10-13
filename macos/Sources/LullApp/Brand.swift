@@ -7,12 +7,12 @@ enum Brand {
     static let lavender = Color(red: 0xEE / 255, green: 0xED / 255, blue: 0xF6 / 255)
     static let indigo = Color(red: 0x27 / 255, green: 0x27 / 255, blue: 0x44 / 255)
 
-    /// The panel's solid background: the darkest buildings of the dark skyline (`#20203A`)
-    /// and the light skyline's ground (`#F2F2F7`), so the header melts into the panel.
+    /// The panel's solid background: the darkest buildings of each skyline, `#20203A` dark
+    /// and `#BDBAD2` light, so the header melts into the panel.
     static let panel = NSColor(name: "lull.panel") { appearance in
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             ? NSColor(srgbRed: 0x20 / 255, green: 0x20 / 255, blue: 0x3A / 255, alpha: 1)
-            : NSColor(srgbRed: 0xF2 / 255, green: 0xF2 / 255, blue: 0xF7 / 255, alpha: 1)
+            : NSColor(srgbRed: 0xBD / 255, green: 0xBA / 255, blue: 0xD2 / 255, alpha: 1)
     }
 
     /// The cat redrawn for 20 px, as a template image for the menu bar.
