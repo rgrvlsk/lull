@@ -1,5 +1,6 @@
-// The menu-bar icon: the count of running servers, a dot while one is stopping soon, and
-// a click that toggles the panel in a transient popover.
+// The menu-bar icon: the cat, optionally followed by the count of running servers and a
+// dot while one is stopping soon (both off by default), and a click that toggles the panel
+// in a transient popover.
 import AppKit
 import SwiftUI
 import LullKit
@@ -23,7 +24,14 @@ final class StatusItem: NSObject {
         item.button?.target = self
         item.button?.action = #selector(toggle)
         item.button?.imagePosition = .imageLeading
+        item.button?.image = Logo.menuBarImage()
         render()
+        // The count and dot preferences live in UserDefaults, which observation does not see.
+        NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.draw() }
+        }
     }
 
     @objc private func toggle() {
@@ -48,9 +56,6 @@ final class StatusItem: NSObject {
 
     private func draw() {
         guard let button = item.button else { return }
-        let image = NSImage(systemSymbolName: "server.rack", accessibilityDescription: "lull")
-        image?.isTemplate = true
-        button.image = image
         guard store.phase == .connected else {
             button.attributedTitle = NSAttributedString()
             button.appearsDisabled = true
@@ -60,10 +65,13 @@ final class StatusItem: NSObject {
         button.appearsDisabled = false
         let running = store.servers.values.filter { $0.state != .stopping }.count
         let soon = store.servers.values.contains { $0.state == .stoppingSoon }
+        let defaults = UserDefaults.standard
+        let showCount = defaults.bool(forKey: MenuBarPrefs.showCount)
+        let showDot = defaults.bool(forKey: MenuBarPrefs.showDot)
         let title = NSMutableAttributedString(
-            string: running > 0 ? " \(running)" : "",
+            string: showCount && running > 0 ? " \(running)" : "",
             attributes: [.font: NSFont.menuBarFont(ofSize: 0).withMonospacedDigits()])
-        if soon {
+        if showDot && soon {
             title.append(NSAttributedString(string: " ●", attributes: [
                 .foregroundColor: NSColor.systemOrange,
                 .font: NSFont.systemFont(ofSize: 8),
@@ -73,6 +81,12 @@ final class StatusItem: NSObject {
         button.attributedTitle = title
         button.toolTip = "lull: \(running) running" + (soon ? ", stopping soon" : "")
     }
+}
+
+/// App-only display preferences (`@AppStorage` keys), not daemon policy.
+enum MenuBarPrefs {
+    static let showCount = "menuBar.showRunningCount"
+    static let showDot = "menuBar.showStoppingSoonDot"
 }
 
 private extension NSFont {

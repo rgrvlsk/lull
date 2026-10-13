@@ -526,7 +526,10 @@ Until the app exists, v1 has no stopping-soon notification; stops are listed by
 - Settings: idle minutes, auto-stop scope, warning, `tabs_on_stop`, browser for `open`,
   per-project rules, launch at login. The extension is optional (ADR-0011); the app does
   not install it.
-- Icon state: count of running servers; dot when something is `stopping-soon`.
+- Icon state: the logo's sleeping cat, as a template image. Two app-only display
+  preferences, both off by default, add the count of running servers and a dot while
+  something is `stopping-soon`; they are kept by the app, not in `config.toml` or the
+  protocol.
 - Wording: "lull" suggests a resumable pause, but lull **terminates** processes.
   Every surface (protocol, notification, row, log, CLI) says *stop* / *stopped* /
   *restart*, never *sleep*, *pause*, *wake* or *kill* (see GLOSSARY.md).

@@ -30,7 +30,9 @@ use crate::paths::Paths;
 use app::{App, Cmd, Req};
 
 /// The logo, sleeping cat and wordmark, two pixel rows per line in half blocks: the
-/// daemon banner draws it on a brand plate, the UI as a faint watermark.
+/// daemon banner draws it on a brand plate, the UI as a faint watermark. The menu-bar app
+/// draws its icons from a copy of these rows in `macos/Sources/LullApp/Logo.swift`; change
+/// both together.
 pub(crate) const LOGO: [&str; 7] = [
     "          ▄█▄     ▄",
     "    ▄▄███████▄▄ ▄██     ██         ██ ██",

@@ -27,19 +27,16 @@ struct MenuView: View {
     // MARK: Header
 
     private var header: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "server.rack")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 36, height: 36)
-                .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.accentColor.gradient))
-            VStack(alignment: .leading, spacing: 3) {
-                Text("lull").font(.system(size: 15, weight: .bold))
-                pill
-            }
+        HStack(spacing: 12) {
+            Image(nsImage: Self.logo)
+                .accessibilityLabel("lull")
+            pill
             Spacer()
         }
     }
+
+    /// The cat and wordmark on the indigo plate, two points per logo pixel.
+    private static let logo = Logo.plate(columns: Logo.all, pixel: 2)
 
     private var pill: some View {
         let (text, color) = pillState

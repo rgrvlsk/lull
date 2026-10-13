@@ -152,6 +152,9 @@ struct SettingsView: View {
         } else {
             NotConnected()
         }
+        SettingsGroup(title: "Menu bar") {
+            MenuBarToggles()
+        }
         SettingsGroup(title: "App") {
             LaunchAtLogin()
         }
@@ -288,6 +291,24 @@ private struct AboutSettings: View {
         Text("Licensed MIT OR Apache-2.0. lull makes no network requests.")
             .font(.system(size: 11))
             .foregroundStyle(.secondary)
+    }
+}
+
+// MARK: Menu bar
+
+/// App-only display preferences, kept in UserDefaults and never sent to the daemon.
+private struct MenuBarToggles: View {
+    @AppStorage(MenuBarPrefs.showCount) private var showCount = false
+    @AppStorage(MenuBarPrefs.showDot) private var showDot = false
+
+    var body: some View {
+        SettingRow(title: "Show the number of running servers", detail: "Beside the cat in the menu bar.") {
+            Toggle("", isOn: $showCount).toggleStyle(.switch).labelsHidden()
+        }
+        Divider()
+        SettingRow(title: "Show a dot when a server is stopping soon", detail: nil) {
+            Toggle("", isOn: $showDot).toggleStyle(.switch).labelsHidden()
+        }
     }
 }
 

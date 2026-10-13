@@ -334,7 +334,8 @@ verified against `protocol/fixtures/`, subscription with gap recovery, `@Observa
 store. Accept: decodes every fixture; reconnects after daemon restart.
 **WP4.2 — Menu UI** (`macos/Sources/LullApp/Menu/`). Live servers grouped by project
 with origin and pin badges and countdown; Recently stopped with Restart (only when the record has a launch command) / Copy command /
-Reveal / Open terminal / Forget; row actions; icon count + stopping-soon dot; wording
+Reveal / Open terminal / Forget; row actions; the cat as the icon, with the running count and the stopping-soon dot as optional
+app preferences that are off by default; wording
 rules (§10). Preview data from fixtures, including worst cases (long paths, 30 servers,
 no servers).
 **WP4.3 — Settings** (`macos/Sources/LullApp/Settings/`). Policy, per-project rules,
