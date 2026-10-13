@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, IsTerminal, Write};
 use std::os::fd::AsRawFd;
 use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
 use std::os::unix::net::{UnixListener, UnixStream};
@@ -25,7 +25,11 @@ use lull_core::platform::macos::{
 use lull_core::state::FileStateStore;
 use lull_core::traits::ConfigStore;
 
+use ratatui::crossterm::style::{Color, Stylize};
+use ratatui::crossterm::terminal;
+
 use crate::paths::{Paths, home};
+use crate::ui::{LOGO, LOGO_WIDTH};
 
 enum Msg {
     /// Connection id, writer, `LOCAL_PEERPID`, whether the peer runs under an agent.
@@ -73,6 +77,13 @@ fn serve(dry_run: bool) -> io::Result<()> {
             None
         }
     };
+    // Started by hand in a terminal rather than by launchd: say what is running, echo
+    // events, and let Enter open the UI next to it.
+    if io::stdin().is_terminal() && io::stdout().is_terminal() {
+        banner(&paths, ntstat.is_some(), dry_run);
+        log.echo = true;
+        thread::spawn(open_ui_on_enter);
+    }
     let scan_ms = env_u64("LULL_SCAN_MS").unwrap_or(5_000);
     let platform = Platform {
         source: Box::new(MacProcessSource::new()),
@@ -257,6 +268,8 @@ impl ConfigStore for FileConfigStore {
 /// `~/Library/Logs/lull.log`, rotated once to `lull.log.1` past 1 MiB.
 struct Logger {
     path: PathBuf,
+    /// Also print each line to the terminal the daemon was started from.
+    echo: bool,
 }
 
 impl Logger {
@@ -264,7 +277,7 @@ impl Logger {
         if let Some(dir) = path.parent() {
             let _ = fs::create_dir_all(dir);
         }
-        Logger { path }
+        Logger { path, echo: false }
     }
 
     fn line(&mut self, line: &str) {
@@ -278,6 +291,100 @@ impl Logger {
             .open(&self.path)
         {
             let _ = writeln!(f, "{stamp} {line}");
+        }
+        if self.echo {
+            // Lines name processes and commands, which agents control (ADR-0009).
+            println!("  {}  {}", clock().dim(), crate::ui::clean(line));
+        }
+    }
+}
+
+/// Local wall-clock time, `HH:MM:SS`.
+fn clock() -> String {
+    // SAFETY: `time` and `localtime_r` write only to the values we pass.
+    let tm = unsafe {
+        let t = libc::time(std::ptr::null_mut());
+        let mut tm: libc::tm = std::mem::zeroed();
+        libc::localtime_r(&t, &mut tm);
+        tm
+    };
+    format!("{:02}:{:02}:{:02}", tm.tm_hour, tm.tm_min, tm.tm_sec)
+}
+
+/// Brand lavender on indigo, or the nearest 256-colour pair when the terminal does not
+/// announce 24-bit colour. A filled plate reads the same on light and dark themes.
+fn brand_colours() -> (Color, Color) {
+    match std::env::var("COLORTERM").as_deref() {
+        Ok("truecolor" | "24bit") => (
+            Color::Rgb {
+                r: 0xee,
+                g: 0xed,
+                b: 0xf6,
+            },
+            Color::Rgb {
+                r: 0x27,
+                g: 0x27,
+                b: 0x44,
+            },
+        ),
+        _ => (Color::AnsiValue(255), Color::AnsiValue(236)),
+    }
+}
+
+fn banner(paths: &Paths, ntstat: bool, dry_run: bool) {
+    // Margin around the cat: a quarter of its height.
+    let side = 4;
+    println!();
+    if terminal::size().is_ok_and(|(w, _)| usize::from(w) >= LOGO_WIDTH + 2 * side + 2) {
+        let (ink, paper) = brand_colours();
+        for line in [""].iter().chain(&LOGO).chain(&[""]) {
+            let line = format!("{:side$}{line:<LOGO_WIDTH$}{:side$}", "", "");
+            println!("  {}", line.with(ink).on(paper));
+        }
+        println!();
+    }
+    println!(
+        "  {} {} · {}",
+        "lull".bold(),
+        env!("CARGO_PKG_VERSION"),
+        "stops the dev servers you forgot".dim()
+    );
+    let backend = if ntstat { "ntstat" } else { "scan" };
+    let dry = if dry_run {
+        " · dry run, nothing is stopped"
+    } else {
+        ""
+    };
+    println!();
+    println!(
+        "  {} daemon running · pid {} · {backend}{dry}",
+        "●".green(),
+        std::process::id()
+    );
+    let tilde = |p: PathBuf| crate::ui::tilde(&p.display().to_string());
+    println!("    {}  {}", "socket".dim(), tilde(paths.socket()));
+    println!("    {}     {}", "log".dim(), tilde(paths.log_file()));
+    println!();
+    match crate::ui::tab::target() {
+        Some(place) => println!("  {} open the UI in {place}", "⏎".bold()),
+        None => println!(
+            "  open the UI from another tab: {}",
+            crate::ui::tab::typed().bold()
+        ),
+    }
+    println!("  {} stop the daemon", "ctrl-c".bold());
+    println!();
+}
+
+/// Enter in the daemon's terminal opens the UI next to it.
+fn open_ui_on_enter() {
+    for line in io::stdin().lines() {
+        if line.is_err() {
+            return;
+        }
+        match crate::ui::tab::open() {
+            Ok(place) => println!("  opened the UI in {place}"),
+            Err(e) => println!("  {e}"),
         }
     }
 }

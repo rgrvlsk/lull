@@ -75,7 +75,9 @@ cargo test --workspace && cargo clippy --workspace --all-targets -- -D warnings
 (cd macos && swift test)
 ```
 
-`lull daemon --dry-run` makes every decision without sending signals. The design is in
+`lull daemon --dry-run` makes every decision without sending signals. Started by hand in a
+terminal, the daemon shows its status and log, and Enter opens `lull ui` next to it (a new
+Ghostty or iTerm2 tab, or a Terminal window). The design is in
 [`docs/contract.md`](docs/contract.md), decisions in [`docs/adr/`](docs/adr/), vocabulary in
 [`GLOSSARY.md`](GLOSSARY.md), the work breakdown in [`docs/plan.md`](docs/plan.md), and the
 release steps in [`packaging/RELEASE.md`](packaging/RELEASE.md).

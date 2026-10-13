@@ -6,7 +6,10 @@
 //! uses no CPU.
 
 mod app;
+pub mod tab;
 mod view;
+
+pub(crate) use app::{clean, tilde};
 
 use std::collections::HashMap;
 use std::io::{self, BufRead, IsTerminal, Write};
@@ -25,6 +28,19 @@ use crate::cli::now_ms;
 use crate::client::Client;
 use crate::paths::Paths;
 use app::{App, Cmd, Req};
+
+/// The logo, sleeping cat and wordmark, two pixel rows per line in half blocks: the
+/// daemon banner draws it on a brand plate, the UI as a faint watermark.
+pub(crate) const LOGO: [&str; 7] = [
+    "          ▄█▄     ▄",
+    "    ▄▄███████▄▄ ▄██     ██         ██ ██",
+    "  ▄████████████████     ██ ▄▄   ▄▄ ██ ██",
+    " ███▄▄▄▀███▀▀██████     ██ ██   ██ ██ ██",
+    " ███████▄▀█████▀▀██     ██ ██   ██ ██ ██",
+    " ▀███████▄▀▀▀▀▀██▀      ██ ▀█████▀ ██ ██",
+    "   ▀▀█████████▀",
+];
+pub(crate) const LOGO_WIDTH: usize = 40;
 
 /// CPU and RSS changes are not notified (§8), so the list is re-read this often.
 const REFRESH_MS: u64 = 5_000;

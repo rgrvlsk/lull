@@ -11,6 +11,7 @@ use ratatui::widgets::{
 };
 
 use super::app::{App, FIELDS, Prompt, SAMPLES, View, config_value, tilde};
+use super::{LOGO, LOGO_WIDTH};
 use crate::cli::{enum_str, origin, parse_rfc3339};
 
 const MIN: (u16, u16) = (40, 8);
@@ -149,6 +150,18 @@ fn empty(f: &mut Frame, area: Rect, block: Block, title: &str, hint: String) {
         Paragraph::new(vec![Line::from(title.bold()), Line::from(hint.dim())]).centered(),
         mid,
     );
+    watermark(f, inner, usize::from(mid.bottom() - inner.y));
+}
+
+/// The logo, faint, in the bottom-right corner of a panel, when the `used` rows at the
+/// top leave room for it and a gap; otherwise nothing.
+fn watermark(f: &mut Frame, inner: Rect, used: usize) {
+    let (w, h) = (LOGO_WIDTH as u16, LOGO.len() as u16);
+    if inner.width < w || usize::from(inner.height) < used + 2 + usize::from(h) {
+        return;
+    }
+    let area = Rect::new(inner.right() - w, inner.bottom() - h, w, h);
+    f.render_widget(Paragraph::new(LOGO.map(Line::from).to_vec()).dim(), area);
 }
 
 // ───────────── servers ─────────────
@@ -254,7 +267,9 @@ fn servers(f: &mut Frame, main: Rect, side: Option<Rect>, app: &mut App) {
         widths.extend([Constraint::Length(14), Constraint::Length(5)]);
     }
     widths.push(Constraint::Fill(1));
+    let inner = block.inner(main);
     f.render_stateful_widget(table(rows, widths, block), main, &mut app.lists[0]);
+    watermark(f, inner, app.servers.len());
     if let (Some(side), Some(s)) = (side, app.selected_server()) {
         let title = format!(" {} · {} ", s.project, enum_str(&s.framework));
         let block = panel(Line::from(title.bold()));
@@ -466,7 +481,9 @@ fn history(f: &mut Frame, main: Rect, side: Option<Rect>, app: &mut App) {
         Constraint::Length(6),
         Constraint::Fill(1),
     ];
+    let inner = block.inner(main);
     f.render_stateful_widget(table(rows, widths, block), main, &mut app.lists[1]);
+    watermark(f, inner, app.history.len());
     let Some(h) = app.selected().and_then(|i| app.history.get(i)) else {
         return;
     };
@@ -553,11 +570,13 @@ fn config(f: &mut Frame, main: Rect, side: Option<Rect>, app: &mut App) {
         })
         .collect();
     let widths = vec![Constraint::Length(20), Constraint::Fill(1)];
+    let inner = block.inner(main);
     let table = table(rows, widths, block);
     if app.lists[2].selected().is_none() {
         app.lists[2].select(Some(0));
     }
     f.render_stateful_widget(table, main, &mut app.lists[2]);
+    watermark(f, inner, FIELDS.len());
     if let (Some(side), Some(i)) = (side, app.lists[2].selected()) {
         let path = tilde(
             &crate::paths::Paths::from_env()
@@ -778,6 +797,22 @@ mod tests {
         let screen = render(&mut app, 120, 30);
         assert!(!screen.contains('\u{1b}') && !screen.contains('\u{7}'));
         assert!(screen.contains("vite \u{fffd}[2J"));
+    }
+
+    #[test]
+    fn the_watermark_only_fills_free_room() {
+        let mut app = app();
+        let cat = LOGO[5].trim();
+        assert!(render(&mut app, 120, 30).contains(cat));
+        // Too short, too narrow, or a list that fills the panel: no logo.
+        assert!(!render(&mut app, 120, 12).contains(cat));
+        assert!(!render(&mut app, 42, 30).contains(cat));
+        let thirty = vec![app.servers[0].clone(); 30];
+        app.on_result(
+            super::super::app::Req::List,
+            Ok(serde_json::to_value(&thirty).unwrap()),
+        );
+        assert!(!render(&mut app, 120, 30).contains(cat));
     }
 
     #[test]
