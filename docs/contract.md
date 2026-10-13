@@ -328,9 +328,11 @@ pin, `autoStop` change or policy change that makes the server ineligible returns
    `state = "stopping"`, non-blocking.
 3. After 5 s, `SIGKILL` to whatever remains in the pgid. If the witness check below
    fails here — every member recorded at decision time has exited but the group still
-   has members — the stop is **aborted**: no `SIGKILL`, no `server.removed`, no tab
-   action, no stopped-server record. The server returns to `running` with `manual`
-   activity, and the abort is logged and shown by `lull doctor`.
+   has members — the stop is **aborted**: no `SIGKILL`, no tab action, no stopped-server
+   record; the abort is logged and shown by `lull doctor`. When the server keeps its id,
+   nothing is removed: it returns to `running` with `manual` activity. When the id turns
+   over (discovery saw only new members, §4.6), the old id gets `server.removed {reason:
+   "exited"}` and the group appears as a new server.
 4. Only once the pgid has no members left: emit `server.removed {id, reason}` and apply
    `tabs_on_stop` to the server's tabs in
    every connected browser: `discard` (default — `tabs.discard`: the tab keeps its URL

@@ -851,7 +851,8 @@ fn vanished_stop_id_aborts_on_turnover_or_records_an_empty_group() {
                 assert_eq!(history[0].reason, reason);
             } else {
                 assert!(has(&fx, &Effect::StopAborted { id: ID.into() }));
-                assert!(!fx.iter().any(|f| matches!(f, Effect::Removed { .. })));
+                // The old id goes away as `exited`, without a stopped-server record.
+                assert!(has(&fx, &removed(ID, StopReason::Exited)));
                 assert!(h.lc.history().is_empty());
                 assert!(h.lc.record("100-9000").is_some());
             }

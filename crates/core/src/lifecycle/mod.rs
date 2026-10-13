@@ -422,9 +422,8 @@ impl Lifecycle {
         for id in gone {
             // A stop under way whose id vanished while its pgid still has members: every
             // member known at decision time exited and new ones took over, so discovery
-            // gave the group a new id. That is the abort of §7.3, not a removal.
-            // ponytail: no server.removed for the old id (§7.3); subscribers keep it until
-            // they re-subscribe. Fine without the v1.1 app.
+            // gave the group a new id. That is the abort of §7.3: subscribers see the old
+            // id removed as `exited` and the new one added, and no record is written.
             if let Some(stop) = &self.entries[&id].record.stop {
                 let pgid = self.entries[&id].record.pgid;
                 match sys.source.group(pgid) {
@@ -441,7 +440,11 @@ impl Lifecycle {
                             self.notes.remove(0);
                         }
                         fx.push(Effect::Log(line));
-                        fx.push(Effect::StopAborted { id });
+                        fx.push(Effect::StopAborted { id: id.clone() });
+                        fx.push(Effect::Removed {
+                            id,
+                            reason: StopReason::Exited,
+                        });
                         continue;
                     }
                     // Unknown: decide on a later tick.

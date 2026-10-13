@@ -29,10 +29,7 @@ ledger when its trigger fires and the shortcut is upgraded. Maintenance rules: [
   re-read the real argv if that matters.
 - `crates/core/src/discovery/labels.rs:148`, primary port found by flag shape. ceiling: an
   exotic flag naming another listening port first wins. upgrade: per-framework port flags.
-- `crates/core/src/lifecycle/mod.rs:426`, no `server.removed` for the old id on a turnover
-  abort. ceiling: subscribers keep a ghost entry until they re-subscribe. upgrade: when the
-  menu-bar app (M4) subscribes.
-- `crates/core/src/lifecycle/mod.rs:612`, the fresh observation before a stop is the
+- `crates/core/src/lifecycle/mod.rs:615`, the fresh observation before a stop is the
   preceding scan plus a member re-read. ceiling: up to one scan interval (5 s) between
   classification and signal. upgrade: re-run discovery on the group right before signalling.
 - `crates/core/src/browser/mod.rs:71`, a hidden tab reloaded on the same URL keeps its old
@@ -55,4 +52,4 @@ ledger when its trigger fires and the shortcut is upgraded. Maintenance rules: [
   forgotten when the service worker restarts. upgrade: the `storage` permission
   (`chrome.storage.session`) if users report dragged-out tabs being regrouped.
 
-15 markers, 0 with no trigger.
+14 markers, 0 with no trigger.
