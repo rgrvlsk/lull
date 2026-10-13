@@ -17,7 +17,10 @@ enum Format {
     static func ago(_ date: Date, now: Date = .now) -> String {
         let f = RelativeDateTimeFormatter()
         f.unitsStyle = .short
-        return f.localizedString(for: date, relativeTo: now)
+        // The daemon's clock can be a moment ahead of ours, and a zero interval reads
+        // "in 0 s" unless named ("now").
+        f.dateTimeStyle = .named
+        return f.localizedString(for: min(date, now), relativeTo: now)
     }
 
     static func ports(_ ports: [Int]) -> String {

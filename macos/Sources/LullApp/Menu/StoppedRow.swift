@@ -44,8 +44,10 @@ struct StoppedRow: View {
                 } else {
                     VStack(alignment: .trailing, spacing: 2) {
                         statusLine
-                        Text(Format.ago(record.stoppedAt))
-                            .font(.system(size: 10)).foregroundStyle(.tertiary)
+                        TimelineView(.periodic(from: .now, by: 30)) { context in
+                            Text(Format.ago(record.stoppedAt, now: context.date))
+                                .font(.system(size: 10)).foregroundStyle(.tertiary)
+                        }
                     }
                 }
             }
