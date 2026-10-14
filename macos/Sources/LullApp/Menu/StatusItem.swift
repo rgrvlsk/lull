@@ -53,14 +53,16 @@ final class StatusItem: NSObject {
         paintPopoverFrame()
     }
 
-    /// Paints the popover's frame, arrow included, in the panel colour instead of the
-    /// translucent material. NSPopover has no API for this, so a view goes under the content.
+    /// Paints the popover's frame in the panel colour instead of the translucent material,
+    /// and the arrow as the sky continuing above the header. NSPopover has no API for this,
+    /// so a view goes under the content.
     private func paintPopoverFrame() {
         guard let content = popover.contentViewController?.view.window?.contentView,
               let frame = content.superview,
               !frame.subviews.contains(where: { $0 is PanelBackground })
         else { return }
         let background = PanelBackground(frame: frame.bounds)
+        background.content = content
         background.autoresizingMask = [.width, .height]
         frame.addSubview(background, positioned: .below, relativeTo: content)
     }
@@ -104,9 +106,33 @@ final class StatusItem: NSObject {
 }
 
 private final class PanelBackground: NSView {
+    weak var content: NSView?
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        // Everything is placed from the content's top edge, which moves as the panel resizes.
+        layerContentsRedrawPolicy = .duringViewResize
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
     override func draw(_ dirtyRect: NSRect) {
         Brand.panel.setFill()
         dirtyRect.fill()
+        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        guard let content, let band = dark ? Brand.headerDark : Brand.headerLight else { return }
+        // The band as `PanelBackdrop` lays it out: scaled to the panel's width, its bottom
+        // edge `PanelBackdrop.height` below the content's top. The part its crop hides goes
+        // into the arrow, and the band's top row is stretched over whatever arrow is left.
+        let box = convert(content.bounds, from: content)
+        let height = band.size.height * box.width / band.size.width
+        let drawn = NSRect(x: box.minX, y: box.maxY - PanelBackdrop.height, width: box.width, height: height)
+        band.draw(in: drawn)
+        let topRow = NSRect(x: 0, y: band.size.height - 0.5, width: band.size.width, height: 0.5)
+        let above = NSRect(x: drawn.minX, y: drawn.maxY, width: drawn.width, height: bounds.maxY - drawn.maxY)
+        if above.height > 0 {
+            band.draw(in: above, from: topRow, operation: .sourceOver, fraction: 1)
+        }
     }
 }
 
