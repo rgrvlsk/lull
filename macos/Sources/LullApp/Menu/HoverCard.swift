@@ -72,6 +72,7 @@ private struct AnchorView: NSViewRepresentable {
         panel.hasShadow = true
         panel.level = NSWindow.Level(rawValue: NSWindow.Level.popUpMenu.rawValue + 1)
         panel.hidesOnDeactivate = false
+        panel.alphaValue = 0
         panel.isReleasedWhenClosed = false
         return panel
     }()
@@ -81,17 +82,20 @@ private struct AnchorView: NSViewRepresentable {
     private var overCard = false
     private var opening: Task<Void, Never>?
     private var closing: Task<Void, Never>?
+    /// Bumped by every show and close, so a fade-out that finishes after the card came
+    /// back does not take it away.
+    private var generation = 0
 
     private init() {
         // The panel's popover closing (click outside, Escape, an action) takes its card along.
         NotificationCenter.default.addObserver(forName: NSPopover.willCloseNotification, object: nil, queue: .main) { _ in
-            MainActor.assumeIsolated { HoverCards.shared.dismiss() }
+            MainActor.assumeIsolated { HoverCards.shared.dismiss(animated: false) }
         }
-        // While a card is attached the popover misses Escape; closing the card first lets the
+        // While a card is attached the popover misses Escape; removing the card first lets the
         // key go on to close the panel as usual.
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             MainActor.assumeIsolated {
-                if event.keyCode == 53, HoverCards.shared.panel.isVisible { HoverCards.shared.dismiss() }
+                if event.keyCode == 53, HoverCards.shared.panel.isVisible { HoverCards.shared.dismiss(animated: false) }
             }
             return event
         }
@@ -125,13 +129,14 @@ private struct AnchorView: NSViewRepresentable {
         scheduleClose()
     }
 
-    /// Closes the card now: the panel closed, or the list scrolled under it.
-    func dismiss() {
+    /// Closes the card now: the list scrolled under it, or (without the fade) the panel is
+    /// closing.
+    func dismiss(animated: Bool = true) {
         opening?.cancel()
         closing?.cancel()
         hovered = nil
         overCard = false
-        close()
+        close(animated: animated)
     }
 
     /// Closes the card shortly unless the pointer is back on its element or inside it.
@@ -170,20 +175,54 @@ private struct AnchorView: NSViewRepresentable {
             if origin.y < screen.minY { origin.y = rect.maxY + 6 }
             origin.x = min(max(origin.x, screen.minX + 4), screen.maxX - size.width - 4)
         }
-        panel.setFrame(NSRect(origin: origin, size: size), display: true)
+        let frame = NSRect(origin: origin, size: size)
         if panel.parent !== window {
             panel.parent?.removeChildWindow(panel)
             window.addChildWindow(panel, ordered: .above)
         }
-        panel.orderFront(nil)
+        generation += 1
+        if panel.isVisible && panel.alphaValue == 1 {
+            panel.setFrame(frame, display: true)
+        } else {
+            // Fades in while sliding the last few points away from its element; with Reduce
+            // Motion it only fades.
+            let slide: CGFloat = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 4
+            panel.setFrame(frame.offsetBy(dx: 0, dy: origin.y < rect.minY ? slide : -slide), display: true)
+            panel.orderFront(nil)
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = Self.fadeIn
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                panel.animator().alphaValue = 1
+                panel.animator().setFrame(frame, display: true)
+            }
+        }
         shown = anchor
     }
 
-    private func close() {
+    private static let fadeIn: TimeInterval = 0.16
+    private static let fadeOut: TimeInterval = 0.12
+
+    private func close(animated: Bool = true) {
+        shown = nil
+        generation += 1
+        let closing = generation
+        guard animated, panel.isVisible else { return removePanel() }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Self.fadeOut
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            panel.animator().alphaValue = 0
+        } completionHandler: {
+            MainActor.assumeIsolated {
+                if HoverCards.shared.generation == closing { HoverCards.shared.removePanel() }
+            }
+        }
+    }
+
+    private func removePanel() {
         panel.parent?.removeChildWindow(panel)
         panel.orderOut(nil)
+        panel.alphaValue = 0
         panel.contentView = nil
-        shown = nil
     }
 }
 
