@@ -4,7 +4,8 @@
 // Search roots are the server's cwd, then its git root. In each, the first candidate that
 // passes the size check wins: icons the project declares (HTML `<link rel=icon>`, web
 // manifests, Next.js `app/` files), then conventional file names in conventional
-// directories. File contents are untrusted: only ImageIO and a minimal attribute scan read
+// directories. When no root has one, the first small icon (16–31 px, usually an old
+// favicon) is used instead, drawn at its own size rather than scaled up. File contents are untrusted: only ImageIO and a minimal attribute scan read
 // them, and no path may leave its search root.
 import AppKit
 import Foundation
@@ -17,6 +18,8 @@ public enum ProjectIcon {
         public var url: URL
         public var index: Int
         public var vector: Bool
+        /// Under `minPixels` on its short side: drawn at its own size, never scaled up.
+        public var small = false
     }
 
     /// What `lookup` returns: the decoded icon, if any, and the modification times that
@@ -25,10 +28,13 @@ public enum ProjectIcon {
         public var image: CGImage?
         public var found: Found?
         public var stamp: [Double]
+        /// A small icon's average colour, for the tile behind it.
+        public var tint: CGColor?
     }
 
     static let maxBytes = 1 << 20
     static let minPixels = 32
+    static let minSmallPixels = 16
     static let maxAspect = 1.5
 
     // MARK: Lookup
@@ -36,9 +42,11 @@ public enum ProjectIcon {
     /// Finds and decodes the icon for a server in `cwd`, at most `pixels` on its long side.
     public static func lookup(cwd: String, pixels: Int) -> Lookup {
         let roots = searchRoots(cwd: cwd)
-        let found = roots.lazy.compactMap(find(in:)).first
-        return Lookup(image: found.flatMap { image($0, pixels: pixels) }, found: found,
-                      stamp: stamp(roots: roots, found: found))
+        let candidates = roots.compactMap(find(in:))
+        let found = candidates.first { !$0.small } ?? candidates.first
+        let decoded = found.flatMap { image($0, pixels: pixels) }
+        return Lookup(image: decoded, found: found, stamp: stamp(roots: roots, found: found),
+                      tint: found?.small == true ? decoded.flatMap(averageColor) : nil)
     }
 
     /// Whether any file `lookup` looked at has changed since it made `old`. Only stats files.
@@ -59,12 +67,15 @@ public enum ProjectIcon {
         return [start]
     }
 
-    /// The first candidate under `root` that passes the size check.
+    /// The first candidate under `root` that passes the size check, else the first small one.
     public static func find(in root: URL) -> Found? {
+        var small: Found?
         for candidate in declared(in: root) + conventional(in: root) {
-            if let found = check(candidate, root: root) { return found }
+            guard let found = check(candidate, root: root) else { continue }
+            if !found.small { return found }
+            small = small ?? found
         }
-        return nil
+        return small
     }
 
     // MARK: Candidates
@@ -217,7 +228,8 @@ public enum ProjectIcon {
     }
 
     /// The candidate as a `Found` if it is an SVG NSImage can draw, or a raster whose best
-    /// image is at least 32 px on its short side; either way no wider than 3:2.
+    /// image is at least 16 px on its short side (small under 32); either way no wider
+    /// than 3:2.
     static func check(_ url: URL, root: URL) -> Found? {
         guard let file = contained(url, root: root) else { return nil }
         if file.pathExtension.lowercased() == "svg" {
@@ -235,9 +247,9 @@ public enum ProjectIcon {
             return (i, w, h)
         }
         guard let best = sizes.max(by: { min($0.1, $0.2) < min($1.1, $1.2) }),
-              min(best.1, best.2) >= minPixels, squareEnough(Double(best.1), Double(best.2))
+              min(best.1, best.2) >= minSmallPixels, squareEnough(Double(best.1), Double(best.2))
         else { return nil }
-        return Found(url: file, index: best.0, vector: false)
+        return Found(url: file, index: best.0, vector: false, small: min(best.1, best.2) < minPixels)
     }
 
     private static func squareEnough(_ w: Double, _ h: Double) -> Bool {
@@ -246,8 +258,8 @@ public enum ProjectIcon {
 
     // MARK: Decoding
 
-    /// The icon at most `pixels` on its long side. Rasters go through an ImageIO thumbnail,
-    /// so a large PNG is never decoded whole.
+    /// The icon at most `pixels` on its long side, never larger than the file's own image.
+    /// Rasters go through an ImageIO thumbnail, so a large PNG is never decoded whole.
     public static func image(_ found: Found, pixels: Int) -> CGImage? {
         if found.vector {
             guard let image = NSImage(contentsOf: found.url) else { return nil }
@@ -261,6 +273,25 @@ public enum ProjectIcon {
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceThumbnailMaxPixelSize: pixels,
         ] as CFDictionary)
+    }
+
+    /// The image's average colour, ignoring transparent pixels.
+    static func averageColor(_ image: CGImage) -> CGColor? {
+        var pixel = [UInt8](repeating: 0, count: 4)
+        let drawn = pixel.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(
+                data: buffer.baseAddress, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            else { return false }
+            context.interpolationQuality = .medium
+            context.draw(image, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+            return true
+        }
+        let alpha = Double(pixel[3])
+        guard drawn, alpha > 8 else { return nil }
+        return CGColor(srgbRed: Double(pixel[0]) / alpha, green: Double(pixel[1]) / alpha,
+                       blue: Double(pixel[2]) / alpha, alpha: 1)
     }
 
     // MARK: Revalidation

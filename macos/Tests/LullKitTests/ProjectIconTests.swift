@@ -75,8 +75,19 @@ import UniformTypeIdentifiers
         #expect(found() == "app/icon.svg")
     }
 
-    @Test func aSixteenPixelFaviconIsRejected() throws {
+    @Test func aSixteenPixelFaviconIsOnlyAFallback() throws {
         try png("public/favicon.png", 16, 16)
+        #expect(found() == "public/favicon.png")
+        #expect(ProjectIcon.find(in: root)?.small == true)
+        let lookup = ProjectIcon.lookup(cwd: root.path, pixels: 48)
+        #expect(lookup.image?.width == 16)
+        #expect(lookup.tint != nil)
+        try png("static/favicon.png", 64, 64)
+        #expect(found() == "static/favicon.png")
+    }
+
+    @Test func iconsSmallerThanSixteenPixelsAreRejected() throws {
+        try png("public/favicon.png", 8, 8)
         #expect(found() == nil)
     }
 
