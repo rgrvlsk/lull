@@ -97,7 +97,8 @@ private struct AnchorView: NSViewRepresentable {
         }
     }
 
-    private static let openDelay = Duration.milliseconds(400)
+    /// Long enough that passing over a mark on the way elsewhere opens nothing.
+    private static let openDelay = Duration.seconds(1)
     private static let closeDelay = Duration.milliseconds(200)
     /// After a card closes, the next one opens at once for this long, like system tooltips.
     private static let grace = Duration.milliseconds(600)
