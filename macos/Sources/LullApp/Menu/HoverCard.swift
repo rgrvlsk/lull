@@ -2,7 +2,7 @@
 // rests on it and kept open while the pointer moves into the card, so its buttons can be
 // clicked. lull manages the window itself: `.help` takes only plain text, and a popover
 // inside the panel's popover would take its focus. One card at a time; moving to another
-// element swaps it at once.
+// element, or onto one shortly after a card closed, swaps it at once.
 import AppKit
 import SwiftUI
 
@@ -80,6 +80,7 @@ private struct AnchorView: NSViewRepresentable {
     private var hovered: CardAnchor?
     private var overCard = false
     private var pending: Task<Void, Never>?
+    private var closedAt: ContinuousClock.Instant?
 
     private init() {
         // The panel's popover closing (click outside, Escape, an action) takes its card along.
@@ -98,12 +99,15 @@ private struct AnchorView: NSViewRepresentable {
 
     private static let openDelay = Duration.milliseconds(400)
     private static let closeDelay = Duration.milliseconds(200)
+    /// After a card closes, the next one opens at once for this long, like system tooltips.
+    private static let grace = Duration.milliseconds(600)
 
     func enter(_ anchor: CardAnchor, card: @escaping () -> AnyView) {
         hovered = anchor
         pending?.cancel()
         guard shown !== anchor || !panel.isVisible else { return }
-        let delay = panel.isVisible ? Duration.zero : Self.openDelay
+        let recent = closedAt.map { ContinuousClock.now - $0 < Self.grace } ?? false
+        let delay = panel.isVisible || recent ? Duration.zero : Self.openDelay
         pending = Task {
             try? await Task.sleep(for: delay)
             guard !Task.isCancelled, hovered === anchor else { return }
@@ -166,6 +170,7 @@ private struct AnchorView: NSViewRepresentable {
     }
 
     private func close() {
+        if panel.isVisible { closedAt = .now }
         panel.parent?.removeChildWindow(panel)
         panel.orderOut(nil)
         panel.contentView = nil

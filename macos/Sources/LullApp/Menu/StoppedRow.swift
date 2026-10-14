@@ -37,7 +37,6 @@ struct StoppedRow: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
-                .help(Format.tilde(record.cwd))
                 Spacer(minLength: 8)
                 if hovering && !confirming {
                     HStack(spacing: 2) {

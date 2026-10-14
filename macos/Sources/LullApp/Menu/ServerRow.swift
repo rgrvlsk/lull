@@ -25,7 +25,6 @@ struct ServerRow: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
-            .help(Format.tilde(server.cwd))
             Spacer(minLength: 8)
             if hovering {
                 actions
