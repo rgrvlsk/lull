@@ -46,9 +46,19 @@ enum Brand {
         url("\(name).pdf").flatMap(NSImage.init(contentsOf:))
     }
 
-    /// `assets/brand/<path>` from the app bundle's Resources (by file name); debug builds
+    /// A third-party mark from `assets/logos` (see its README), cached.
+    @MainActor static func mark(_ name: String) -> NSImage? {
+        if let image = marks[name] { return image }
+        let image = url("\(name).svg", in: "logos").flatMap(NSImage.init(contentsOf:))
+        marks[name] = image
+        return image
+    }
+
+    @MainActor private static var marks: [String: NSImage?] = [:]
+
+    /// `assets/<dir>/<path>` from the app bundle's Resources (by file name); debug builds
     /// outside a bundle (`swift run`, previews) read it from the checkout.
-    private static func url(_ path: String) -> URL? {
+    private static func url(_ path: String, in dir: String = "brand") -> URL? {
         let name = (path as NSString).lastPathComponent
         if let url = Bundle.main.resourceURL?.appendingPathComponent(name),
            FileManager.default.fileExists(atPath: url.path) {
@@ -58,7 +68,7 @@ enum Brand {
         let repo = URL(fileURLWithPath: #filePath)  // macos/Sources/LullApp/Brand.swift
             .deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
-        return repo.appendingPathComponent("assets/brand/\(path)")
+        return repo.appendingPathComponent("assets/\(dir)/\(path)")
         #else
         return nil
         #endif

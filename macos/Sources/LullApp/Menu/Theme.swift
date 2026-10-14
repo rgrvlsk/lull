@@ -69,35 +69,81 @@ struct Badge: View {
     }
 }
 
-/// Small rounded tile with the framework's initials, in place of a logo.
-struct FrameworkTile: View {
+extension View {
+    /// The rounded square every row icon sits on: a light neutral backing, so dark and
+    /// transparent marks stay visible on both panels, optionally tinted.
+    func iconTile(tint: Color? = nil) -> some View {
+        frame(width: TechTile.size, height: TechTile.size)
+            .background {
+                let tile = RoundedRectangle(cornerRadius: 6, style: .continuous)
+                tile.fill(Color.white.opacity(0.92))
+                if let tint { tile.fill(tint.opacity(0.35)) }
+            }
+            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.black.opacity(0.08)))
+    }
+}
+
+/// The tile of a server whose project has no icon: its technology's mark in the brand's
+/// colour, its initials where lull ships no mark (assets/logos/README.md), `</>` when
+/// nothing names the technology.
+struct TechTile: View {
     static let size: CGFloat = 24
-    var framework: Framework
+    var technology: Technology?
 
     var body: some View {
-        let (label, color) = Self.style(framework)
-        Text(label)
-            .font(.system(size: 10, weight: .bold, design: .rounded))
-            .foregroundStyle(.white)
-            .frame(width: Self.size, height: Self.size)
-            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(color.gradient))
-            .accessibilityLabel(framework.rawValue)
+        let style = technology.map(Self.style)
+        Group {
+            if let style, let mark = style.mark.flatMap({ Brand.mark("tech-\($0)") }) {
+                Image(nsImage: mark)
+                    .renderingMode(.template)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 15, height: 15)
+                    .foregroundStyle(style.color)
+                    .iconTile()
+            } else {
+                Text(style?.initials ?? "</>")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .frame(width: Self.size, height: Self.size)
+                    .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill((style?.color ?? Color.secondary).gradient))
+            }
+        }
+        .accessibilityLabel(technology?.rawValue ?? "server")
     }
 
-    static func style(_ f: Framework) -> (String, Color) {
-        switch f {
-        case .vite: ("Vi", .purple)
-        case .next: ("Nx", .gray)
-        case .astro: ("As", .orange)
-        case .nuxt: ("Nu", .green)
-        case .remix: ("Rx", .indigo)
-        case .wrangler: ("Wr", .orange)
-        case .phpBuiltin: ("php", .indigo)
-        case .artisan: ("La", .red)
-        case .pythonHttp: ("Py", .blue)
-        case .rails: ("Rb", .red)
-        case .django: ("Dj", .teal)
-        case .generic, .unknown: ("</>", .secondary)
+    struct Style {
+        var mark: String?
+        var color: Color
+        var initials: String
+    }
+
+    static func style(_ technology: Technology) -> Style {
+        func style(_ mark: String?, _ hex: UInt32, _ initials: String) -> Style {
+            Style(mark: mark, color: Color(red: Double(hex >> 16 & 0xFF) / 255, green: Double(hex >> 8 & 0xFF) / 255,
+                                           blue: Double(hex & 0xFF) / 255), initials: initials)
+        }
+        return switch technology {
+        case .vite: style("vite", 0x9135FF, "Vi")
+        case .next: style("next", 0x000000, "Nx")
+        case .astro: style("astro", 0xBC52EE, "As")
+        case .nuxt: style("nuxt", 0x00DC82, "Nu")
+        case .remix: style("remix", 0x000000, "Rx")
+        case .wrangler: style("wrangler", 0xF38020, "Wr")
+        case .laravel: style("laravel", 0xFF2D20, "La")
+        case .rails: style("rails", 0xD30001, "Rl")
+        case .django: style("django", 0x092E20, "Dj")
+        case .mcp: style("mcp", 0x000000, "MCP")
+        case .node: style("node", 0x5FA04E, "JS")
+        case .bun: style("bun", 0x000000, "Bun")
+        case .deno: style("deno", 0x000000, "De")
+        case .python: style("python", 0x3776AB, "Py")
+        case .go: style("go", 0x00ADD8, "Go")
+        case .elixir: style("elixir", 0x4B275F, "Ex")
+        case .php: style(nil, 0x777BB4, "php")
+        case .ruby: style(nil, 0xCC342D, "Rb")
+        case .rust: style(nil, 0xB7410E, "Rs")
         }
     }
 }

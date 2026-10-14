@@ -102,6 +102,25 @@ enum PreviewData {
         })
     }
 
+    /// One row per technology tile and origin mark.
+    static var marks: Store {
+        let commands: [(Framework, String)] = [
+            (.vite, "vite"), (.next, "next dev"), (.astro, "astro dev"), (.nuxt, "nuxi dev"),
+            (.remix, "remix vite:dev"), (.wrangler, "wrangler dev"), (.artisan, "php artisan serve"),
+            (.rails, "bin/rails server"), (.django, "python manage.py runserver"),
+            (.generic, "npx @modelcontextprotocol/inspector"), (.generic, "node server.js"),
+            (.generic, "bun --hot index.ts"), (.generic, "deno task dev"), (.generic, "uvicorn main:app"),
+            (.phpBuiltin, "php -S 127.0.0.1:8080"), (.generic, "bundle exec puma"), (.generic, "go run ."),
+            (.generic, "cargo run"), (.generic, "mix phx.server"), (.generic, "./bin/example-app"),
+        ]
+        let agents: [String?] = [nil, "claude", "codex", "gemini", "cursor", "copilot", "opencode",
+                                 "antigravity", "augment"]
+        return .preview(servers: commands.enumerated().map { i, entry in
+            server("m\(i)", project: "project-\(i / 4)", framework: entry.0, ports: [3000 + i],
+                   command: entry.1, agent: agents[i % agents.count])
+        })
+    }
+
     static var empty: Store { .preview(servers: []) }
 
     /// The store for `LULL_PREVIEW`, or `nil` to connect to the daemon.
@@ -109,6 +128,7 @@ enum PreviewData {
         switch ProcessInfo.processInfo.environment["LULL_PREVIEW"] {
         case "fixtures": fixtures
         case "worst": worst
+        case "marks": marks
         case "empty": empty
         case "not-running": .preview(phase: .daemonNotRunning, servers: [])
         case "mismatch": .preview(phase: .protocolMismatch(daemonVersion: "0.2.0"), servers: [])

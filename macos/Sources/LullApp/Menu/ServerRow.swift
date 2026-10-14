@@ -1,4 +1,4 @@
-// One live server: port, origin and pin badges, countdown, CPU/RSS; Open, Stop and
+// One live server: port, origin mark and pin badge, countdown, CPU/RSS; Open, Stop and
 // Pin/Unpin on hover, the rest in the context menu (contract §10).
 import SwiftUI
 import LullKit
@@ -11,12 +11,12 @@ struct ServerRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            ProjectTile(cwd: server.cwd, framework: server.framework)
+            ProjectTile(cwd: server.cwd, framework: server.framework, command: server.command)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(Format.ports(server.ports))
                         .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                    Badge(text: Format.origin(server.origin), tint: server.origin.kind == .agent ? .purple : .blue)
+                    OriginMark(origin: server.origin)
                     if server.pinned {
                         Badge(text: server.pinSource == .env ? "pinned (env)" : "pinned", tint: .teal)
                     }

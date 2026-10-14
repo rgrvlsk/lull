@@ -1,5 +1,6 @@
-// Project icons for the rows, looked up off the main thread and cached by directory.
-// Rows show the framework tile until (and unless) their directory has an icon.
+// Project icons for the rows, and whether each project is an MCP server, looked up off
+// the main thread and cached by directory. Rows show the technology tile until (and
+// unless) their directory has an icon.
 import AppKit
 import SwiftUI
 import LullKit
@@ -16,39 +17,49 @@ final class ProjectIcons {
 
     /// Decoded icons by server cwd; a cwd without one is absent.
     private(set) var icons: [String: Icon] = [:]
+    /// Server cwds whose project is an MCP server (`Technology.isMCPProject`).
+    private(set) var mcpProjects: Set<String> = []
     @ObservationIgnored private var lookups: [String: ProjectIcon.Lookup] = [:]
     @ObservationIgnored private var pending: Set<String> = []
 
     /// The rows' @2x pixel size.
-    private static let pixels = Int(FrameworkTile.size * 2)
+    private static let pixels = Int(TechTile.size * 2)
 
     /// Looks up the icon for `cwd` once; later calls are free.
     func load(_ cwd: String) async {
         guard lookups[cwd] == nil, pending.insert(cwd).inserted else { return }
         let pixels = Self.pixels
-        let lookup = await Task.detached(priority: .utility) {
-            ProjectIcon.lookup(cwd: cwd, pixels: pixels)
+        let (lookup, mcp) = await Task.detached(priority: .utility) {
+            (ProjectIcon.lookup(cwd: cwd, pixels: pixels), Technology.isMCPProject(cwd: cwd))
         }.value
         pending.remove(cwd)
         store(lookup, for: cwd)
+        store(mcp: mcp, for: cwd)
     }
 
     // ponytail: re-checked only when the panel opens (stat-only mtimes), so an icon changed
     // while the panel is open shows on the next open; upgrade trigger: users expect icons to
     // update live → watch the search roots with FSEvents.
-    /// Looks up again every directory whose files changed since its last lookup.
+    /// Looks up again every directory whose files changed since its last lookup, and
+    /// re-reads its manifests for MCP.
     func revalidate() {
         let pixels = Self.pixels
         for (cwd, old) in lookups where !pending.contains(cwd) {
             pending.insert(cwd)
             Task {
-                let fresh = await Task.detached(priority: .utility) {
-                    ProjectIcon.isStale(old, cwd: cwd) ? ProjectIcon.lookup(cwd: cwd, pixels: pixels) : nil
+                let (fresh, mcp) = await Task.detached(priority: .utility) {
+                    (ProjectIcon.isStale(old, cwd: cwd) ? ProjectIcon.lookup(cwd: cwd, pixels: pixels) : nil,
+                     Technology.isMCPProject(cwd: cwd))
                 }.value
                 pending.remove(cwd)
                 if let fresh { store(fresh, for: cwd) }
+                store(mcp: mcp, for: cwd)
             }
         }
+    }
+
+    private func store(mcp: Bool, for cwd: String) {
+        if mcp != mcpProjects.contains(cwd) { mcpProjects.formSymmetricDifference([cwd]) }
     }
 
     private func store(_ lookup: ProjectIcon.Lookup, for cwd: String) {
@@ -60,13 +71,13 @@ final class ProjectIcons {
     }
 }
 
-/// The project's icon in a rounded square with a light neutral backing, so transparent and
-/// dark icons stay visible on both panels. A small icon keeps its own pixel size, crisp, on
-/// a tile tinted with its colour. The framework tile when there is none.
+/// The project's icon on the row tile. A small icon keeps its own pixel size, crisp, on a
+/// tile tinted with its colour. The technology tile when there is none.
 struct ProjectTile: View {
     @Environment(ProjectIcons.self) private var icons: ProjectIcons?
     var cwd: String
     var framework: Framework
+    var command: String
 
     var body: some View {
         Group {
@@ -82,16 +93,11 @@ struct ProjectTile: View {
                             .padding(3)
                     }
                 }
-                .frame(width: FrameworkTile.size, height: FrameworkTile.size)
-                .background {
-                    let tile = RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    tile.fill(Color.white.opacity(0.92))
-                    if let tint = icon.tint { tile.fill(Color(cgColor: tint).opacity(0.35)) }
-                }
-                .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.black.opacity(0.08)))
+                .iconTile(tint: icon.tint.map { Color(cgColor: $0) })
                 .accessibilityLabel(framework.rawValue)
             } else {
-                FrameworkTile(framework: framework)
+                TechTile(technology: Technology.of(
+                    framework: framework, command: command, mcpProject: icons?.mcpProjects.contains(cwd) == true))
             }
         }
         .task(id: cwd) { await icons?.load(cwd) }
