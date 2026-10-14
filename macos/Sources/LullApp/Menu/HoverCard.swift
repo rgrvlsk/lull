@@ -1,8 +1,8 @@
 // Hover cards: a small floating panel with an element's details, shown once the pointer
 // rests on it and kept open while the pointer moves into the card, so its buttons can be
 // clicked. lull manages the window itself: `.help` takes only plain text, and a popover
-// inside the panel's popover would take its focus. One card at a time; moving to another
-// element, or onto one shortly after a card closed, swaps it at once.
+// inside the panel's popover would take its focus. One card at a time, each after the
+// pointer has rested on its element for a second.
 import AppKit
 import SwiftUI
 
@@ -79,8 +79,8 @@ private struct AnchorView: NSViewRepresentable {
     private var shown: CardAnchor?
     private var hovered: CardAnchor?
     private var overCard = false
-    private var pending: Task<Void, Never>?
-    private var closedAt: ContinuousClock.Instant?
+    private var opening: Task<Void, Never>?
+    private var closing: Task<Void, Never>?
 
     private init() {
         // The panel's popover closing (click outside, Escape, an action) takes its card along.
@@ -97,20 +97,22 @@ private struct AnchorView: NSViewRepresentable {
         }
     }
 
-    /// Long enough that passing over a mark on the way elsewhere opens nothing.
+    /// Every card waits this long, also when another is open: passing over a mark on the
+    /// way elsewhere opens nothing.
     private static let openDelay = Duration.seconds(1)
     private static let closeDelay = Duration.milliseconds(200)
-    /// After a card closes, the next one opens at once for this long, like system tooltips.
-    private static let grace = Duration.milliseconds(600)
 
     func enter(_ anchor: CardAnchor, card: @escaping () -> AnyView) {
         hovered = anchor
-        pending?.cancel()
-        guard shown !== anchor || !panel.isVisible else { return }
-        let recent = closedAt.map { ContinuousClock.now - $0 < Self.grace } ?? false
-        let delay = panel.isVisible || recent ? Duration.zero : Self.openDelay
-        pending = Task {
-            try? await Task.sleep(for: delay)
+        opening?.cancel()
+        if shown === anchor, panel.isVisible {
+            closing?.cancel()
+            return
+        }
+        // Another element's card closes as if the pointer had left it; this one waits its turn.
+        if panel.isVisible { scheduleClose() }
+        opening = Task {
+            try? await Task.sleep(for: Self.openDelay)
             guard !Task.isCancelled, hovered === anchor else { return }
             show(card(), at: anchor)
         }
@@ -119,29 +121,36 @@ private struct AnchorView: NSViewRepresentable {
     func exit(_ anchor: CardAnchor) {
         guard hovered === anchor else { return }
         hovered = nil
+        opening?.cancel()
         scheduleClose()
     }
 
     /// Closes the card now: the panel closed, or the list scrolled under it.
     func dismiss() {
-        pending?.cancel()
+        opening?.cancel()
+        closing?.cancel()
         hovered = nil
         overCard = false
         close()
     }
 
+    /// Closes the card shortly unless the pointer is back on its element or inside it.
     private func scheduleClose() {
-        pending?.cancel()
-        pending = Task {
+        closing?.cancel()
+        closing = Task {
             try? await Task.sleep(for: Self.closeDelay)
-            guard !Task.isCancelled, hovered == nil, !overCard else { return }
+            guard !Task.isCancelled, shown == nil || hovered !== shown, !overCard else { return }
             close()
         }
     }
 
     private func cardHover(_ inside: Bool) {
         overCard = inside
-        if !inside && hovered == nil { scheduleClose() }
+        if inside {
+            closing?.cancel()
+        } else {
+            scheduleClose()
+        }
     }
 
     private func show(_ card: AnyView, at anchor: CardAnchor) {
@@ -171,7 +180,6 @@ private struct AnchorView: NSViewRepresentable {
     }
 
     private func close() {
-        if panel.isVisible { closedAt = .now }
         panel.parent?.removeChildWindow(panel)
         panel.orderOut(nil)
         panel.contentView = nil
