@@ -2,11 +2,13 @@
 // the server: lull makes no network requests (§14), and a request would count as traffic.
 //
 // Search roots are the server's cwd, then its git root. In each, the first candidate that
-// passes the size check wins: icons the project declares (HTML `<link rel=icon>`, web
-// manifests, Next.js `app/` files), then conventional file names in conventional
-// directories. When no root has one, the first small icon (16–31 px, usually an old
-// favicon) is used instead, drawn at its own size rather than scaled up. File contents are untrusted: only ImageIO and a minimal attribute scan read
-// them, and no path may leave its search root.
+// passes the size check wins: icons the project declares (`<link rel=icon>` in HTML entry
+// points and layout templates, web manifests, Next.js `app/` files), then conventional
+// file names in conventional directories. When no root has one, the first small icon
+// (16–31 px, usually an old favicon) is used instead, drawn at its own size rather than
+// scaled up. File contents are untrusted: only ImageIO, NSImage (for SVGs that refer to
+// nothing outside themselves) and a minimal attribute scan read them, and no path may
+// leave its search root.
 import AppKit
 import Foundation
 import ImageIO
@@ -80,13 +82,28 @@ public enum ProjectIcon {
 
     // MARK: Candidates
 
-    static let htmlFiles = ["index.html", "public/index.html", "src/index.html"]
+    /// Where pages and layout templates usually live, from plain `index.html` to Blade,
+    /// Astro, SvelteKit, Next, Rails and Django, each listed one level deep.
+    static let templateDirs = [
+        "", "public", "src", "src/app", "app", "src/routes", "pages", "src/pages", "src/layouts",
+        "src/components", "resources/views", "resources/views/layouts",
+        "resources/views/components/layouts", "app/views/layouts", "templates",
+    ]
+    static let templateExtensions: Set = [
+        "html", "htm", "astro", "php", "erb", "twig", "jinja", "jinja2", "j2", "njk", "hbs",
+        "liquid", "heex", "svelte", "vue", "tsx", "jsx",
+    ]
+    /// Only files named like a page shell are read, so component folders cost little.
+    static let templateHints = [
+        "index", "app", "layout", "root", "base", "head", "document", "main", "master", "welcome",
+    ]
     static let manifestFiles = ["manifest.json", "site.webmanifest", "manifest.webmanifest"]
     static let manifestDirs = ["", "public", "static", "app"]
     static let nextDirs = ["app", "src/app"]
     static let nextNames = ["icon.svg", "icon.png", "icon.jpg", "icon.ico", "apple-icon.png", "favicon.ico"]
     static let conventionalDirs = [
-        "public", "static", "web", "web/icons", "assets", "static/img", "app/assets/images", "",
+        "public", "static", "web", "web/icons", "assets", "static/img", "app/assets/images",
+        "public/images", "public/img", "src", "src/assets", "priv/static", "src-tauri/icons", "",
     ]
     static let conventionalNames = [
         "favicon.svg", "icon.svg", "apple-touch-icon.png", "icon.png", "favicon-96x96.png",
@@ -127,8 +144,7 @@ public enum ProjectIcon {
                 .map(\.element.url)
         }
         var urls: [URL] = []
-        for path in htmlFiles {
-            let file = root.appendingPathComponent(path)
+        for file in templateFiles(in: root) {
             guard let html = read(file, root: root) else { continue }
             urls += ranked(links(in: String(decoding: html, as: UTF8.self)).compactMap { link in
                 resolve(link["href"], from: file.deletingLastPathComponent(), root: root).map {
@@ -155,6 +171,22 @@ public enum ProjectIcon {
         return urls
     }
 
+    /// The page and layout templates under `root`, in `templateDirs` order and by name within
+    /// each directory.
+    static func templateFiles(in root: URL) -> [URL] {
+        templateDirs.flatMap { dir -> [URL] in
+            let names = (try? FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent(dir).path)) ?? []
+            return names.sorted().compactMap { name in
+                let lower = name.lowercased()
+                let url = root.appendingPathComponent(dir).appendingPathComponent(name)
+                guard templateExtensions.contains(url.pathExtension.lowercased()),
+                      templateHints.contains(where: lower.contains)
+                else { return nil }
+                return url
+            }
+        }
+    }
+
     static func conventional(in root: URL) -> [URL] {
         conventionalDirs.flatMap { dir in
             conventionalNames.map { root.appendingPathComponent(dir).appendingPathComponent($0) }
@@ -172,7 +204,7 @@ public enum ProjectIcon {
 
     private static let linkTag = try! NSRegularExpression(pattern: "<link\\b[^>]*>", options: .caseInsensitive)
     private static let attribute = try! NSRegularExpression(
-        pattern: #"([a-zA-Z-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))"#)
+        pattern: #"([a-zA-Z-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|\{([^}]*)\}|([^\s"'>]+))"#)
 
     /// The attributes of each `<link>` whose `rel` names an icon (`mask-icon` does not: it is
     /// a single-colour Safari pin).
@@ -183,7 +215,7 @@ public enum ProjectIcon {
             var attributes: [String: String] = [:]
             for match in attribute.matches(in: text, range: NSRange(location: 0, length: (text as NSString).length)) {
                 let name = (text as NSString).substring(with: match.range(at: 1)).lowercased()
-                let value = (2...4).lazy.map { match.range(at: $0) }.first { $0.location != NSNotFound }
+                let value = (2...5).lazy.map { match.range(at: $0) }.first { $0.location != NSNotFound }
                     .map { (text as NSString).substring(with: $0) } ?? ""
                 attributes[name] = attributes[name] ?? value
             }
@@ -192,23 +224,38 @@ public enum ProjectIcon {
         }
     }
 
-    /// A local path for an `href`: a leading `/` is tried under `public/`, `static/` and the
-    /// root; anything else is relative to the declaring file. URLs with a scheme or host and
-    /// `data:` URIs are skipped.
+    private static let templatePath = try! NSRegularExpression(
+        pattern: #"[A-Za-z0-9_@./~-]*\.(?:svg|png|ico|jpe?g|webp|gif|avif)\b"#, options: .caseInsensitive)
+
+    /// A local path for an `href`. One a template computes, such as `{{ asset('logo.png') }}`,
+    /// `{% static 'logo.png' %}` or `%sveltekit.assets%/favicon.png`, is reduced to its image
+    /// path and treated as site-absolute. A site-absolute path is tried under `public/`,
+    /// `static/` and the root; anything else relative to the declaring file first. URLs with
+    /// a scheme or host and `data:` URIs are skipped.
     static func resolve(_ href: String?, from base: URL, root: URL) -> URL? {
         guard var path = href?.trimmingCharacters(in: .whitespaces), !path.isEmpty else { return nil }
         let lower = path.lowercased()
         if lower.hasPrefix("//") || lower.hasPrefix("data:") || lower.contains("://") { return nil }
+        let computed = ["{", "<%", "%sveltekit", "("].contains(where: path.contains)
+        if computed {
+            let ns = path as NSString
+            guard let match = templatePath.firstMatch(in: path, range: NSRange(location: 0, length: ns.length))
+            else { return nil }
+            path = "/" + ns.substring(with: match.range).drop { "~@/".contains($0) }
+        }
         if let end = path.firstIndex(where: { $0 == "?" || $0 == "#" }) { path = String(path[..<end]) }
         path = path.removingPercentEncoding ?? path
         guard !path.isEmpty else { return nil }
-        if path.hasPrefix("/") {
-            let relative = String(path.drop { $0 == "/" })
-            return ["public", "static", ""].lazy
-                .map { root.appendingPathComponent($0).appendingPathComponent(relative) }
-                .first { FileManager.default.fileExists(atPath: $0.path) }
+        let exists = { (url: URL) in FileManager.default.fileExists(atPath: url.path) }
+        if !path.hasPrefix("/") {
+            // Relative to the page, which for a server template is its URL, not its file.
+            let beside = base.appendingPathComponent(path)
+            if exists(beside) { return beside }
         }
-        return base.appendingPathComponent(path)
+        let relative = String(path.drop { $0 == "/" })
+        return ["public", "static", ""].lazy
+            .map { root.appendingPathComponent($0).appendingPathComponent(relative) }
+            .first(where: exists)
     }
 
     // MARK: Checks
@@ -227,13 +274,14 @@ public enum ProjectIcon {
         contained(url, root: root).flatMap { try? Data(contentsOf: $0) }
     }
 
-    /// The candidate as a `Found` if it is an SVG NSImage can draw, or a raster whose best
-    /// image is at least 16 px on its short side (small under 32); either way no wider
-    /// than 3:2.
+    /// The candidate as a `Found` if it is a self-contained SVG NSImage can draw, or a raster
+    /// whose best image is at least 16 px on its short side (small under 32); either way no
+    /// wider than 3:2.
     static func check(_ url: URL, root: URL) -> Found? {
         guard let file = contained(url, root: root) else { return nil }
         if file.pathExtension.lowercased() == "svg" {
-            guard let image = NSImage(contentsOf: file), image.isValid,
+            guard let data = read(file, root: root), selfContained(svg: data),
+                  let image = NSImage(data: data), image.isValid,
                   squareEnough(image.size.width, image.size.height)
             else { return nil }
             return Found(url: file, index: 0, vector: true)
@@ -252,6 +300,18 @@ public enum ProjectIcon {
         return Found(url: file, index: best.0, vector: false, small: min(best.1, best.2) < minPixels)
     }
 
+    private static let outsideReference = try! NSRegularExpression(
+        pattern: #"(?:href|src)\s*=\s*["']\s*(?!#|data:)|url\(\s*["']?\s*(?!#|data:)|@import|<!ENTITY"#,
+        options: .caseInsensitive)
+
+    /// Whether an SVG refers to nothing outside itself. One that embeds another file or URL
+    /// (an `<image>` wrapping the real logo, a `<use>` of another file, a stylesheet) draws a
+    /// broken-image placeholder, and lull never loads what it points at.
+    static func selfContained(svg: Data) -> Bool {
+        let text = String(decoding: svg, as: UTF8.self)
+        return outsideReference.firstMatch(in: text, range: NSRange(location: 0, length: (text as NSString).length)) == nil
+    }
+
     private static func squareEnough(_ w: Double, _ h: Double) -> Bool {
         w > 0 && h > 0 && max(w, h) / min(w, h) <= maxAspect
     }
@@ -262,7 +322,9 @@ public enum ProjectIcon {
     /// Rasters go through an ImageIO thumbnail, so a large PNG is never decoded whole.
     public static func image(_ found: Found, pixels: Int) -> CGImage? {
         if found.vector {
-            guard let image = NSImage(contentsOf: found.url) else { return nil }
+            guard let data = try? Data(contentsOf: found.url), selfContained(svg: data),
+                  let image = NSImage(data: data)
+            else { return nil }
             let scale = Double(pixels) / max(image.size.width, image.size.height)
             var rect = CGRect(x: 0, y: 0, width: image.size.width * scale, height: image.size.height * scale)
             return image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
@@ -299,11 +361,11 @@ public enum ProjectIcon {
     /// Modification times of every directory searched, the declaring files and the icon,
     /// so adding, replacing or removing any of them changes the stamp.
     static func stamp(roots: [URL], found: Found?) -> [Double] {
-        let dirs = Set(conventionalDirs + manifestDirs + nextDirs + ["src"])
+        let dirs = Set(conventionalDirs + manifestDirs + nextDirs + templateDirs)
         var files: [URL] = []
         for root in roots {
             files += dirs.sorted().map { root.appendingPathComponent($0) }
-            files += htmlFiles.map { root.appendingPathComponent($0) }
+            files += templateFiles(in: root)
             files += manifestDirs.flatMap { dir in
                 manifestFiles.map { root.appendingPathComponent(dir).appendingPathComponent($0) }
             }

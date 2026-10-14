@@ -75,6 +75,39 @@ import UniformTypeIdentifiers
         #expect(found() == "app/icon.svg")
     }
 
+    @Test func layoutTemplatesDeclareIcons() throws {
+        try write("public/brand/mark.svg", svg)
+        try write("src/components/Button.astro", #"<link rel="icon" href="/favicon.ico">"#)
+        try write("src/layouts/Layout.astro", #"<link rel="icon" href="/brand/mark.svg" type="image/svg+xml" />"#)
+        #expect(found() == "public/brand/mark.svg")
+    }
+
+    @Test func templatesThatComputeTheHref() throws {
+        try png("public/images/logo.png", 128, 128)
+        try write("resources/views/app.blade.php", #"<link rel="icon" href="{{ asset('images/logo.png') }}" sizes="any">"#)
+        #expect(found() == "public/images/logo.png")
+        try FileManager.default.removeItem(at: root.appendingPathComponent("resources"))
+        try png("static/favicon.png", 64, 64)
+        try png("static/apple-touch-icon.png", 180, 180)
+        try write("src/app.html", #"<link rel="icon" href="%sveltekit.assets%/favicon.png" />"#)
+        #expect(found() == "static/favicon.png")
+    }
+
+    @Test func anSvgReferringToAnotherFileIsRejected() throws {
+        try png("public/images/logo-mark.png", 679, 352)
+        try write("public/favicon.svg", #"""
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+            <image href="/images/logo-mark.png" width="96" height="96"/></svg>
+            """#)
+        try png("public/favicon.png", 64, 64)
+        #expect(found() == "public/favicon.png")
+        try write("public/favicon.svg", #"""
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+            <defs><linearGradient id="a"/></defs><circle r="30" fill="url(#a)"/></svg>
+            """#)
+        #expect(found() == "public/favicon.svg")
+    }
+
     @Test func aSixteenPixelFaviconIsOnlyAFallback() throws {
         try png("public/favicon.png", 16, 16)
         #expect(found() == "public/favicon.png")
