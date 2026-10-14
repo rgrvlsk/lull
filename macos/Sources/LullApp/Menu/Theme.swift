@@ -110,40 +110,41 @@ struct TechTile: View {
                         .fill((style?.color ?? Color.secondary).gradient))
             }
         }
-        .accessibilityLabel(technology?.rawValue ?? "server")
+        .accessibilityLabel(technology.map { Self.style($0).name } ?? "server")
     }
 
     struct Style {
+        var name: String
         var mark: String?
         var color: Color
         var initials: String
     }
 
     static func style(_ technology: Technology) -> Style {
-        func style(_ mark: String?, _ hex: UInt32, _ initials: String) -> Style {
-            Style(mark: mark, color: Color(red: Double(hex >> 16 & 0xFF) / 255, green: Double(hex >> 8 & 0xFF) / 255,
+        func style(_ name: String, _ mark: String?, _ hex: UInt32, _ initials: String) -> Style {
+            Style(name: name, mark: mark, color: Color(red: Double(hex >> 16 & 0xFF) / 255, green: Double(hex >> 8 & 0xFF) / 255,
                                            blue: Double(hex & 0xFF) / 255), initials: initials)
         }
         return switch technology {
-        case .vite: style("vite", 0x9135FF, "Vi")
-        case .next: style("next", 0x000000, "Nx")
-        case .astro: style("astro", 0xBC52EE, "As")
-        case .nuxt: style("nuxt", 0x00DC82, "Nu")
-        case .remix: style("remix", 0x000000, "Rx")
-        case .wrangler: style("wrangler", 0xF38020, "Wr")
-        case .laravel: style("laravel", 0xFF2D20, "La")
-        case .rails: style("rails", 0xD30001, "Rl")
-        case .django: style("django", 0x092E20, "Dj")
-        case .mcp: style("mcp", 0x000000, "MCP")
-        case .node: style("node", 0x5FA04E, "JS")
-        case .bun: style("bun", 0x000000, "Bun")
-        case .deno: style("deno", 0x000000, "De")
-        case .python: style("python", 0x3776AB, "Py")
-        case .go: style("go", 0x00ADD8, "Go")
-        case .elixir: style("elixir", 0x4B275F, "Ex")
-        case .php: style(nil, 0x777BB4, "php")
-        case .ruby: style(nil, 0xCC342D, "Rb")
-        case .rust: style(nil, 0xB7410E, "Rs")
+        case .vite: style("Vite", "vite", 0x9135FF, "Vi")
+        case .next: style("Next.js", "next", 0x000000, "Nx")
+        case .astro: style("Astro", "astro", 0xBC52EE, "As")
+        case .nuxt: style("Nuxt", "nuxt", 0x00DC82, "Nu")
+        case .remix: style("Remix", "remix", 0x000000, "Rx")
+        case .wrangler: style("Cloudflare Workers", "wrangler", 0xF38020, "Wr")
+        case .laravel: style("Laravel", "laravel", 0xFF2D20, "La")
+        case .rails: style("Ruby on Rails", "rails", 0xD30001, "Rl")
+        case .django: style("Django", "django", 0x092E20, "Dj")
+        case .mcp: style("MCP server", "mcp", 0x000000, "MCP")
+        case .node: style("Node.js", "node", 0x5FA04E, "JS")
+        case .bun: style("Bun", "bun", 0x000000, "Bun")
+        case .deno: style("Deno", "deno", 0x000000, "De")
+        case .python: style("Python", "python", 0x3776AB, "Py")
+        case .go: style("Go", "go", 0x00ADD8, "Go")
+        case .elixir: style("Elixir", "elixir", 0x4B275F, "Ex")
+        case .php: style("PHP", nil, 0x777BB4, "php")
+        case .ruby: style("Ruby", nil, 0xCC342D, "Rb")
+        case .rust: style("Rust", nil, 0xB7410E, "Rs")
         }
     }
 }

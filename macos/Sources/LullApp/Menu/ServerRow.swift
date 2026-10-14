@@ -1,4 +1,4 @@
-// One live server: port, origin mark and pin badge, countdown, CPU/RSS; Open, Stop and
+// One live server: port, origin and pin marks, countdown, CPU/RSS; Open, Stop and
 // Pin/Unpin on hover, the rest in the context menu (contract §10).
 import SwiftUI
 import LullKit
@@ -16,10 +16,8 @@ struct ServerRow: View {
                 HStack(spacing: 6) {
                     Text(Format.ports(server.ports))
                         .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                    OriginMark(origin: server.origin)
-                    if server.pinned {
-                        Badge(text: server.pinSource == .env ? "pinned (env)" : "pinned", tint: .teal)
-                    }
+                    OriginMark(origin: server.origin, startedAt: server.startedAt)
+                    if server.pinned { PinMark(source: server.pinSource) }
                 }
                 Text(server.command)
                     .font(.system(size: 11, design: .monospaced))
@@ -102,6 +100,35 @@ struct ServerRow: View {
         Button("Reveal in Finder") { System.reveal(server.cwd) }
         Divider()
         Button("Stop") { Task { await store.stop(server.id) } }.disabled(server.state == .stopping)
+    }
+}
+
+/// A pinned server: a pin, with a dot when `LULL_KEEP` pinned it (contract §6, shown as
+/// *pinned (env)*). The card says who pinned it and what that means.
+struct PinMark: View {
+    var source: PinSource?
+
+    var body: some View {
+        Image(systemName: "pin.fill")
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(.teal)
+            .frame(width: 14, height: 14)
+            .overlay(alignment: .topTrailing) {
+                if source == .env { Circle().fill(.teal).frame(width: 4, height: 4).offset(x: 1, y: -1) }
+            }
+            .accessibilityLabel(source == .env ? "pinned (env)" : "pinned")
+            .hoverCard {
+                CardTitle(title: source == .env ? "Pinned (env)" : "Pinned",
+                          subtitle: source == .env
+                              ? "LULL_KEEP=1 in its environment pinned it when it started."
+                              : "Pinned from the panel or the CLI.") {
+                    Image(systemName: "pin.fill").font(.system(size: 16)).foregroundStyle(.teal).frame(width: 24)
+                }
+                Text("lull never stops it when idle. Unpin it to let the idle timer apply.")
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 6)
+            }
     }
 }
 

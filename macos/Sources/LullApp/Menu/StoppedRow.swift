@@ -1,5 +1,6 @@
-// One stopped-server record: project, command, stop time and reason. Restart asks first,
-// showing the exact command; Show log only for records that are restarting or failed.
+// One stopped-server record: project, command, stop time and reason (an icon whose card
+// explains it). Restart asks first, showing the exact command; Show log only for records
+// that are restarting or failed.
 import SwiftUI
 import LullKit
 
@@ -22,6 +23,13 @@ struct StoppedRow: View {
                         Text(record.project).font(.system(size: 13, weight: .semibold)).lineLimit(1)
                         Text(Format.ports(record.ports))
                             .font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
+                        // Beside the name, so it stays while hovering swaps in the actions.
+                        Image(systemName: Self.reasonSymbol(record.reason))
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 14, height: 14)
+                            .accessibilityLabel(Format.reason(record.reason))
+                            .hoverCard { reasonCard }
                     }
                     Text(record.command)
                         .font(.system(size: 11, design: .monospaced))
@@ -68,7 +76,39 @@ struct StoppedRow: View {
         case .restartFailed:
             Text("restart failed").font(.system(size: 11, weight: .medium)).foregroundStyle(StatusColor.problem(scheme))
         default:
-            Text(Format.reason(record.reason)).font(.system(size: 11)).foregroundStyle(.secondary)
+            EmptyView()
+        }
+    }
+
+    static func reasonSymbol(_ reason: StopReason) -> String {
+        switch reason {
+        case .idle: "hourglass"
+        case .manual: "stop.circle"
+        case .exited: "arrow.down.right.circle"
+        case .unknown: "circle.dashed"
+        }
+    }
+
+    private var reasonCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            let reason = Format.reason(record.reason)
+            CardTitle(title: reason.prefix(1).uppercased() + reason.dropFirst(), subtitle: reasonDetail) {
+                Image(systemName: Self.reasonSymbol(record.reason))
+                    .font(.system(size: 16)).foregroundStyle(.secondary).frame(width: 24)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                CardField(label: "Stopped", value: record.stoppedAt.formatted(date: .abbreviated, time: .shortened))
+                CardField(label: "Command", value: record.command, copy: true)
+            }
+        }
+    }
+
+    private var reasonDetail: String {
+        switch record.reason {
+        case .idle: "Its idle time passed with no activity."
+        case .manual: "Stopped from the panel, the CLI or an agent."
+        case .exited: "The process ended on its own."
+        case .unknown: "lull does not know why."
         }
     }
 

@@ -65,6 +65,8 @@ struct PanelScroll<Content: View>: View {
     }
 
     private func showWhileScrolling() {
+        // A hover card would stay where its element was.
+        HoverCards.shared.dismiss()
         scrolling = true
         idle?.cancel()
         idle = Task {

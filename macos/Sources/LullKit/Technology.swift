@@ -10,9 +10,19 @@ public enum Technology: String, Sendable, CaseIterable {
 
     /// The server's technology, or nil when neither its framework nor its command says.
     public static func of(framework: Framework, command: String, mcpProject: Bool) -> Technology? {
-        if let named = Self(framework) { return named }
-        if mcpProject || mentionsMCP(command) { return .mcp }
-        return runtime(command: command)
+        detect(framework: framework, command: command, mcpEvidence: mcpProject ? "" : nil)?.technology
+    }
+
+    /// The server's technology and, for display, how it was told.
+    public static func detect(
+        framework: Framework, command: String, mcpEvidence: String?
+    ) -> (technology: Technology, reason: String)? {
+        if let named = Self(framework) { return (named, "named by its command") }
+        if mentionsMCP(command) { return (.mcp, "named by its command") }
+        if let mcpEvidence { return (.mcp, mcpEvidence) }
+        guard let runtime = runtime(command: command) else { return nil }
+        let program = command.split(separator: " ").first { !$0.contains("=") && $0 != "env" } ?? ""
+        return (runtime, "started with \((String(program) as NSString).lastPathComponent)")
     }
 
     private init?(_ framework: Framework) {
@@ -43,21 +53,26 @@ public enum Technology: String, Sendable, CaseIterable {
         mcpWord.firstMatch(in: text, range: NSRange(location: 0, length: (text as NSString).length)) != nil
     }
 
-    /// Whether the project in `cwd` (or its git root) is an MCP server: its directory is
-    /// named like one, or its manifest depends on an MCP SDK.
-    public static func isMCPProject(cwd: String) -> Bool {
-        ProjectIcon.searchRoots(cwd: cwd).contains { root in
-            mentionsMCP(root.lastPathComponent) || dependsOnMCP(root)
+    /// Whether the project in `cwd` (or its git root) is an MCP server.
+    public static func isMCPProject(cwd: String) -> Bool { mcpEvidence(cwd: cwd) != nil }
+
+    /// Why the project in `cwd` (or its git root) is an MCP server, for display: its
+    /// directory is named like one, or its manifest depends on an MCP SDK. Nil when neither.
+    public static func mcpEvidence(cwd: String) -> String? {
+        for root in ProjectIcon.searchRoots(cwd: cwd) {
+            if mentionsMCP(root.lastPathComponent) { return "its folder is named \(root.lastPathComponent)" }
+            if let dependency = mcpDependency(root) { return dependency }
         }
+        return nil
     }
 
-    static let mcpPackages: Set = [
+    static let mcpPackages = [
         "@modelcontextprotocol/sdk", "fastmcp", "mcp-framework", "mcp-handler", "@vercel/mcp-adapter",
     ]
     private static let mcpRequirement = try! NSRegularExpression(
-        pattern: #"(?:^|["'\s])(?:mcp|fastmcp)\s*(?:[\[<>=~!;"']|$)"#, options: [.caseInsensitive, .anchorsMatchLines])
+        pattern: #"(?:^|["'\s])(mcp|fastmcp)\s*(?:[\[<>=~!;"']|$)"#, options: [.caseInsensitive, .anchorsMatchLines])
 
-    static func dependsOnMCP(_ root: URL) -> Bool {
+    static func mcpDependency(_ root: URL) -> String? {
         struct Package: Decodable {
             var dependencies: [String: String]?
             var devDependencies: [String: String]?
@@ -65,13 +80,16 @@ public enum Technology: String, Sendable, CaseIterable {
         if let data = ProjectIcon.read(root.appendingPathComponent("package.json"), root: root),
            let package = try? JSONDecoder().decode(Package.self, from: data) {
             let names = Set((package.dependencies ?? [:]).keys).union((package.devDependencies ?? [:]).keys)
-            if !names.isDisjoint(with: mcpPackages) { return true }
+            if let sdk = mcpPackages.first(where: names.contains) { return "package.json depends on \(sdk)" }
         }
-        return ["pyproject.toml", "requirements.txt"].contains { name in
-            guard let data = ProjectIcon.read(root.appendingPathComponent(name), root: root) else { return false }
-            let text = String(decoding: data, as: UTF8.self)
-            return mcpRequirement.firstMatch(in: text, range: NSRange(location: 0, length: (text as NSString).length)) != nil
+        for name in ["pyproject.toml", "requirements.txt"] {
+            guard let data = ProjectIcon.read(root.appendingPathComponent(name), root: root) else { continue }
+            let text = String(decoding: data, as: UTF8.self) as NSString
+            if let match = mcpRequirement.firstMatch(in: text as String, range: NSRange(location: 0, length: text.length)) {
+                return "\(name) lists \(text.substring(with: match.range(at: 1)))"
+            }
         }
+        return nil
     }
 
     // MARK: Runtime

@@ -13,12 +13,15 @@ final class ProjectIcons {
         /// Drawn at its own size on a tile of `tint`, not scaled up.
         var small: Bool
         var tint: CGColor?
+        /// The file it was read from.
+        var source: URL
     }
 
     /// Decoded icons by server cwd; a cwd without one is absent.
     private(set) var icons: [String: Icon] = [:]
-    /// Server cwds whose project is an MCP server (`Technology.isMCPProject`).
-    private(set) var mcpProjects: Set<String> = []
+    /// Why each server cwd's project is an MCP server (`Technology.mcpEvidence`); absent
+    /// when it is not one.
+    private(set) var mcpEvidence: [String: String] = [:]
     @ObservationIgnored private var lookups: [String: ProjectIcon.Lookup] = [:]
     @ObservationIgnored private var pending: Set<String> = []
 
@@ -30,7 +33,7 @@ final class ProjectIcons {
         guard lookups[cwd] == nil, pending.insert(cwd).inserted else { return }
         let pixels = Self.pixels
         let (lookup, mcp) = await Task.detached(priority: .utility) {
-            (ProjectIcon.lookup(cwd: cwd, pixels: pixels), Technology.isMCPProject(cwd: cwd))
+            (ProjectIcon.lookup(cwd: cwd, pixels: pixels), Technology.mcpEvidence(cwd: cwd))
         }.value
         pending.remove(cwd)
         store(lookup, for: cwd)
@@ -49,7 +52,7 @@ final class ProjectIcons {
             Task {
                 let (fresh, mcp) = await Task.detached(priority: .utility) {
                     (ProjectIcon.isStale(old, cwd: cwd) ? ProjectIcon.lookup(cwd: cwd, pixels: pixels) : nil,
-                     Technology.isMCPProject(cwd: cwd))
+                     Technology.mcpEvidence(cwd: cwd))
                 }.value
                 pending.remove(cwd)
                 if let fresh { store(fresh, for: cwd) }
@@ -58,21 +61,22 @@ final class ProjectIcons {
         }
     }
 
-    private func store(mcp: Bool, for cwd: String) {
-        if mcp != mcpProjects.contains(cwd) { mcpProjects.formSymmetricDifference([cwd]) }
+    private func store(mcp: String?, for cwd: String) {
+        if mcpEvidence[cwd] != mcp { mcpEvidence[cwd] = mcp }
     }
 
     private func store(_ lookup: ProjectIcon.Lookup, for cwd: String) {
         lookups[cwd] = lookup
         guard icons[cwd]?.image !== lookup.image else { return }
-        icons[cwd] = lookup.image.map {
-            Icon(image: $0, small: lookup.found?.small == true, tint: lookup.tint)
+        icons[cwd] = lookup.image.flatMap { image in
+            lookup.found.map { Icon(image: image, small: $0.small, tint: lookup.tint, source: $0.url) }
         }
     }
 }
 
 /// The project's icon on the row tile. A small icon keeps its own pixel size, crisp, on a
-/// tile tinted with its colour. The technology tile when there is none.
+/// tile tinted with its colour. The technology tile when there is none. Its hover card says
+/// what the server is built with, how lull told, and where the icon came from.
 struct ProjectTile: View {
     @Environment(ProjectIcons.self) private var icons: ProjectIcons?
     var cwd: String
@@ -80,26 +84,53 @@ struct ProjectTile: View {
     var command: String
 
     var body: some View {
-        Group {
-            if let icon = icons?.icons[cwd] {
-                Group {
-                    if icon.small {
-                        Image(decorative: icon.image, scale: 1).interpolation(.none)
-                    } else {
-                        Image(decorative: icon.image, scale: 2)
-                            .resizable()
-                            .interpolation(.high)
-                            .aspectRatio(contentMode: .fit)
-                            .padding(3)
-                    }
+        let detected = Technology.detect(framework: framework, command: command, mcpEvidence: icons?.mcpEvidence[cwd])
+        let icon = icons?.icons[cwd]
+        tile(icon, detected?.technology)
+            .hoverCard { card(icon, detected) }
+            .task(id: cwd) { await icons?.load(cwd) }
+    }
+
+    @ViewBuilder private func tile(_ icon: ProjectIcons.Icon?, _ technology: Technology?) -> some View {
+        if let icon {
+            Group {
+                if icon.small {
+                    Image(decorative: icon.image, scale: 1).interpolation(.none)
+                } else {
+                    Image(decorative: icon.image, scale: 2)
+                        .resizable()
+                        .interpolation(.high)
+                        .aspectRatio(contentMode: .fit)
+                        .padding(3)
                 }
-                .iconTile(tint: icon.tint.map { Color(cgColor: $0) })
-                .accessibilityLabel(framework.rawValue)
-            } else {
-                TechTile(technology: Technology.of(
-                    framework: framework, command: command, mcpProject: icons?.mcpProjects.contains(cwd) == true))
+            }
+            .iconTile(tint: icon.tint.map { Color(cgColor: $0) })
+            .accessibilityLabel(technology.map { TechTile.style($0).name } ?? "project icon")
+        } else {
+            TechTile(technology: technology)
+        }
+    }
+
+    /// The icon's path inside the project, else shortened with `~`. The source has its
+    /// symlinks resolved (`/private/tmp` reads as `/tmp`), so the cwd is resolved too.
+    private func iconPath(_ source: URL) -> String {
+        let path = source.path
+        for base in [cwd, URL(fileURLWithPath: cwd).resolvingSymlinksInPath().path] where path.hasPrefix(base + "/") {
+            return String(path.dropFirst(base.count + 1))
+        }
+        return Format.tilde(path)
+    }
+
+    private func card(_ icon: ProjectIcons.Icon?, _ detected: (technology: Technology, reason: String)?) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            CardTitle(title: detected.map { TechTile.style($0.technology).name } ?? "Unknown technology",
+                      subtitle: detected?.reason) {
+                TechTile(technology: detected?.technology)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                if let icon { CardField(label: "Icon", value: iconPath(icon.source)) }
+                CardField(label: "Folder", value: Format.tilde(cwd), copy: true)
             }
         }
-        .task(id: cwd) { await icons?.load(cwd) }
     }
 }

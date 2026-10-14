@@ -38,7 +38,7 @@ enum PreviewData {
         s.primaryUrl = ports.first.map { "http://127.0.0.1:\($0)/" }
         s.command = command
         s.cwd = cwd ?? "/Users/x/proj/\(project)"
-        s.origin = agent.map { Origin(kind: .agent, agent: $0) } ?? Origin(kind: .user)
+        s.origin = agent.map { Origin(kind: .agent, agent: $0, sessionId: "d2630b7e-5c1a-4f0e-9a43-7b1f2c8e9d10") } ?? Origin(kind: .user)
         s.state = state
         s.stopsAt = stopsIn.map { Date.now.addingTimeInterval($0) }
         s.pinned = pinSource != nil
