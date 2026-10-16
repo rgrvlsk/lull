@@ -320,7 +320,7 @@ private struct LaunchAtLogin: View {
 
     var body: some View {
         SettingRow(title: "Open at login", detail: error ?? approvalHint) {
-            Toggle("", isOn: Binding(get: { enabled }, set: set))
+            Toggle("", isOn: Binding(get: { enabled }, set: { set($0) }))
                 .toggleStyle(.switch)
                 .labelsHidden()
         }
