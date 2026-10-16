@@ -803,6 +803,7 @@ impl Daemon {
             } else {
                 PinSource::User
             }),
+            restarted_from: rec.restarted_from.clone(),
             state: rec.state,
             stops_at,
             tabs: self.browsers.tabs_of(&o.id),

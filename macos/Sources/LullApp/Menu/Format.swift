@@ -14,6 +14,13 @@ enum Format {
         return String(format: "%d:%02d", s / 60, s % 60)
     }
 
+    /// Wall-clock time a server started: `10:17` today, `13 Oct, 23:54` on an earlier day.
+    static func since(_ date: Date, now: Date = .now) -> String {
+        Calendar.current.isDate(date, inSameDayAs: now)
+            ? date.formatted(date: .omitted, time: .shortened)
+            : date.formatted(.dateTime.day().month(.abbreviated).hour().minute())
+    }
+
     static func ago(_ date: Date, now: Date = .now) -> String {
         let f = RelativeDateTimeFormatter()
         f.unitsStyle = .short

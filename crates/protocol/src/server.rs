@@ -37,10 +37,21 @@ pub struct Server {
     pub pinned: bool,
     /// Where the pin came from (protocol 1.3); `null` when not pinned.
     pub pin_source: Option<PinSource>,
+    /// Set when lull started this server by restarting a stopped-server record (§7,
+    /// protocol 1.3); `null` otherwise.
+    pub restarted_from: Option<RestartedFrom>,
     pub state: ServerState,
     /// `null` when `autoStop` is false or the server is pinned.
     pub stops_at: Option<String>,
     pub tabs: Vec<TabRef>,
+}
+
+/// The stopped-server record a restart came from, and who had started that server (§7).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RestartedFrom {
+    pub id: String,
+    pub origin: Origin,
 }
 
 /// Who started a server (§4.5, ADR-0001).

@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 
 pub use lull_protocol::server::{Activity, Framework, Origin, ServerState};
-pub use lull_protocol::{StopReason, StoppedServer};
+pub use lull_protocol::{RestartedFrom, StopReason, StoppedServer};
 
 use crate::traits::Instant;
 
@@ -249,6 +249,10 @@ pub struct ServerRecord {
     /// pin or unpin. Absent from state files written before protocol 1.3.
     #[serde(default)]
     pub pinned_by_env: bool,
+    /// Set when the server came from a restart of a stopped-server record (§7). Absent from
+    /// state files written before it existed.
+    #[serde(default)]
+    pub restarted_from: Option<RestartedFrom>,
     /// Per-server override; `None` follows the policy (§6).
     pub auto_stop: Option<bool>,
     #[serde(skip, default = "running")]

@@ -7,6 +7,9 @@ import LullKit
 
 struct OriginMark: View {
     var origin: Origin
+    /// Set when lull restarted it (§7): the restart has no agent marker, so the card names
+    /// who started the server first.
+    var restartedFrom: RestartedFrom?
     var startedAt: Date
 
     var body: some View {
@@ -16,7 +19,12 @@ struct OriginMark: View {
     }
 
     @ViewBuilder private func mark(size: CGFloat) -> some View {
-        if origin.kind != .agent {
+        if restartedFrom != nil {
+            Image(systemName: "arrow.clockwise")
+                .font(.system(size: size * 0.7, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: size, height: size)
+        } else if origin.kind != .agent {
             Image(systemName: "person.fill")
                 .font(.system(size: size * 0.7, weight: .semibold))
                 .foregroundStyle(.secondary)
@@ -38,11 +46,11 @@ struct OriginMark: View {
 
     private var card: some View {
         VStack(alignment: .leading, spacing: 8) {
-            CardTitle(title: title, subtitle: origin.kind == .agent ? "Coding agent" : "Started outside an agent") {
+            CardTitle(title: title, subtitle: subtitle) {
                 mark(size: 24)
             }
             VStack(alignment: .leading, spacing: 4) {
-                if let session = origin.sessionId {
+                if let session = (restartedFrom?.origin ?? origin).sessionId {
                     CardField(label: "Session", value: session, copy: true)
                 }
                 TimelineView(.periodic(from: .now, by: 30)) { context in
@@ -65,7 +73,16 @@ struct OriginMark: View {
     ]
 
     private var title: String {
-        guard origin.kind == .agent else { return "Started by you" }
-        return "Started by " + (Self.agents[origin.agent ?? ""]?.name ?? origin.agent ?? "an agent")
+        restartedFrom == nil ? "Started by " + Self.who(origin) : "Restarted by lull"
+    }
+
+    private var subtitle: String {
+        if let first = restartedFrom?.origin { return "First started by " + Self.who(first) }
+        return origin.kind == .agent ? "Coding agent" : "Started outside an agent"
+    }
+
+    private static func who(_ origin: Origin) -> String {
+        guard origin.kind == .agent else { return "you" }
+        return agents[origin.agent ?? ""]?.name ?? origin.agent ?? "an agent"
     }
 }

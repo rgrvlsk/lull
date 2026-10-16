@@ -18,7 +18,8 @@ pub use config::{AgentMarker, AutoStop, Config, ConfigPatch, ProjectRule, TabsOn
 pub use history::{RestartStatus, StopReason, StoppedServer};
 pub use rpc::ProtocolVersion;
 pub use server::{
-    Activity, Agent, Framework, Origin, OriginKind, PinSource, Server, ServerState, TabRef,
+    Activity, Agent, Framework, Origin, OriginKind, PinSource, RestartedFrom, Server, ServerState,
+    TabRef,
 };
 
 /// Protocol version spoken by this crate (`hello.protocol`, contract §8).

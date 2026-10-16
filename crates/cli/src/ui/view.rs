@@ -1,7 +1,7 @@
 //! Drawing. Colours are the terminal's own 16-colour palette, so light and dark themes
 //! both work; every state also has a glyph or a word, so `NO_COLOR` loses nothing.
 
-use lull_protocol::{OriginKind, RestartStatus, Server, ServerState, StoppedServer};
+use lull_protocol::{Config, OriginKind, RestartStatus, Server, ServerState, StoppedServer};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
@@ -12,7 +12,8 @@ use ratatui::widgets::{
 
 use super::app::{App, FIELDS, Prompt, SAMPLES, View, config_value, tilde};
 use super::{LOGO, LOGO_WIDTH};
-use crate::cli::{enum_str, origin, parse_rfc3339};
+use crate::cli::{enum_str, origin, parse_rfc3339, server_origin};
+use lull_core::policy;
 
 const MIN: (u16, u16) = (40, 8);
 
@@ -254,7 +255,7 @@ fn servers(f: &mut Frame, main: Rect, side: Option<Rect>, app: &mut App) {
                     Line::from(short_bytes(s.rss_bytes)).right_aligned(),
                 ));
             }
-            cells.push(Cell::from(origin_span(&s.origin)));
+            cells.push(Cell::from(origin_span(s)));
             Row::new(cells)
         })
         .collect();
@@ -272,10 +273,29 @@ fn servers(f: &mut Frame, main: Rect, side: Option<Rect>, app: &mut App) {
     watermark(f, inner, app.servers.len());
     if let (Some(side), Some(s)) = (side, app.selected_server()) {
         let title = format!(" {} · {} ", s.project, enum_str(&s.framework));
-        let block = panel(Line::from(title.bold()));
+        // Since when it runs, right of the title: with the duration when it fits, without
+        // it when only that fits, and not at all over a long title.
+        let started = parse_rfc3339(&s.started_at).unwrap_or(now);
+        let clock = clock_at(started, now);
+        let room = (side.width as usize).saturating_sub(title.chars().count() + 4);
+        let since = [
+            format!(" since {clock} · {} ", dur(now.saturating_sub(started))),
+            format!(" since {clock} "),
+            String::new(),
+        ]
+        .into_iter()
+        .find(|t| t.chars().count() <= room)
+        .unwrap_or_default();
+        let block = panel(Line::from(title.bold())).title(Line::from(since.dim()).right_aligned());
         let inner = block.inner(side);
         f.render_widget(block, side);
-        let text = server_detail(s, series(app, s), now, inner.width as usize);
+        let text = server_detail(
+            s,
+            app.config.as_ref(),
+            series(app, s),
+            now,
+            inner.width as usize,
+        );
         f.render_widget(Paragraph::new(text).wrap(Wrap { trim: false }), inner);
     }
 }
@@ -313,14 +333,21 @@ fn stops(s: &Server, now: u64) -> Span<'static> {
     }
 }
 
-fn origin_span(o: &lull_protocol::Origin) -> Span<'static> {
-    match o.kind {
-        OriginKind::Agent => origin(o).magenta(),
-        OriginKind::User => origin(o).into(),
+fn origin_span(s: &Server) -> Span<'static> {
+    match (s.origin.kind, &s.restarted_from) {
+        (_, Some(_)) => server_origin(s).dim(),
+        (OriginKind::Agent, None) => origin(&s.origin).magenta(),
+        (OriginKind::User, None) => origin(&s.origin).into(),
     }
 }
 
-fn server_detail(s: &Server, load: (Vec<f64>, Vec<f64>), now: u64, width: usize) -> Text<'static> {
+fn server_detail(
+    s: &Server,
+    config: Option<&Config>,
+    load: (Vec<f64>, Vec<f64>),
+    now: u64,
+    width: usize,
+) -> Text<'static> {
     let at = |t: &str| parse_rfc3339(t).unwrap_or(now);
     let last = at(&s.last_activity_at);
     let mut lines = vec![
@@ -351,11 +378,20 @@ fn server_detail(s: &Server, load: (Vec<f64>, Vec<f64>), now: u64, width: usize)
             ));
         }
         _ if s.pinned => lines.push(Line::from("pinned: lull never stops it".cyan())),
-        _ => lines.push(Line::from("auto-stop off: lull never stops it".dim())),
+        _ => {
+            if let Some(config) = config {
+                lines.push(Line::from(auto_stop_off(s, config).dim()));
+            }
+            lines.push(Line::from("auto-stop off: lull never stops it"));
+        }
     }
     lines.push(Line::default());
-    let session = s
-        .origin
+    // A restart runs without the agent's markers (§7), so name who started it first.
+    let (who, first) = match &s.restarted_from {
+        Some(r) => ("lull restart of ", &r.origin),
+        None => ("", &s.origin),
+    };
+    let session = first
         .session_id
         .as_deref()
         .map(|id| format!(" · {}", id.chars().take(8).collect::<String>()));
@@ -381,7 +417,7 @@ fn server_detail(s: &Server, load: (Vec<f64>, Vec<f64>), now: u64, width: usize)
     for (k, v) in [
         (
             "origin",
-            format!("{}{}", origin(&s.origin), session.unwrap_or_default()),
+            format!("{who}{}{}", origin(first), session.unwrap_or_default()),
         ),
         ("state", enum_str(&s.state)),
         (
@@ -413,10 +449,6 @@ fn server_detail(s: &Server, load: (Vec<f64>, Vec<f64>), now: u64, width: usize)
     ]);
     for (k, v) in [
         (
-            "started",
-            format!("{} ago", dur(now.saturating_sub(at(&s.started_at)))),
-        ),
-        (
             "activity",
             format!(
                 "{} · {} ago",
@@ -439,6 +471,41 @@ fn server_detail(s: &Server, load: (Vec<f64>, Vec<f64>), now: u64, width: usize)
     // Last: it can be long (absolute paths to node and friends) and wraps.
     lines.extend([Line::default(), Line::from(tilde(&s.command).bold())]);
     Text::from(lines)
+}
+
+fn auto_stop_off(s: &Server, config: &Config) -> String {
+    let home = crate::paths::home();
+    let restarted = s.restarted_from.is_some();
+    tilde(&policy::auto_stop_off(
+        config,
+        &s.cwd,
+        s.origin.kind,
+        restarted,
+        &home,
+    ))
+}
+
+/// Local wall-clock time of `ms`: `10:17`, or `Oct 14 10:17` on an earlier day.
+fn clock_at(ms: u64, now: u64) -> String {
+    const MONTHS: [&str; 12] = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+    let local = |ms: u64| {
+        let t = (ms / 1000) as libc::time_t;
+        // SAFETY: `localtime_r` writes only to the value we pass.
+        unsafe {
+            let mut tm: libc::tm = std::mem::zeroed();
+            libc::localtime_r(&t, &mut tm);
+            tm
+        }
+    };
+    let (at, today) = (local(ms), local(now));
+    let hm = format!("{:02}:{:02}", at.tm_hour, at.tm_min);
+    if (at.tm_year, at.tm_yday) == (today.tm_year, today.tm_yday) {
+        hm
+    } else {
+        format!("{} {} {hm}", MONTHS[at.tm_mon as usize % 12], at.tm_mday)
+    }
 }
 
 /// A thin progress bar the width of the pane.
@@ -744,6 +811,7 @@ fn bytes(b: u64) -> String {
 mod tests {
     use super::super::app::tests::app;
     use super::*;
+    use lull_protocol::AutoStop;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use serde_json::json;
@@ -838,6 +906,40 @@ mod tests {
                 mem_range(&[100.0 * mib, 101.0 * mib])
             ),
             "▁▁"
+        );
+    }
+
+    #[test]
+    fn auto_stop_off_names_the_setting() {
+        let app = app();
+        let mut config = app.config.clone().unwrap();
+        let mut s = app.servers[0].clone();
+        s.cwd = "/Users/x/dev/example-app/web".into();
+        s.origin.kind = OriginKind::User;
+        assert_eq!(
+            auto_stop_off(&s, &config),
+            "config: auto_stop = \"agent\", and you started it"
+        );
+        s.restarted_from = app.servers[1].restarted_from.clone();
+        assert_eq!(
+            auto_stop_off(&s, &config),
+            "config: auto_stop = \"agent\", and lull restarted it"
+        );
+        config.auto_stop = AutoStop::None;
+        assert_eq!(auto_stop_off(&s, &config), "config: auto_stop = \"none\"");
+        // A covering project rule that sets auto_stop wins over the default.
+        config.auto_stop = AutoStop::All;
+        config.projects[0].path = "/Users/x/dev/example-app".into();
+        config.projects[0].auto_stop = Some(AutoStop::None);
+        assert_eq!(
+            auto_stop_off(&s, &config),
+            "[[project]] /Users/x/dev/example-app: auto_stop = \"none\""
+        );
+        // The settings would stop it, so the per-server toggle turned it off.
+        config.projects.clear();
+        assert_eq!(
+            auto_stop_off(&s, &config),
+            "auto-stop turned off for this server"
         );
     }
 

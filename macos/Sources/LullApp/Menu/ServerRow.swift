@@ -1,4 +1,4 @@
-// One live server: port, origin and pin marks, countdown, CPU/RSS; Open, Stop and
+// One live server: port, origin and pin marks, start time, countdown, CPU/RSS; Open, Stop and
 // Pin/Unpin on hover, the rest in the context menu (contract §10).
 import SwiftUI
 import LullKit
@@ -16,8 +16,13 @@ struct ServerRow: View {
                 HStack(spacing: 6) {
                     Text(Format.ports(server.ports))
                         .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                    OriginMark(origin: server.origin, startedAt: server.startedAt)
+                    OriginMark(origin: server.origin, restartedFrom: server.restartedFrom,
+                               startedAt: server.startedAt)
                     if server.pinned { PinMark(source: server.pinSource) }
+                    Text("since \(Format.since(server.startedAt))")
+                        .font(.system(size: 10).monospacedDigit())
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
                 }
                 Text(server.command)
                     .font(.system(size: 11, design: .monospaced))
@@ -60,11 +65,27 @@ struct ServerRow: View {
                         .font(.system(size: 11, weight: soon ? .semibold : .regular).monospacedDigit())
                         .foregroundStyle(soon ? StatusColor.soon(scheme) : .secondary)
                 }
+            } else if server.pinned {
+                Text("kept running").font(.system(size: 11)).foregroundStyle(.secondary)
             } else {
-                Text(server.pinned ? "kept running" : "no auto-stop")
-                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                noAutoStop
             }
         }
+    }
+
+    /// The card says which setting left it out of auto-stop (`daemon.status` `ineligible`,
+    /// contract §6).
+    private var noAutoStop: some View {
+        Text("no auto-stop").font(.system(size: 11)).foregroundStyle(.secondary)
+            .hoverCard {
+                CardTitle(title: "No auto-stop", subtitle: store.status?.ineligible[server.id]) {
+                    Image(systemName: "moon.zzz").font(.system(size: 16)).foregroundStyle(.secondary).frame(width: 24)
+                }
+                Text("lull never stops it when idle. Change the setting, or turn auto-stop on for this server from its menu.")
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 6)
+            }
     }
 
     private var actions: some View {

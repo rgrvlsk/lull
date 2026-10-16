@@ -8,13 +8,14 @@ export interface HelloResult { daemonVersion: string; protocol: ProtocolVersion;
 export type Framework = "vite" | "next" | "astro" | "nuxt" | "remix" | "wrangler" | "php-builtin" | "artisan" | "python-http" | "rails" | "django" | "generic";
 export type StopReason = "idle" | "manual" | "exited";
 export interface Origin { kind: "agent" | "user"; agent?: string; sessionId?: string }
+export interface RestartedFrom { id: string; origin: Origin }
 export interface TabRef { connectionId: string; browser: string; tabId: number; windowId: number }
 export interface Server {
   id: string; pgid: number; pids: number[]; command: string; argv: string[]; cwd: string;
   project: string; framework: Framework; ports: number[]; primaryUrl: string | null; origin: Origin;
   startedAt: string; cpuPercent: number; rssBytes: number; lastActivityAt: string;
   lastActivitySource: "tab" | "traffic" | "started" | "manual"; idleMinutes: number;
-  autoStop: boolean; pinned: boolean; pinSource: "env" | "user" | null; state: "running" | "stopping-soon" | "stopping" | "no-listener";
+  autoStop: boolean; pinned: boolean; pinSource: "env" | "user" | null; restartedFrom: RestartedFrom | null; state: "running" | "stopping-soon" | "stopping" | "no-listener";
   stopsAt: string | null; tabs: TabRef[];
 }
 export interface StoppedServer {
@@ -128,6 +129,7 @@ const hello = object<HelloParams>({ client: literal("app", "cli", "browser"), ve
 const helloResult = object<HelloResult>({ daemonVersion: string, protocol, connectionId: string, capabilities: array(string), activityBackend: literal("ntstat", "scan") });
 const framework = literal<Framework>("vite", "next", "astro", "nuxt", "remix", "wrangler", "php-builtin", "artisan", "python-http", "rails", "django", "generic");
 const origin = object<Origin>({ kind: literal("agent", "user"), agent: optional(string), sessionId: optional(string) });
+const restartedFrom = object<RestartedFrom>({ id: string, origin });
 const tabRef = object<TabRef>({ connectionId: string, browser: string, tabId: integer, windowId: integer });
 const reason = literal<StopReason>("idle", "manual", "exited");
 const server = object<Server>({
@@ -135,7 +137,7 @@ const server = object<Server>({
   project: string, framework, ports: array(uint(65535)), primaryUrl: nullable(string), origin,
   startedAt: string, cpuPercent: number, rssBytes: u64, lastActivityAt: string,
   lastActivitySource: literal("tab", "traffic", "started", "manual"), idleMinutes: u32,
-  autoStop: boolean, pinned: boolean, pinSource: nullable(literal("env", "user")), state: literal("running", "stopping-soon", "stopping", "no-listener"),
+  autoStop: boolean, pinned: boolean, pinSource: nullable(literal("env", "user")), restartedFrom: nullable(restartedFrom), state: literal("running", "stopping-soon", "stopping", "no-listener"),
   stopsAt: nullable(string), tabs: array(tabRef),
 });
 const stopped = object<StoppedServer>({
