@@ -652,6 +652,7 @@ fn restart_succeeds_when_a_new_server_listens_in_cwd() {
         ..FakeSpawner::default()
     };
     let now = h.clock.now();
+    let origin = h.lc.history()[0].origin.clone();
     let pid = h.lc.restart(ID, &mut spawner, "/logs", &now).unwrap();
     assert_eq!(pid, 200);
     let req = &spawner.requests[0];
@@ -687,6 +688,15 @@ fn restart_succeeds_when_a_new_server_listens_in_cwd() {
         }
     ));
     assert!(h.lc.history().is_empty());
+    // The restarted server names the record and who had started it; the other does not.
+    assert_eq!(
+        h.lc.record("200-1000").unwrap().restarted_from,
+        Some(RestartedFrom {
+            id: ID.into(),
+            origin
+        })
+    );
+    assert_eq!(h.lc.record("150-1000").unwrap().restarted_from, None);
 }
 
 #[test]

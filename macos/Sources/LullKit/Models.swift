@@ -50,6 +50,17 @@ public struct Origin: Codable, Hashable, Sendable {
     }
 }
 
+/// The stopped-server record a restart came from, and who had started that server (§7).
+public struct RestartedFrom: Codable, Hashable, Sendable {
+    public var id: String
+    public var origin: Origin
+
+    public init(id: String, origin: Origin) {
+        self.id = id
+        self.origin = origin
+    }
+}
+
 public struct TabRef: Codable, Hashable, Sendable {
     public var connectionId: String
     public var browser: String
@@ -79,6 +90,7 @@ public struct Server: Codable, Hashable, Identifiable, Sendable {
     public var autoStop: Bool
     public var pinned: Bool
     public var pinSource: PinSource?
+    public var restartedFrom: RestartedFrom?
     public var state: ServerState
     public var stopsAt: Date?
     public var tabs: [TabRef]

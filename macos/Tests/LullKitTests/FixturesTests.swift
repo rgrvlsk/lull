@@ -121,5 +121,6 @@ private func fixtureFiles() throws -> [URL] {
         #expect(decoded[0].framework == .unknown)
         #expect(decoded[0].state == .unknown)
         #expect(decoded[0].pinSource == nil)
+        #expect(decoded[1].restartedFrom?.origin.agent == "claude")
     }
 }

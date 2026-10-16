@@ -13,7 +13,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::model::{
     Activity, ActivityEvent, Discovery, EffectivePolicy, KnownGroup, ObservedServer, PendingStop,
-    ProcessInfo, ServerId, ServerRecord, ServerState, StopReason, StoppedServer, Witness, rfc3339,
+    ProcessInfo, RestartedFrom, ServerId, ServerRecord, ServerState, StopReason, StoppedServer,
+    Witness, rfc3339,
 };
 use crate::policy;
 use crate::traits::{Instant, ProcessSource, Signal, Signaler, SpawnRequest, Spawner, StateStore};
@@ -139,6 +140,8 @@ struct Entry {
     observed: Option<ObservedServer>,
     /// Policy from config alone (no per-server override), as of the last tick.
     base: EffectivePolicy,
+    /// `policy::auto_stop_off` when `base` leaves auto-stop off, as of the last tick.
+    off_reason: Option<String>,
     warn_ms: u64,
     manual_stop: bool,
     stuck: bool,
@@ -155,6 +158,7 @@ impl Entry {
                 idle_minutes: Config::default().idle_minutes,
                 auto_stop: false,
             },
+            off_reason: None,
             warn_ms: 0,
             manual_stop: false,
             stuck: false,
@@ -501,9 +505,11 @@ impl Lifecycle {
                     entry
                 }
                 None => {
-                    if !s.ports.is_empty() {
-                        self.match_restart(s, now, &mut fx);
-                    }
+                    let restarted_from = if s.ports.is_empty() {
+                        None
+                    } else {
+                        self.match_restart(s, now, &mut fx)
+                    };
                     let mut entry = Entry::new(ServerRecord {
                         id: s.id.clone(),
                         pgid: s.pgid,
@@ -513,6 +519,7 @@ impl Lifecycle {
                         last_activity_source: Activity::Started,
                         pinned: s.env_pin,
                         pinned_by_env: s.env_pin,
+                        restarted_from,
                         auto_stop: None,
                         state: ServerState::Running,
                         stops_at: None,
@@ -524,6 +531,10 @@ impl Lifecycle {
             };
             let obs = entry.observed.as_ref().expect("set above");
             entry.base = policy::effective(config, obs, None, t.home);
+            entry.off_reason = (!entry.base.auto_stop).then(|| {
+                let restarted = entry.record.restarted_from.is_some();
+                policy::auto_stop_off(config, &obs.cwd, obs.origin.kind, restarted, t.home)
+            });
             entry.warn_ms = minutes(config.warn_before_minutes);
         }
 
@@ -554,25 +565,33 @@ impl Lifecycle {
         fx
     }
 
-    /// A new server listening in the cwd of a `restarting` record completes that restart.
-    fn match_restart(&mut self, s: &ObservedServer, now: &Instant, fx: &mut Vec<Effect>) {
+    /// A new server listening in the cwd of a `restarting` record completes that restart;
+    /// returns the record it came from.
+    fn match_restart(
+        &mut self,
+        s: &ObservedServer,
+        now: &Instant,
+        fx: &mut Vec<Effect>,
+    ) -> Option<RestartedFrom> {
         let found = self.history.iter().position(|h| {
             h.server.status == RestartStatus::Restarting
                 && h.server.cwd == s.cwd
                 && h.restart_pid.is_none_or(|pid| pid == s.pgid)
                 && h.restart_window_open(now)
         });
-        if let Some(pos) = found {
-            let h = self.history.remove(pos);
-            fx.push(Effect::Log(format!(
-                "restart of {} succeeded as {}",
-                h.server.id, s.id
-            )));
-            fx.push(Effect::RestartSucceeded {
-                record_id: h.server.id,
-                server_id: s.id.clone(),
-            });
-        }
+        let h = self.history.remove(found?);
+        fx.push(Effect::Log(format!(
+            "restart of {} succeeded as {}",
+            h.server.id, s.id
+        )));
+        fx.push(Effect::RestartSucceeded {
+            record_id: h.server.id.clone(),
+            server_id: s.id.clone(),
+        });
+        Some(RestartedFrom {
+            id: h.server.id,
+            origin: h.server.origin,
+        })
     }
 
     fn prune(&mut self, config: &Config, wall_ms: u64) {
@@ -943,10 +962,7 @@ impl Lifecycle {
         } else if e.record.auto_stop == Some(false) {
             "auto-stop turned off for this server".to_owned()
         } else if !e.policy().auto_stop {
-            format!(
-                "auto_stop policy excludes it (origin {:?})",
-                obs.origin.kind
-            )
+            e.off_reason.clone().unwrap_or_default()
         } else if obs.ports.is_empty() {
             "no listener".to_owned()
         } else if !obs.complete() {

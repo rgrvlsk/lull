@@ -3,7 +3,7 @@
 use std::collections::BTreeSet;
 
 use lull_protocol::server::OriginKind;
-use lull_protocol::{AutoStop, Config, ConfigPatch};
+use lull_protocol::{AutoStop, Config, ConfigPatch, ProjectRule};
 
 use crate::model::{EffectivePolicy, ObservedServer};
 
@@ -15,15 +15,7 @@ pub fn effective(
     auto_stop_override: Option<bool>,
     home: &str,
 ) -> EffectivePolicy {
-    let rule = config
-        .projects
-        .iter()
-        .filter_map(|rule| {
-            let path = expand(&rule.path, home);
-            covers(&path, &server.cwd).then_some((path.len(), rule))
-        })
-        .max_by_key(|(len, _)| *len)
-        .map(|(_, rule)| rule);
+    let rule = project_rule(config, &server.cwd, home);
     let idle_minutes = rule
         .and_then(|r| r.idle_minutes)
         .unwrap_or(config.idle_minutes);
@@ -37,6 +29,48 @@ pub fn effective(
         idle_minutes,
         auto_stop,
     }
+}
+
+/// Why the settings leave a server out of auto-stop, naming the setting that did (§6):
+/// `config: auto_stop = "none"`, `[[project]] ~/dev/x: auto_stop = "none"`, or
+/// `config: auto_stop = "agent", and you started it`. When the settings would include the
+/// server, only its per-server toggle can have turned auto-stop off.
+pub fn auto_stop_off(
+    config: &Config,
+    cwd: &str,
+    kind: OriginKind,
+    restarted: bool,
+    home: &str,
+) -> String {
+    let (mode, from) = match project_rule(config, cwd, home).and_then(|r| Some((r.auto_stop?, r))) {
+        Some((mode, r)) => (mode, format!("[[project]] {}", r.path)),
+        None => (config.auto_stop, "config".to_owned()),
+    };
+    match mode {
+        AutoStop::None => format!("{from}: auto_stop = \"none\""),
+        AutoStop::Agent if kind == OriginKind::User => {
+            let who = if restarted {
+                "lull restarted"
+            } else {
+                "you started"
+            };
+            format!("{from}: auto_stop = \"agent\", and {who} it")
+        }
+        _ => "auto-stop turned off for this server".into(),
+    }
+}
+
+/// The longest `[[project]]` rule covering `cwd`, if any.
+pub fn project_rule<'a>(config: &'a Config, cwd: &str, home: &str) -> Option<&'a ProjectRule> {
+    config
+        .projects
+        .iter()
+        .filter_map(|rule| {
+            let path = expand(&rule.path, home);
+            covers(&path, cwd).then_some((path.len(), rule))
+        })
+        .max_by_key(|(len, _)| *len)
+        .map(|(_, rule)| rule)
 }
 
 /// `~` expanded, trailing slashes dropped.

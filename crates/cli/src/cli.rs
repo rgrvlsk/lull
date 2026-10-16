@@ -236,6 +236,15 @@ pub(crate) fn origin(o: &lull_protocol::Origin) -> String {
     }
 }
 
+/// The ORIGIN column: `lull restart` for a server lull restarted (§7), which would
+/// otherwise read `you`.
+pub(crate) fn server_origin(s: &lull_protocol::Server) -> String {
+    match s.restarted_from {
+        Some(_) => "lull restart".into(),
+        None => origin(&s.origin),
+    }
+}
+
 pub(crate) fn enum_str<T: serde::Serialize>(v: &T) -> String {
     serde_json::to_value(v)
         .unwrap()
@@ -273,7 +282,7 @@ pub fn format_ls(servers: &[Server], now_ms: u64) -> String {
             s.project.clone(),
             enum_str(&s.framework),
             s.primary_url.clone().unwrap_or_else(|| "-".into()),
-            origin(&s.origin),
+            server_origin(s),
             enum_str(&s.state),
             stops,
         ]);
