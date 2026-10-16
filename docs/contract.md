@@ -130,7 +130,7 @@ Scan every `scanIntervalSec` (default 5):
    number while the group has a member, so the id cannot collide.
 7. Persistent state: `~/Library/Application Support/lull/state.json` (versioned schema,
    written atomically via temp file + rename) maps `id → {pgid, witnesses: [{pid,
-   startEpochMs}], lastActivityAt, lastActivitySource, pinned, pinnedByEnv, autoStop}`; written on
+   startEpochMs}], lastActivityAt, lastActivitySource, pinned, pinnedByEnv, restartedFrom, autoStop}`; written on
    change, entry dropped on `server.removed`. On daemon start a live group resumes a
    persisted entry only if its pgid matches **and** at least one witness (pid + start
    time) is still a member — the computed id alone may differ because the oldest member
@@ -166,6 +166,7 @@ Scan every `scanIntervalSec` (default 5):
   "autoStop": true,                     // effective policy value
   "pinned": false,
   "pinSource": null,                    // env | user | null when not pinned (1.3)
+  "restartedFrom": null,                // {id, origin} of the record lull restarted (1.3)
   "state": "running",                   // running | stopping-soon | stopping | no-listener
   "stopsAt": "2026-10-11T20:42:00Z",   // null when autoStop=false or pinned
   "tabs": [{ "connectionId": "c7", "browser": "helium", "tabId": 812, "windowId": 3 }]
@@ -371,7 +372,9 @@ pin, `autoStop` change or policy change that makes the server ineligible returns
   `origin.kind = "user"` and not auto-stopped by default; it gets a new id. The record is
   marked `restarting` (a second restart of the same record is refused) and removed from
   history only when a new server with a listener is discovered in `cwd` within 60 s; its
-  `tabs` (still bound to the record, §9) are then reloaded. On timeout or early exit
+  `tabs` (still bound to the record, §9) are then reloaded. That server carries
+  `restartedFrom: {id, origin}` (the record's id and origin, persisted in `state.json`),
+  so clients show it as restarted by lull rather than started by the user. On timeout or early exit
   the record stays, marked `restartFailed`, with a link to the restart log. The
   confirmation shows the exact command that will run. If the port is taken, the
   server's own behaviour applies (fail or pick another port); the log shows it.
