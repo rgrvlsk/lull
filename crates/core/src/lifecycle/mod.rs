@@ -422,9 +422,8 @@ impl Lifecycle {
         for id in gone {
             // A stop under way whose id vanished while its pgid still has members: every
             // member known at decision time exited and new ones took over, so discovery
-            // gave the group a new id. That is the abort of §7.3, not a removal.
-            // ponytail: no server.removed for the old id (§7.3); subscribers keep it until
-            // they re-subscribe. Fine without the v1.1 app.
+            // gave the group a new id. That is the abort of §7.3: subscribers see the old
+            // id removed as `exited` and the new one added, and no record is written.
             if let Some(stop) = &self.entries[&id].record.stop {
                 let pgid = self.entries[&id].record.pgid;
                 match sys.source.group(pgid) {
@@ -441,7 +440,11 @@ impl Lifecycle {
                             self.notes.remove(0);
                         }
                         fx.push(Effect::Log(line));
-                        fx.push(Effect::StopAborted { id });
+                        fx.push(Effect::StopAborted { id: id.clone() });
+                        fx.push(Effect::Removed {
+                            id,
+                            reason: StopReason::Exited,
+                        });
                         continue;
                     }
                     // Unknown: decide on a later tick.
@@ -509,6 +512,7 @@ impl Lifecycle {
                         last_activity_wall_ms: *wall_ms,
                         last_activity_source: Activity::Started,
                         pinned: s.env_pin,
+                        pinned_by_env: s.env_pin,
                         auto_stop: None,
                         state: ServerState::Running,
                         stops_at: None,
@@ -807,6 +811,7 @@ impl Lifecycle {
             e.touch(now.clone(), Activity::Manual, wall_ms);
         }
         e.record.pinned = pinned;
+        e.record.pinned_by_env = false;
         e.refresh(now);
         Ok(())
     }

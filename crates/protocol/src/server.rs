@@ -35,6 +35,8 @@ pub struct Server {
     /// Effective policy value (§6).
     pub auto_stop: bool,
     pub pinned: bool,
+    /// Where the pin came from (protocol 1.3); `null` when not pinned.
+    pub pin_source: Option<PinSource>,
     pub state: ServerState,
     /// `null` when `autoStop` is false or the server is pinned.
     pub stops_at: Option<String>,
@@ -108,6 +110,14 @@ pub enum Activity {
     Traffic,
     Started,
     Manual,
+}
+
+/// `env`: the server started with `LULL_KEEP=1`; `user`: a pin request (§6).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PinSource {
+    Env,
+    User,
 }
 
 /// Stop state machine position (§7) plus the lost-listener state (§4.8).

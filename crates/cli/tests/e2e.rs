@@ -425,6 +425,7 @@ fn environment_and_cli_pins_hold() {
     let cli_server = fixture.wait_server(cli_port, TIMEOUT);
     assert_eq!(env_server["origin"]["kind"], "agent");
     assert_eq!(env_server["pinned"], true);
+    assert_eq!(env_server["pinSource"], "env");
     assert_eq!(cli_server["origin"]["kind"], "agent");
     assert_eq!(cli_server["pinned"], false);
     // server() checked both cwd and process ancestry before this mutation.
@@ -440,6 +441,8 @@ fn environment_and_cli_pins_hold() {
             let server = fixture.server(port).expect("pinned server stays alive");
             assert_eq!(server["id"], original["id"]);
             assert_eq!(server["pinned"], true);
+            let source = if port == env_port { "env" } else { "user" };
+            assert_eq!(server["pinSource"], source);
             assert_eq!(server["stopsAt"], Value::Null);
         }
         if Instant::now() >= deadline {

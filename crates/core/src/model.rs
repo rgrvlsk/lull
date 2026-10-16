@@ -244,10 +244,11 @@ pub struct ServerRecord {
     pub last_activity_wall_ms: u64,
     pub last_activity_source: Activity,
     /// Starts as `ObservedServer::env_pin`, then only explicit pin/unpin changes it (§6).
-    // ponytail: a bare bool, so a `LULL_KEEP=1` pin is indistinguishable from a manual one;
-    // the wire `Server` has no pin-source field either. Add one here and on the wire when
-    // the menu-bar app (M4, v1.1) must show "pinned (env)" (§6).
     pub pinned: bool,
+    /// The pin came from `LULL_KEEP=1`, not from a pin request; cleared by any explicit
+    /// pin or unpin. Absent from state files written before protocol 1.3.
+    #[serde(default)]
+    pub pinned_by_env: bool,
     /// Per-server override; `None` follows the policy (§6).
     pub auto_stop: Option<bool>,
     #[serde(skip, default = "running")]

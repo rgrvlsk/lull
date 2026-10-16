@@ -246,7 +246,7 @@ fn every_fixture_request_replays() {
         }
     }
     // Every numeric-id request in the fixture set (string ids are browser commands).
-    assert_eq!(replayed, 24, "replayed {replayed} requests");
+    assert_eq!(replayed, 26, "replayed {replayed} requests");
 }
 
 #[test]
@@ -367,7 +367,7 @@ fn pin_is_saved_before_the_next_scan() {
     );
 }
 
-const BROWSER_HELLO: &str = r#"{"jsonrpc":"2.0","id":1,"method":"hello","params":{"client":"browser","version":"0.1.0","protocol":{"major":1,"minor":1},"browser":{"name":"helium","version":"1","extensionVersion":"0.1.0"}}}"#;
+const BROWSER_HELLO: &str = r#"{"jsonrpc":"2.0","id":1,"method":"hello","params":{"client":"browser","version":"0.1.0","protocol":{"major":1,"minor":3},"browser":{"name":"helium","version":"1","extensionVersion":"0.1.0"}}}"#;
 
 fn lines(outs: &[Out], conn: ConnId) -> Vec<Value> {
     outs.iter()
@@ -387,6 +387,46 @@ fn with_browser() -> Harness {
     let sync = r#"{"jsonrpc":"2.0","id":2,"method":"browser.tabs.sync","params":{"tabs":[{"tabId":812,"windowId":3,"url":"http://127.0.0.1:5187/","active":true,"windowFocused":true}]}}"#;
     h.d.handle_line(2, sync);
     h
+}
+
+#[test]
+fn a_browser_older_than_1_3_is_refused_and_not_covered() {
+    let mut h = harness();
+    h.source.0.lock().unwrap().parents.insert(700, 70);
+    h.d.connected(2, Some(700), false);
+    let old = BROWSER_HELLO.replace(r#""minor":3"#, r#""minor":2"#);
+    let got = reply(&h.d.handle_line(2, &old), &json!(1));
+    assert_eq!(got["error"]["code"], json!(PROTOCOL_MISMATCH));
+    assert!(!h.d.browsers.covered().covers(&[70]));
+    // A CLI on the same minor is still served.
+    h.d.connected(1, None, false);
+    let cli = HELLO.replace(r#""minor":1"#, r#""minor":2"#);
+    assert!(
+        reply(&h.d.handle_line(1, &cli), &json!(0))
+            .get("result")
+            .is_some()
+    );
+}
+
+#[test]
+fn daemon_status_reports_browsers_and_ineligible_servers() {
+    let mut h = with_browser();
+    let pin = r#"{"jsonrpc":"2.0","id":4,"method":"servers.pin","params":{"id":"22249-1791530155000","pinned":true}}"#;
+    h.d.handle_line(1, pin);
+    let got = reply(
+        &h.d.handle_line(
+            1,
+            r#"{"jsonrpc":"2.0","id":5,"method":"daemon.status","params":{}}"#,
+        ),
+        &json!(5),
+    );
+    let status: DaemonStatus = serde_json::from_value(got["result"].clone()).unwrap();
+    assert_eq!(status.pid, 999);
+    assert_eq!(status.activity_health, ActivityHealth::Healthy);
+    assert_eq!(status.ineligible["22249-1791530155000"], "pinned");
+    assert_eq!(status.browsers.len(), 1);
+    assert_eq!(status.browsers[0].browser_pid, Some(70));
+    assert_eq!(status.browsers[0].tabs, 1);
 }
 
 #[test]

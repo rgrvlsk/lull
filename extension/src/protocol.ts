@@ -1,7 +1,7 @@
 // Wire names and shapes mirror crates/protocol. No URLs are fetched by the extension.
 export type RequestId = number | string;
 export interface ProtocolVersion { major: number; minor: number }
-export const PROTOCOL: ProtocolVersion = { major: 1, minor: 2 };
+export const PROTOCOL: ProtocolVersion = { major: 1, minor: 3 };
 export interface BrowserInfo { name: string; profile?: string; version: string; extensionVersion: string }
 export interface HelloParams { client: "app" | "cli" | "browser"; version: string; protocol: ProtocolVersion; browser?: BrowserInfo }
 export interface HelloResult { daemonVersion: string; protocol: ProtocolVersion; connectionId: string; capabilities: string[]; activityBackend: "ntstat" | "scan" }
@@ -14,7 +14,7 @@ export interface Server {
   project: string; framework: Framework; ports: number[]; primaryUrl: string | null; origin: Origin;
   startedAt: string; cpuPercent: number; rssBytes: number; lastActivityAt: string;
   lastActivitySource: "tab" | "traffic" | "started" | "manual"; idleMinutes: number;
-  autoStop: boolean; pinned: boolean; state: "running" | "stopping-soon" | "stopping" | "no-listener";
+  autoStop: boolean; pinned: boolean; pinSource: "env" | "user" | null; state: "running" | "stopping-soon" | "stopping" | "no-listener";
   stopsAt: string | null; tabs: TabRef[];
 }
 export interface StoppedServer {
@@ -38,6 +38,12 @@ export interface Config {
   history_size: number; history_hours: number; project?: ProjectRule[]; agent_marker?: AgentMarker[];
 }
 export type ConfigPatch = Partial<Config>;
+export interface BrowserConnection { connectionId: string; name: string; browserPid: number | null; tabs: number }
+export interface DaemonStatus {
+  pid: number; version: string; dryRun: boolean; activityBackend: "ntstat" | "scan";
+  activityHealth: "healthy" | "failed"; activityError: string | null; configError: string | null;
+  warnings: string[]; stops: string[]; ineligible: Record<string, string>; browsers: BrowserConnection[];
+}
 export interface TabIdsParams { tabIds: number[]; ports?: number[] }
 export interface ParamsByMethod {
   hello: HelloParams;
@@ -53,6 +59,7 @@ export interface ParamsByMethod {
   "config.get": Record<string, never>;
   "config.set": { patch: ConfigPatch };
   subscribe: SubscribeParams;
+  "daemon.status": Record<string, never>;
   "browser.tabs.sync": TabsSyncParams;
   "browser.activity": BrowserActivityParams;
   "tab.open": { url: string; focus: boolean };
@@ -76,6 +83,7 @@ export interface ResultsByMethod {
   "config.get": Config;
   "config.set": Config;
   subscribe: SubscribeResult;
+  "daemon.status": DaemonStatus;
   "browser.tabs.sync": Record<string, never>;
   "browser.activity": Record<string, never>;
   "tab.open": Ack; "tab.close": Ack; "tab.discard": Ack; "tab.reload": Ack; "tab.focus": Ack;
@@ -90,7 +98,8 @@ export interface RpcError { code: number; message: string; data?: unknown }
 export type Response<M extends Method = Method> = { jsonrpc: "2.0"; id: RequestId } & ({ result: ResultsByMethod[M] } | { error: RpcError });
 export type Message = Request | DaemonNotification | Response;
 
-// Small structural guards. Object guards reject extra fields, as Rust's serde does.
+// Small structural guards. Object guards ignore unknown fields, so a newer daemon within the
+// same major can add them (contract §8, "Versioning"); literals stay closed.
 type Guard<T> = (value: unknown) => value is T;
 const string: Guard<string> = (v): v is string => typeof v === "string";
 const boolean: Guard<boolean> = (v): v is boolean => typeof v === "boolean";
@@ -110,7 +119,6 @@ const either = <A, B>(a: Guard<A>, b: Guard<B>): Guard<A | B> => (v): v is A | B
 function isObject(v: unknown): v is Record<string, unknown> { return typeof v === "object" && v !== null && !Array.isArray(v); }
 function object<T>(fields: { [K in keyof T]-?: Guard<T[K]> }): Guard<T> {
   return (v): v is T => isObject(v)
-    && Object.keys(v).every((key) => Object.hasOwn(fields, key))
     && Object.entries(fields).every(([key, guard]) => (guard as Guard<unknown>)(v[key]));
 }
 const empty = object<Record<string, never>>({});
@@ -127,7 +135,7 @@ const server = object<Server>({
   project: string, framework, ports: array(uint(65535)), primaryUrl: nullable(string), origin,
   startedAt: string, cpuPercent: number, rssBytes: u64, lastActivityAt: string,
   lastActivitySource: literal("tab", "traffic", "started", "manual"), idleMinutes: u32,
-  autoStop: boolean, pinned: boolean, state: literal("running", "stopping-soon", "stopping", "no-listener"),
+  autoStop: boolean, pinned: boolean, pinSource: nullable(literal("env", "user")), state: literal("running", "stopping-soon", "stopping", "no-listener"),
   stopsAt: nullable(string), tabs: array(tabRef),
 });
 const stopped = object<StoppedServer>({
@@ -146,6 +154,12 @@ const configFields = {
 const config = object<Config>(configFields);
 const patch = object<ConfigPatch>(Object.fromEntries(Object.entries(configFields).map(([key, guard]) => [key, optional(guard as Guard<unknown>)])) as { [K in keyof Config]-?: Guard<Config[K] | undefined> });
 const id = object<{ id: string }>({ id: string });
+const daemonStatus = object<DaemonStatus>({
+  pid: u32, version: string, dryRun: boolean, activityBackend: literal("ntstat", "scan"),
+  activityHealth: literal("healthy", "failed"), activityError: nullable(string), configError: nullable(string),
+  warnings: array(string), stops: array(string), ineligible: record(string),
+  browsers: array(object<BrowserConnection>({ connectionId: string, name: string, browserPid: nullable(u32), tabs: u32 })),
+});
 const tabIds = object<TabIdsParams>({ tabIds: array(integer), ports: optional(array(uint(65535))) });
 const ack = either(object<{ ok: boolean }>({ ok: boolean }), object<{ error: string }>({ error: string }));
 const params: { [M in Method]: Guard<ParamsByMethod[M]> } = {
@@ -154,6 +168,7 @@ const params: { [M in Method]: Guard<ParamsByMethod[M]> } = {
   "servers.history": empty, "servers.restart": id, "servers.forget": id,
   "servers.open": either(object<{ id: string; path?: string; focus?: boolean }>({ id: string, path: optional(string), focus: optional(boolean) }), object<{ url: string; focus?: boolean }>({ url: string, focus: optional(boolean) })),
   "config.get": empty, "config.set": object({ patch }), subscribe: object({ topics: array(literal("servers", "browsers")) }),
+  "daemon.status": empty,
   "browser.tabs.sync": object({ tabs: array(object<BrowserTab>({ tabId: integer, windowId: integer, url: string, groupId: optional(nullable(integer)), active: boolean, windowFocused: boolean })) }),
   "browser.activity": object({ tabId: integer, url: string }),
   "tab.open": object({ url: string, focus: boolean }), "tab.close": tabIds, "tab.discard": tabIds,
@@ -164,6 +179,7 @@ const results: { [M in Method]: Guard<ResultsByMethod[M]> } = {
   "servers.setAutoStop": server, "servers.touch": server, "servers.history": array(stopped),
   "servers.restart": object({ pid: u32 }), "servers.forget": empty, "servers.open": object<{ opened: boolean; browser?: string }>({ opened: boolean, browser: optional(string) }),
   "config.get": config, "config.set": config, subscribe: object({ seq: u64, servers: array(server) }),
+  "daemon.status": daemonStatus,
   "browser.tabs.sync": empty, "browser.activity": empty,
   "tab.open": ack, "tab.close": ack, "tab.discard": ack, "tab.reload": ack, "tab.focus": ack,
 };

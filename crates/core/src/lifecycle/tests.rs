@@ -504,15 +504,30 @@ fn exited_server_is_recorded() {
 }
 
 #[test]
+fn a_record_saved_before_pin_sources_loads_as_a_user_pin() {
+    let mut h = H::new();
+    h.tick();
+    let mut old = serde_json::to_value(h.lc.record(ID).unwrap()).unwrap();
+    old.as_object_mut().unwrap().remove("pinnedByEnv");
+    old["pinned"] = serde_json::json!(true);
+    let rec: crate::model::ServerRecord = serde_json::from_value(old).unwrap();
+    assert!(rec.pinned && !rec.pinned_by_env);
+}
+
+#[test]
 fn env_pin_overridden_by_unpin_persists_across_save_and_load() {
     let mut h = H::new();
     h.server_mut(100).env_pin = true;
     h.tick();
     assert!(h.lc.record(ID).unwrap().pinned);
+    assert!(h.lc.record(ID).unwrap().pinned_by_env);
     h.at(40 * MIN);
     assert!(h.sig.sent.is_empty(), "env-pinned");
 
+    // An explicit pin takes the pin over from the env (§6).
     let now = h.clock.now();
+    h.lc.pin(ID, true, &now, h.clock.wall_ms).unwrap();
+    assert!(!h.lc.record(ID).unwrap().pinned_by_env);
     h.lc.pin(ID, false, &now, h.clock.wall_ms).unwrap();
     assert_eq!(
         h.lc.record(ID).unwrap().last_activity_source,
@@ -836,7 +851,8 @@ fn vanished_stop_id_aborts_on_turnover_or_records_an_empty_group() {
                 assert_eq!(history[0].reason, reason);
             } else {
                 assert!(has(&fx, &Effect::StopAborted { id: ID.into() }));
-                assert!(!fx.iter().any(|f| matches!(f, Effect::Removed { .. })));
+                // The old id goes away as `exited`, without a stopped-server record.
+                assert!(has(&fx, &removed(ID, StopReason::Exited)));
                 assert!(h.lc.history().is_empty());
                 assert!(h.lc.record("100-9000").is_some());
             }

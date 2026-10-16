@@ -2,7 +2,7 @@
 
 use std::process::ExitCode;
 
-use lull_protocol::{Server, StoppedServer};
+use lull_protocol::{PinSource, Server, StoppedServer};
 use serde_json::{Value, json};
 
 use crate::client::Client;
@@ -263,6 +263,7 @@ pub fn format_ls(servers: &[Server], now_ms: u64) -> String {
     ];
     for s in servers {
         let stops = match (&s.stops_at, s.pinned) {
+            (_, true) if s.pin_source == Some(PinSource::Env) => "pinned (env)".to_owned(),
             (_, true) => "pinned".to_owned(),
             (Some(at), _) => parse_rfc3339(at).map_or(at.clone(), |t| ago_or_in(t, now_ms)),
             (None, _) => "never".to_owned(),

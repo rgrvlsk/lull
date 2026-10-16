@@ -1,2 +1,4 @@
 {"jsonrpc":"2.0","id":1,"method":"hello","params":{"client":"app","version":"0.0.9","protocol":{"major":0,"minor":9}}}
-{"jsonrpc":"2.0","id":1,"error":{"code":-32010,"message":"protocol_mismatch","data":{"daemonVersion":"0.1.0","protocol":{"major":1,"minor":2}}}}
+{"jsonrpc":"2.0","id":1,"error":{"code":-32010,"message":"protocol_mismatch","data":{"daemonVersion":"0.1.0","protocol":{"major":1,"minor":3}}}}
+{"jsonrpc":"2.0","id":2,"method":"hello","params":{"client":"browser","version":"0.2.0","protocol":{"major":1,"minor":2},"browser":{"name":"helium","profile":"Default","version":"0.5.7.1","extensionVersion":"0.2.0"}}}
+{"jsonrpc":"2.0","id":2,"error":{"code":-32010,"message":"protocol_mismatch","data":{"daemonVersion":"0.1.0","protocol":{"major":1,"minor":3}}}}

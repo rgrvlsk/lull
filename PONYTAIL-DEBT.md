@@ -5,9 +5,6 @@ ledger when its trigger fires and the shortcut is upgraded. Maintenance rules: [
 
 ## crates/core
 
-- `crates/core/src/model.rs:247`, the pin is a bare bool. ceiling: a `LULL_KEEP=1` pin is
-  indistinguishable from a manual one, on the record and on the wire. upgrade: a pin-source
-  field when the menu-bar app (M4) must show "pinned (env)".
 - `crates/core/src/activity/mod.rs:180`, a client's ancestry comes only from connections
   open at a scan. ceiling: bytes from a covered browser's connection that opened and closed
   between scans count as uncovered traffic. upgrade: read the client's ancestry from the
@@ -32,26 +29,30 @@ ledger when its trigger fires and the shortcut is upgraded. Maintenance rules: [
   re-read the real argv if that matters.
 - `crates/core/src/discovery/labels.rs:148`, primary port found by flag shape. ceiling: an
   exotic flag naming another listening port first wins. upgrade: per-framework port flags.
-- `crates/core/src/lifecycle/mod.rs:426`, no `server.removed` for the old id on a turnover
-  abort. ceiling: subscribers keep a ghost entry until they re-subscribe. upgrade: when the
-  menu-bar app (M4) subscribes.
-- `crates/core/src/lifecycle/mod.rs:611`, the fresh observation before a stop is the
+- `crates/core/src/lifecycle/mod.rs:615`, the fresh observation before a stop is the
   preceding scan plus a member re-read. ceiling: up to one scan interval (5 s) between
   classification and signal. upgrade: re-run discovery on the group right before signalling.
-- `crates/core/src/ipc/mod.rs:835`, `lull doctor` reads `status.json`, not a protocol method.
-  ceiling: an internal file format. upgrade: a `daemon.status` method when the menu-bar app
-  (M4) needs the same data.
 - `crates/core/src/browser/mod.rs:71`, a hidden tab reloaded on the same URL keeps its old
   binding. ceiling: rebound only by its next visible heartbeat. upgrade: a load counter in
   `tabs.sync`.
 
 ## crates/cli
 
-- `crates/cli/src/daemon.rs:185`, no per-line size cap on the daemon socket. ceiling: a
+- `crates/cli/src/daemon.rs:193`, no per-line size cap on the daemon socket. ceiling: a
   misbehaving same-uid client can send huge lines (nm-host caps browser messages at 1 MiB).
   upgrade: read through `Read::take` per line if a client misbehaves.
 - `crates/cli/src/nm_host.rs:46`, bridge workers end with the host process. ceiling: only
   correct as a standalone process. upgrade: interruptible fd reads and joins if embedded.
+
+## macos
+
+- `macos/Sources/LullKit/Store.swift:136`, history is re-fetched on `server.added`/`removed`
+  and when the panel opens; there is no history notification. ceiling: a record another
+  client forgot or restarted stays listed until then. upgrade: a `history.changed`
+  notification if stale records confuse anyone.
+- `macos/Sources/LullApp/Menu/ProjectIcons.swift:43`, project icons are re-checked (stat-only
+  mtimes) only when the panel opens. ceiling: an icon changed while the panel is open shows on
+  the next open. upgrade: watch the search roots with FSEvents if users expect live updates.
 
 ## extension
 
@@ -61,4 +62,4 @@ ledger when its trigger fires and the shortcut is upgraded. Maintenance rules: [
   forgotten when the service worker restarts. upgrade: the `storage` permission
   (`chrome.storage.session`) if users report dragged-out tabs being regrouped.
 
-17 markers, 0 with no trigger.
+16 markers, 0 with no trigger.

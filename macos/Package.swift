@@ -11,7 +11,7 @@ let package = Package(
     targets: [
         // Socket client, Codable models and the observable store (WP4.1).
         .target(name: "LullKit", path: "Sources/LullKit"),
-        // Menu-bar app stub; the real app arrives with WP4.2–4.4.
+        // The menu-bar app (WP4.2–4.4).
         .executableTarget(name: "LullApp", dependencies: ["LullKit"], path: "Sources/LullApp"),
         .testTarget(name: "LullKitTests", dependencies: ["LullKit"], path: "Tests/LullKitTests"),
     ],

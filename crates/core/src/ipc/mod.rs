@@ -6,18 +6,18 @@ use std::collections::BTreeMap;
 use std::io;
 
 use lull_protocol::rpc::{
-    AnyRequest, ClientKind, ClientRequest, HelloResult, INVALID_PARAMS, METHOD_NOT_FOUND, Message,
-    NOT_RESTARTABLE, OpenParams, OpenResult, PROTOCOL_MISMATCH, ProtocolMismatch, Request,
-    RequestId, RestartResult, SubscribeResult,
+    ActivityHealth, AnyRequest, ClientKind, ClientRequest, DaemonStatus, HelloResult,
+    INVALID_PARAMS, METHOD_NOT_FOUND, Message, NOT_RESTARTABLE, OpenParams, OpenResult,
+    PROTOCOL_MISMATCH, ProtocolMismatch, Request, RequestId, RestartResult, SubscribeResult,
 };
-use lull_protocol::{Config, PROTOCOL_VERSION, Server, StopReason, TabsOnStop};
+use lull_protocol::{Config, PROTOCOL_VERSION, PinSource, Server, StopReason, TabsOnStop};
 use serde_json::{Value, json};
 
 use crate::activity::{Activity, ScanInput};
 use crate::browser::Registry;
 use crate::discovery::{self, Context};
 use crate::lifecycle::{Effect, Lifecycle, LifecycleError, Sys, Tick};
-use crate::model::{ActivityEvent, Discovery, ObservedServer, rfc3339};
+use crate::model::{ActivityEvent, BackendHealth, Discovery, ObservedServer, rfc3339};
 use crate::traits::{Clock, ConfigStore, Instant, ProcessSource, Signaler, Spawner, StateStore};
 use crate::{policy, traits::ActivityBackend};
 
@@ -95,8 +95,11 @@ pub struct Daemon {
     first_scan: bool,
     scan_now: bool,
     warnings: Vec<String>,
-    status: Value,
 }
+
+/// The oldest minor a browser may speak: its wire guards reject fields added since, so an
+/// older extension is turned away and shows "update lull" (ADR-0011).
+const BROWSER_MIN_MINOR: u32 = 3;
 
 const KNOWN_METHODS: &[&str] = &[
     "hello",
@@ -112,6 +115,7 @@ const KNOWN_METHODS: &[&str] = &[
     "config.get",
     "config.set",
     "subscribe",
+    "daemon.status",
     "browser.tabs.sync",
     "browser.activity",
 ];
@@ -163,7 +167,6 @@ impl Daemon {
             first_scan: true,
             scan_now: false,
             warnings,
-            status: Value::Null,
         };
         for w in d.warnings.clone() {
             (d.p.log)(&w);
@@ -313,7 +316,9 @@ impl Daemon {
         let now = self.p.clock.now();
         let wall = self.p.clock.wall_now_ms();
         if let ClientRequest::Hello(h) = &typed {
-            if h.protocol.major != PROTOCOL_VERSION.major {
+            let stale_browser =
+                h.client == ClientKind::Browser && h.protocol.minor < BROWSER_MIN_MINOR;
+            if h.protocol.major != PROTOCOL_VERSION.major || stale_browser {
                 let data = ProtocolMismatch {
                     daemon_version: env!("CARGO_PKG_VERSION").into(),
                     protocol: PROTOCOL_VERSION,
@@ -421,6 +426,7 @@ impl Daemon {
                 self.config_error = None;
                 Ok(json!(self.config))
             }
+            ClientRequest::DaemonStatus(_) => Ok(json!(self.status())),
             ClientRequest::Subscribe(_) => {
                 if let Some(c) = self.conns.get_mut(&conn) {
                     c.subscribed = true;
@@ -792,6 +798,11 @@ impl Daemon {
             idle_minutes: policy.idle_minutes,
             auto_stop: policy.auto_stop,
             pinned: rec.pinned,
+            pin_source: rec.pinned.then_some(if rec.pinned_by_env {
+                PinSource::Env
+            } else {
+                PinSource::User
+            }),
             state: rec.state,
             stops_at,
             tabs: self.browsers.tabs_of(&o.id),
@@ -831,35 +842,31 @@ impl Daemon {
             .collect()
     }
 
-    /// Internal status for `lull doctor` (not part of the protocol).
-    // ponytail: doctor reads this as `status.json`, not through a protocol method.
-    // Upgrade path: a `daemon.status` method when the v1.1 app needs the same data.
-    pub fn status(&mut self) -> Option<&Value> {
-        let ineligible: BTreeMap<_, _> = self
+    /// `daemon.status` (protocol 1.3): what `lull doctor` and the app show.
+    pub fn status(&self) -> DaemonStatus {
+        let ineligible = self
             .discovery
             .servers
             .iter()
             .filter_map(|s| Some((s.id.clone(), self.lifecycle.ineligible_reason(&s.id)?)))
             .collect();
-        let status = json!({
-            "pid": self.s.daemon_pid,
-            "version": env!("CARGO_PKG_VERSION"),
-            "dryRun": self.s.dry_run,
-            "activityBackend": self.activity.kind(),
-            "activityHealth": format!("{:?}", self.activity.health()),
-            "configError": self.config_error,
-            "warnings": self.warnings,
-            "stops": self.lifecycle.doctor(),
-            "ineligible": ineligible,
-            "browsers": self.browsers.summary().iter().map(|(id, name, pid, tabs)| {
-                json!({"connectionId": id, "name": name, "browserPid": pid, "tabs": tabs})
-            }).collect::<Vec<_>>(),
-        });
-        if status == self.status {
-            return None;
+        let (activity_health, activity_error) = match self.activity.health() {
+            BackendHealth::Healthy => (ActivityHealth::Healthy, None),
+            BackendHealth::Failed(why) => (ActivityHealth::Failed, Some(why)),
+        };
+        DaemonStatus {
+            pid: self.s.daemon_pid,
+            version: env!("CARGO_PKG_VERSION").into(),
+            dry_run: self.s.dry_run,
+            activity_backend: self.activity.kind(),
+            activity_health,
+            activity_error,
+            config_error: self.config_error.clone(),
+            warnings: self.warnings.clone(),
+            stops: self.lifecycle.doctor(),
+            ineligible,
+            browsers: self.browsers.summary(),
         }
-        self.status = status;
-        Some(&self.status)
     }
 }
 
