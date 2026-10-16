@@ -30,7 +30,8 @@ Goals (v1)
 - G2 Stop idle **agent-started** servers after `idleMinutes` (default 30).
   User-started servers are shown but never auto-stopped unless the user opts in.
 - G3 Keep dev-server tabs in one "Dev" tab group per window of a Chromium browser and
-  use tab visibility as the primary activity signal.
+  use tab visibility as the sharpest activity signal. The extension is optional: lull
+  works without it, judging servers by `traffic` alone (ADR-0011).
 - G5 A CLI agents can call (`lull open <url>`, `lull ls`).
 - G6 Zero instructions required for correctness; at most one line in agent
   instruction files for convenience.
@@ -129,7 +130,7 @@ Scan every `scanIntervalSec` (default 5):
    number while the group has a member, so the id cannot collide.
 7. Persistent state: `~/Library/Application Support/lull/state.json` (versioned schema,
    written atomically via temp file + rename) maps `id → {pgid, witnesses: [{pid,
-   startEpochMs}], lastActivityAt, lastActivitySource, pinned, autoStop}`; written on
+   startEpochMs}], lastActivityAt, lastActivitySource, pinned, pinnedByEnv, restartedFrom, autoStop}`; written on
    change, entry dropped on `server.removed`. On daemon start a live group resumes a
    persisted entry only if its pgid matches **and** at least one witness (pid + start
    time) is still a member — the computed id alone may differ because the oldest member
@@ -164,6 +165,8 @@ Scan every `scanIntervalSec` (default 5):
   "idleMinutes": 30,                    // effective policy value
   "autoStop": true,                     // effective policy value
   "pinned": false,
+  "pinSource": null,                    // env | user | null when not pinned (1.3)
+  "restartedFrom": null,                // {id, origin} of the record lull restarted (1.3)
   "state": "running",                   // running | stopping-soon | stopping | no-listener
   "stopsAt": "2026-10-11T20:42:00Z",   // null when autoStop=false or pinned
   "tabs": [{ "connectionId": "c7", "browser": "helium", "tabId": 812, "windowId": 3 }]
@@ -183,7 +186,7 @@ A server is **active** at time *t* if any source fired within the last
 
 | Source | Fires when | Notes |
 |---|---|---|
-| `tab` | one of the server's tabs is **visible** (`document.visibilityState == "visible"`, reported by a content script) and the OS user is present (`idle.queryState(60) == "active"`), whether or not its window has focus | heartbeat every 30 s while the condition holds; primary signal. Focus is used only for display and `open` routing. A visible window on a second monitor counts — that is intended |
+| `tab` | one of the server's tabs is **visible** (`document.visibilityState == "visible"`, reported by a content script) and the OS user is present (`idle.queryState(60) == "active"`), whether or not its window has focus | heartbeat every 30 s while the condition holds; the sharpest signal, but optional (ADR-0011). Focus is used only for display and `open` routing. A visible window on a second monitor counts — that is intended |
 | `traffic` | a **pulse** from a process outside the group that is not **periodic traffic** (below), made of (a) a **new** TCP connection to one of the server's ports (ntstat event; fallback: 5-tuple not seen in the previous scan), or (b) bytes moving on an **established** connection to one of the server's ports from a client that is not a *covered browser* | (a) catches new page loads, Playwright, curl. (b) catches requests that reuse a keep-alive connection and HMR updates pushed to a browser without the extension; a connection held open with nothing moving on it is not activity. Connections from covered browsers count only through (a); their open tabs are judged by `tab` |
 | `started` | server first seen | grace period = `idleMinutes` |
 | `manual` | user/agent ran `open`, `touch`, or un-pinned | |
@@ -298,9 +301,9 @@ idle_minutes = 90
 # auto_stop = "none"
 ```
 
-Opt-out per process: env `LULL_KEEP=1` → the server starts pinned (shown as *pinned
-(env)*). It is only the initial value: an explicit Unpin by the user wins and is
-persisted. `DEVSERVER_KEEP` from the prototype is **not** honoured.
+Opt-out per process: env `LULL_KEEP=1` → the server starts pinned, with
+`pinSource: "env"` (shown as *pinned (env)*). It is only the initial value: an explicit
+pin or unpin wins, is persisted, and makes the source `user`. `DEVSERVER_KEEP` from the prototype is **not** honoured.
 
 `lull daemon --dry-run` makes every decision, logs and shows it, but sends no signals
 (for testing and fixtures; off by default).
@@ -326,9 +329,11 @@ pin, `autoStop` change or policy change that makes the server ineligible returns
    `state = "stopping"`, non-blocking.
 3. After 5 s, `SIGKILL` to whatever remains in the pgid. If the witness check below
    fails here — every member recorded at decision time has exited but the group still
-   has members — the stop is **aborted**: no `SIGKILL`, no `server.removed`, no tab
-   action, no stopped-server record. The server returns to `running` with `manual`
-   activity, and the abort is logged and shown by `lull doctor`.
+   has members — the stop is **aborted**: no `SIGKILL`, no tab action, no stopped-server
+   record; the abort is logged and shown by `lull doctor`. When the server keeps its id,
+   nothing is removed: it returns to `running` with `manual` activity. When the id turns
+   over (discovery saw only new members, §4.6), the old id gets `server.removed {reason:
+   "exited"}` and the group appears as a new server.
 4. Only once the pgid has no members left: emit `server.removed {id, reason}` and apply
    `tabs_on_stop` to the server's tabs in
    every connected browser: `discard` (default — `tabs.discard`: the tab keeps its URL
@@ -367,7 +372,9 @@ pin, `autoStop` change or policy change that makes the server ineligible returns
   `origin.kind = "user"` and not auto-stopped by default; it gets a new id. The record is
   marked `restarting` (a second restart of the same record is refused) and removed from
   history only when a new server with a listener is discovered in `cwd` within 60 s; its
-  `tabs` (still bound to the record, §9) are then reloaded. On timeout or early exit
+  `tabs` (still bound to the record, §9) are then reloaded. That server carries
+  `restartedFrom: {id, origin}` (the record's id and origin, persisted in `state.json`),
+  so clients show it as restarted by lull rather than started by the user. On timeout or early exit
   the record stays, marked `restartFailed`, with a link to the restart log. The
   confirmation shows the exact command that will run. If the port is taken, the
   server's own behaviour applies (fail or pick another port); the log shows it.
@@ -395,10 +402,10 @@ recent stop.
 
 | Method | Params | Result |
 |---|---|---|
-| `hello` | `{client: "app"\|"cli"\|"browser", version, protocol: {major, minor}, browser?: {name, profile?, version, extensionVersion}}` | `{daemonVersion, protocol: {major, minor}, connectionId, capabilities: [..], activityBackend: "ntstat"\|"scan"}` — a different `major` is rejected with error `-32010 protocol_mismatch` carrying the daemon's version; clients show "update lull" |
+| `hello` | `{client: "app"\|"cli"\|"browser", version, protocol: {major, minor}, browser?: {name, profile?, version, extensionVersion}}` | `{daemonVersion, protocol: {major, minor}, connectionId, capabilities: [..], activityBackend: "ntstat"\|"scan"}` — a different `major`, or a `browser` with `minor` < 3 (ADR-0011), is rejected with error `-32010 protocol_mismatch` carrying the daemon's version; clients show "update lull" |
 | `servers.list` | `{}` | `Server[]` |
 | `servers.stop` | `{id}` | `{}` |
-| `servers.pin` | `{id, pinned}` | `Server` |
+| `servers.pin` | `{id, pinned}` | `Server` — `pinSource` becomes `user` (or `null` when unpinned) |
 | `servers.setAutoStop` | `{id, autoStop: bool \| null}` | `Server` — per-server override; `null` clears it |
 | `servers.touch` | `{id}` | `Server` (manual activity) |
 | `servers.history` | `{}` | `StoppedServer[]` |
@@ -407,6 +414,13 @@ recent stop.
 | `servers.open` | `{id, path?, focus?}` or `{url, focus?}` | `{opened: bool, browser?}` — routed to a connected browser, else `open(1)` with the configured browser. `url` must be `http(s)` with a loopback or `*.localhost` host; anything else is rejected (never passed to `open(1)`). `focus` (protocol 1.1) overrides the default: focused, unless the caller's process carries an agent marker (§11; the daemon reads the caller's environment via `LOCAL_PEERPID`) |
 | `config.get` / `config.set` | `{}` / `{patch}` | `Config` |
 | `subscribe` | `{topics: ["servers","browsers"]}` | stream of notifications below |
+| `daemon.status` (1.3) | `{}` | `{pid, version, dryRun, activityBackend, activityHealth: "healthy"\|"failed", activityError, configError, warnings: [..], stops: [..], ineligible: {id: reason}, browsers: [{connectionId, name, browserPid, tabs}]}` — what `lull doctor` and the app show; `activityError` and `configError` are `null` when there is none, `stops` lists aborted and stuck stops |
+
+Versioning: `hello` carries `{major, minor}`. A minor may only add — fields, methods,
+optional params. Clients ignore fields they do not know; a client uses a method or param
+newer than the daemon's `minor` only after checking it in the `hello` result. A new value of
+an existing enum needs a fallback that older clients accept, or a major bump. `HelloParams`
+is frozen within a major, so any client can always be told it is too old.
 
 ### Browser → daemon (through nm-host)
 
@@ -501,16 +515,27 @@ Until the app exists, v1 has no stopping-soon notification; stops are listed by
 
 - Minimum macOS 14 Sonoma (whole product).
 - Not sandboxed (Developer ID distribution): a sandboxed app cannot reach the socket.
-- `MenuBarExtra` list of **every live server** (agent- and user-started, pinned or
-  not) grouped by project: name, framework icon, port, origin badge (agent / you),
-  pin badge, idle countdown, CPU / RSS. Monitoring and actions work on all of them.
+- The app connects to whichever daemon owns the socket; it registers the daemon only when
+  installed from the cask (M5, ADR-0006). If none answers it says how to start one.
+- A menu-bar panel listing **every live server** (agent- and user-started, pinned or
+  not) grouped by project: name, project icon (read from the project's files; the
+  framework icon when none is found), port, origin badge (agent / you), pin badge, idle
+  countdown, CPU / RSS. Monitoring and actions work on all of them. The icon is never
+  fetched over the network: lull makes no network requests (§14), and a request to the
+  server would count as traffic and keep it alive.
 - **Recently stopped** section below the live list (§7): project, command, stop time
   and reason. Actions: Restart, Copy command, Reveal in Finder, Open terminal here,
   Forget.
-- Row actions: Open, Stop, Pin/Unpin, Copy URL, Reveal in Finder, Show log.
-- Settings: idle minutes, auto-stop scope, warning, browser for `open`, per-project
-  rules, "Install browser extension…" helper, launch at login.
-- Icon state: count of running servers; dot when something is `stopping-soon`.
+  Records that are `restarting` or `restartFailed` also offer Show log, which opens
+  `restart-<id>.log`.
+- Row actions: Open, Stop, Pin/Unpin, Copy URL, Reveal in Finder.
+- Settings: idle minutes, auto-stop scope, warning, `tabs_on_stop`, browser for `open`,
+  per-project rules, launch at login. The extension is optional (ADR-0011); the app does
+  not install it.
+- Icon state: the logo's sleeping cat, as a template image. Two app-only display
+  preferences, both off by default, add the count of running servers and a dot while
+  something is `stopping-soon`; they are kept by the app, not in `config.toml` or the
+  protocol.
 - Wording: "lull" suggests a resumable pause, but lull **terminates** processes.
   Every surface (protocol, notification, row, log, CLI) says *stop* / *stopped* /
   *restart*, never *sleep*, *pause*, *wake* or *kill* (see GLOSSARY.md).
