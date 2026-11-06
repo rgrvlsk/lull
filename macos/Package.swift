@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "Lull",
-    platforms: [.macOS(.v15)],
+    platforms: [.macOS(.v14)],
     products: [
         .library(name: "LullKit", targets: ["LullKit"]),
         .executable(name: "LullApp", targets: ["LullApp"]),
