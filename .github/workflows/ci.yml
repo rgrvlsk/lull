@@ -12,10 +12,9 @@ concurrency:
 jobs:
   rust:
     name: Rust (test, clippy, fmt) on ${{ matrix.os }}
-    # The oldest and newest macOS images GitHub hosts; the e2e suite and the live ntstat
-    # test on both catch kernel ABI differences before users do. GitHub retired macos-14
-    # on 2026-11-02, so macOS 14, which contract §10 still names as the minimum, has no
-    # runner left to test on.
+    # macos-15 is the oldest macOS lull supports (contract §10, ADR-0012) and macos-26 the
+    # newest GitHub hosts; the e2e suite and the live ntstat test on both catch kernel ABI
+    # differences before users do.
     strategy:
       fail-fast: false
       matrix:
