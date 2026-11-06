@@ -52,7 +52,7 @@ fn read_boot_session() -> String {
 
 impl Clock for MacClock {
     fn now(&self) -> Instant {
-        // SAFETY: CLOCK_UPTIME_RAW is supported on the deployment target (macOS 14+).
+        // SAFETY: CLOCK_UPTIME_RAW is supported on the deployment target (macOS 15+).
         let uptime_ms = unsafe { clock_gettime_nsec_np(libc::CLOCK_UPTIME_RAW) } / 1_000_000;
         Instant {
             uptime_ms,

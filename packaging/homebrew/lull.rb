@@ -8,7 +8,7 @@ class Lull < Formula
   license any_of: ["MIT", "Apache-2.0"]
 
   depends_on "rust" => :build
-  depends_on :macos
+  depends_on macos: :sequoia
 
   # The unpacked Chromium extension, built from extension/ at the same tag (ADR-0007).
   resource "chromium-extension" do

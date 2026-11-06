@@ -12,7 +12,7 @@ listed but never stopped unless you opt in.
   tabs are on screen
 - later (v1.1): Firefox/Zen and a menu-bar app
 
-macOS 14 or later. lull makes no network requests.
+macOS 15 or later. lull makes no network requests.
 
 ## Install
 

@@ -1,8 +1,8 @@
 // The panel's scrolling list. The system indicator would sit over the rows' right column,
 // so the list draws its own: a thin capsule centred in the gutter right of the cards,
 // shown only when the content overflows, while scrolling or while the pointer is over the
-// gutter, like the system's overlay scrollers. macOS 14 has no
-// `onScrollGeometryChange`, so the offset comes from the content's frame. The top `fade`
+// gutter, like the system's overlay scrollers. The offset comes from the content's frame;
+// `onScrollGeometryChange` (macOS 15) could report it instead. The top `fade`
 // points are an inset at rest, which scrolled content passes through under whatever the
 // caller fades over it.
 import SwiftUI
