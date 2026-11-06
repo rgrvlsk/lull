@@ -513,7 +513,7 @@ was sent is left alone and the ack is an error.
 Until the app exists, v1 has no stopping-soon notification; stops are listed by
 `lull history` and logged (§7).
 
-- Minimum macOS 14 Sonoma (whole product).
+- Minimum macOS 15 Sequoia (whole product, ADR-0012).
 - Not sandboxed (Developer ID distribution): a sandboxed app cannot reach the socket.
 - The app connects to whichever daemon owns the socket; it registers the daemon only when
   installed from the cask (M5, ADR-0006). If none answers it says how to start one.
