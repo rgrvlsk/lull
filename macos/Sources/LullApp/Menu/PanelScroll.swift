@@ -1,13 +1,9 @@
 // The panel's scrolling list. The system indicator would sit over the rows' right column,
 // so the list draws its own: a thin capsule centred in the gutter right of the cards,
 // shown only when the content overflows, while scrolling or while the pointer is over the
-// gutter, like the system's overlay scrollers. The offset comes from the content's frame;
-// `onScrollGeometryChange` (macOS 15) could report it instead. The top `fade`
-// points are an inset at rest, which scrolled content passes through under whatever the
-// caller fades over it.
+// gutter, like the system's overlay scrollers. The top `fade` points are an inset at rest,
+// which scrolled content passes through under whatever the caller fades over it.
 import SwiftUI
-
-private let scrollSpace = "lull.scroll"
 
 struct PanelScroll<Content: View>: View {
     var maxHeight: CGFloat
@@ -26,15 +22,12 @@ struct PanelScroll<Content: View>: View {
     var body: some View {
         let viewport = min(contentHeight, maxHeight)
         ScrollView {
-            content.padding(.top, fade).onGeometryChange(for: CGRect.self) { $0.frame(in: .named(scrollSpace)) } action: { frame in
-                contentHeight = frame.height
-                if offset != -frame.minY {
-                    offset = -frame.minY
-                    showWhileScrolling()
-                }
-            }
+            content.padding(.top, fade).onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
         }
-        .coordinateSpace(.named(scrollSpace))
+        .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { _, new in
+            offset = new
+            showWhileScrolling()
+        }
         .scrollIndicators(.never)
         .frame(height: viewport)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
