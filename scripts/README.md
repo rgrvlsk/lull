@@ -14,3 +14,6 @@ removed when the formula shipped (ADR-0008).
   `open --env LULL_PREVIEW=fixtures|worst|empty|not-running|mismatch` to show preview
   data without a daemon, and `--env LULL_PANEL_WINDOW=1` to show the panel in an ordinary
   window for UI automation that cannot click a status item.
+- `release.sh <version> <notes.md>`: publishes a release whose version bump is already on
+  `main` (tag, GitHub release with the extension zip, Homebrew tap). The maintainer runs it;
+  see `packaging/RELEASE.md`.
