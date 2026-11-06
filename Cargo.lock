@@ -357,7 +357,7 @@ dependencies = [
 
 [[package]]
 name = "lull"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "libc",
  "lull-core",
@@ -370,7 +370,7 @@ dependencies = [
 
 [[package]]
 name = "lull-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "libc",
  "lull-protocol",
@@ -381,7 +381,7 @@ dependencies = [
 
 [[package]]
 name = "lull-protocol"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",
