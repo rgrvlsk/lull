@@ -1,18 +1,16 @@
 # Releasing lull (v1: Homebrew formula, ADR-0008)
 
 1. Bump `version` in `Cargo.toml`, `extension/package.json` and `extension/manifests/chromium.json`;
-   commit; run the full checks (README "Develop").
-2. Tag and push: `git tag v<V> && git push origin main v<V>`.
-3. Build the extension asset from the tag:
-   `(cd extension && npm ci && npm run build && cd dist/chromium && zip -qrX ../../../lull-extension-chromium-<V>.zip .)`
-   (run from the repository root; the zip lands there)
-4. `gh release create v<V> lull-extension-chromium-<V>.zip --title v<V> --notes …`
-5. sha256 of the source tarball
-   (`curl -sL https://github.com/rgrvlsk/lull/archive/refs/tags/v<V>.tar.gz | shasum -a 256`)
-   and of the zip.
-6. Copy `packaging/homebrew/lull.rb` to `Formula/lull.rb` in `rgrvlsk/homebrew-tap`, replacing
-   `@VERSION@`, `@SOURCE_SHA256@` and `@EXTENSION_SHA256@`; `brew audit --strict --online
-   rgrvlsk/tap/lull`; commit and push the tap.
+   commit on a branch; run the full checks (README "Develop").
+2. Open the bump as a pull request; the maintainer approves and merges it.
+3. Write the release notes to a file and, as the maintainer, run
+   `scripts/release.sh <V> <notes.md>`. It tags `origin/main` as `v<V>`, builds
+   `lull-extension-chromium-<V>.zip` from the tag, pushes the tag, creates the GitHub release
+   with the zip, checks the uploaded zip's sha256, writes `Formula/lull.rb` in
+   `rgrvlsk/homebrew-tap` from `packaging/homebrew/lull.rb` with the version and both sha256
+   values, runs `brew audit --strict --online rgrvlsk/tap/lull`, and commits and pushes the tap.
+   Agents cannot run it: `.claude/settings.json` denies them pushing to `main` and creating
+   releases.
 
 The Chromium extension id is pinned by the public `key` in the manifest. Its private half is
 a maintainer secret (ADR-0007), kept outside the repository; it is only needed to publish the
