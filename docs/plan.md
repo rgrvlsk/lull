@@ -13,7 +13,7 @@ domain types instead of inventing them.
 ## Ground rules for every WP
 
 - **Toolchains:** Rust stable (edition 2024); Swift 6 with Xcode 26, deployment target
-  macOS 14; TypeScript with esbuild for the extension; Node only as a dev tool.
+  macOS 15; TypeScript with esbuild for the extension; Node only as a dev tool.
 - **Protocol:** the wire types live once, in `crates/protocol` (serde). Golden NDJSON
   exchanges in `protocol/fixtures/*.ndjson` are the cross-language contract. The Rust,
   TypeScript and Swift test suites all decode and re-encode them, so the three cannot
@@ -280,7 +280,7 @@ extension staying uncovered.
   lull`, `lull browsers install`) and uninstall; delete `scripts/dev-launchagent.sh`.
 - Ask the author before creating any remote repository.
 
-Exit: on a clean macOS 14 VM, `brew install` → `brew services start lull` →
+Exit: on a clean macOS 15 VM, `brew install` → `brew services start lull` →
 `lull browsers install` → Helium groups tabs, and an agent-started server is stopped
 after its idle time while one shown in a visible tab is not.
 
@@ -366,6 +366,6 @@ the app, both extension builds; sign everything (hardened runtime), notarise, st
 formula retired (ADR-0008); README install and uninstall. Ask the author before
 creating any remote repository.
 
-Exit: `brew install --cask rgrvlsk/tap/lull` on a clean macOS 14 VM → app registers
+Exit: `brew install --cask rgrvlsk/tap/lull` on a clean macOS 15 VM → app registers
 daemon → `lull browsers install` → Helium groups tabs and an agent-started server
 is stopped after its idle time.
